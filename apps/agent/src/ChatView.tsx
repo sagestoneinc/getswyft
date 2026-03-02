@@ -2,11 +2,13 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { fetchMessages, postMessage, type Message } from "./api";
 import { getSocket } from "./socket";
 
+export type Tab = "unassigned" | "mine" | "closed";
+
 interface Props {
   conversationId: string;
   token: string;
   agentId: string | null;
-  tab: string;
+  tab: Tab;
   onAssignToMe: (conversationId: string) => void;
   onClose: (conversationId: string) => void;
   onReopen: (conversationId: string) => void;

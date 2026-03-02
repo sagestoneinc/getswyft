@@ -129,7 +129,7 @@ function isAfterHours(officeHours, timezone) {
     const currentTime = `${hourPart?.value?.padStart(2, "0")}:${minutePart?.value?.padStart(2, "0")}`;
     return currentTime < daySchedule.start || currentTime >= daySchedule.end;
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -151,23 +151,40 @@ async function routeConversation(tenantId) {
   }
 
   if (settings.mode === "round_robin") {
-    const agents = await prisma.agent.findMany({
-      where: { tenantId },
-      orderBy: { email: "asc" },
-      select: { id: true },
-    });
-    if (agents.length === 0) return { agentId: null, afterHours: false };
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const freshSettings = await tx.routingSettings.findUnique({
+          where: { tenantId },
+          select: { lastAssignedAgentId: true },
+        });
 
-    const lastIdx = agents.findIndex((a) => a.id === settings.lastAssignedAgentId);
-    const nextIdx = (lastIdx + 1) % agents.length;
-    const nextAgent = agents[nextIdx];
+        const agents = await tx.agent.findMany({
+          where: { tenantId },
+          orderBy: { email: "asc" },
+          select: { id: true },
+        });
 
-    await prisma.routingSettings.update({
-      where: { tenantId },
-      data: { lastAssignedAgentId: nextAgent.id },
-    });
+        if (agents.length === 0) {
+          return { agentId: null, afterHours: false };
+        }
 
-    return { agentId: nextAgent.id, afterHours: false };
+        const lastIdx = agents.findIndex(
+          (a) => a.id === freshSettings?.lastAssignedAgentId
+        );
+        const nextIdx = (lastIdx + 1) % agents.length;
+        const nextAgent = agents[nextIdx];
+
+        await tx.routingSettings.update({
+          where: { tenantId },
+          data: { lastAssignedAgentId: nextAgent.id },
+        });
+
+        return { agentId: nextAgent.id, afterHours: false };
+      },
+      { isolationLevel: "Serializable" }
+    );
+
+    return result;
   }
 
   // first_available (default)
@@ -186,21 +203,16 @@ async function fireWebhooks(tenantId, eventType, payload) {
       where: { tenantId, isActive: true },
     });
 
+    const safePayload = JSON.parse(JSON.stringify(payload));
+
     for (const ep of endpoints) {
       if (!ep.events.includes(eventType)) continue;
-
-      const body = JSON.stringify(payload);
-      const headers = { "Content-Type": "application/json" };
-      if (ep.secret) {
-        const sig = crypto.createHmac("sha256", ep.secret).update(body).digest("hex");
-        headers["X-Signature"] = sig;
-      }
 
       await prisma.webhookDelivery.create({
         data: {
           endpointId: ep.id,
           eventType,
-          payload,
+          payload: safePayload,
           status: "pending",
           attemptCount: 0,
           nextRetryAt: new Date(),
@@ -296,8 +308,10 @@ async function handleDeliveryRetry(delivery, responseCode) {
   }
 }
 
-// Process webhook deliveries every 30 seconds
-setInterval(processWebhookDeliveries, 30_000);
+// Process webhook deliveries every 30 seconds (opt-in per instance)
+if (process.env.WEBHOOK_DELIVERY_WORKER === "true") {
+  setInterval(processWebhookDeliveries, 30_000);
+}
 
 /* ────────────────────────────────────────────────────────────────────────── */
 /* Auth middleware                                                           */
@@ -636,6 +650,35 @@ app.get("/v1/settings/routing", apiLimiter, authenticateAgent, async (req, res) 
 app.put("/v1/settings/routing", apiLimiter, authenticateAgent, async (req, res) => {
   try {
     const { mode, timezone, officeHours, fallbackAgentId } = req.body || {};
+
+    const VALID_MODES = ["manual", "first_available", "round_robin"];
+    if (mode !== undefined && !VALID_MODES.includes(mode)) {
+      return res.status(400).json({ error: `mode must be one of: ${VALID_MODES.join(", ")}` });
+    }
+
+    if (timezone !== undefined) {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: timezone });
+      } catch {
+        return res.status(400).json({ error: "invalid timezone" });
+      }
+    }
+
+    if (officeHours !== undefined) {
+      if (typeof officeHours !== "object" || officeHours === null || Array.isArray(officeHours)) {
+        return res.status(400).json({ error: "officeHours must be an object" });
+      }
+      const validDays = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
+      for (const [day, schedule] of Object.entries(officeHours)) {
+        if (!validDays.includes(day)) {
+          return res.status(400).json({ error: `invalid day: ${day}` });
+        }
+        if (!schedule || typeof schedule.start !== "string" || typeof schedule.end !== "string") {
+          return res.status(400).json({ error: `officeHours.${day} must have start and end strings` });
+        }
+      }
+    }
+
     const data = {};
     if (mode !== undefined) data.mode = mode;
     if (timezone !== undefined) data.timezone = timezone;
@@ -662,6 +705,40 @@ app.post("/v1/webhooks", apiLimiter, authenticateAgent, async (req, res) => {
     const { url, events, secret } = req.body || {};
     if (!url || !events || !Array.isArray(events)) {
       return res.status(400).json({ error: "url and events[] required" });
+    }
+
+    // Validate URL scheme
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).json({ error: "invalid url" });
+    }
+    if (parsedUrl.protocol !== "https:") {
+      return res.status(400).json({ error: "webhook url must use https" });
+    }
+
+    // Block private/loopback hostnames
+    const hostname = parsedUrl.hostname.toLowerCase();
+    const blocked =
+      hostname === "localhost" ||
+      hostname === "127.0.0.1" ||
+      hostname === "::1" ||
+      hostname === "0.0.0.0" ||
+      hostname.startsWith("10.") ||
+      hostname.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+      hostname.endsWith(".local") ||
+      hostname.endsWith(".internal");
+    if (blocked) {
+      return res.status(400).json({ error: "webhook url must not target private/loopback addresses" });
+    }
+
+    // Validate event types
+    const VALID_EVENTS = ["conversation.created", "conversation.assigned", "message.created"];
+    const invalidEvents = events.filter((e) => !VALID_EVENTS.includes(e));
+    if (invalidEvents.length > 0) {
+      return res.status(400).json({ error: `invalid events: ${invalidEvents.join(", ")}` });
     }
 
     const endpoint = await prisma.webhookEndpoint.create({

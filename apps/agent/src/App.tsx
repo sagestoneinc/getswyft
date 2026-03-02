@@ -1,13 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import LoginPage from "./LoginPage";
 import ConversationList from "./ConversationList";
-import ChatView from "./ChatView";
+import ChatView, { type Tab } from "./ChatView";
 import RoutingSettingsPage from "./RoutingSettingsPage";
 import { fetchConversations, assignConversation, closeConversation, reopenConversation, type Conversation } from "./api";
 import { connectSocket, disconnectSocket } from "./socket";
 import "./App.css";
 
-type Tab = "unassigned" | "mine" | "closed";
 type Page = "inbox" | "settings";
 
 function App() {
@@ -18,15 +17,21 @@ function App() {
   const [tab, setTab] = useState<Tab>("mine");
   const [page, setPage] = useState<Page>("inbox");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tabRef = useRef<Tab>(tab);
 
-  function loadConversations() {
+  useEffect(() => {
+    tabRef.current = tab;
+  }, [tab]);
+
+  const loadConversations = useCallback(() => {
     if (!token) return;
+    const currentTab = tabRef.current;
     const params: { status?: string; assigned?: string } = {};
-    if (tab === "mine") { params.assigned = "me"; params.status = "open"; }
-    if (tab === "unassigned") { params.assigned = "unassigned"; params.status = "open"; }
-    if (tab === "closed") { params.status = "closed"; }
+    if (currentTab === "mine") { params.assigned = "me"; params.status = "open"; }
+    if (currentTab === "unassigned") { params.assigned = "unassigned"; params.status = "open"; }
+    if (currentTab === "closed") { params.status = "closed"; }
     fetchConversations(token, params).then(setConversations);
-  }
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
@@ -48,13 +53,11 @@ function App() {
       sock.off("event", handleEvent);
       disconnectSocket();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
+  }, [token, loadConversations]);
 
   useEffect(() => {
     loadConversations();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tab]);
+  }, [tab, loadConversations]);
 
   function handleLogin(jwt: string, id: string) {
     setToken(jwt);

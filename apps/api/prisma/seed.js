@@ -29,7 +29,7 @@ async function main() {
   const passwordHash = await bcrypt.hash("Password123!", 10);
 
   const agent = await prisma.agent.upsert({
-    where: { tenantId_email: { tenantId: tenant.id, email: "agent@example.com" } },
+    where: { email: "agent@example.com" },
     update: { passwordHash, name: "Demo Agent" },
     create: {
       tenantId: tenant.id,

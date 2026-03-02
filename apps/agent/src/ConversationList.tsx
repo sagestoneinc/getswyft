@@ -1,6 +1,5 @@
 import type { Conversation } from "./api";
-
-type Tab = "unassigned" | "mine" | "closed";
+import type { Tab } from "./ChatView";
 
 interface Props {
   conversations: Conversation[];
@@ -30,10 +29,13 @@ export default function ConversationList({ conversations, activeId, onSelect, ta
           const listing = ctx?.listing as Record<string, unknown> | undefined;
           const lastMsg = c.messages?.[0];
           return (
-            <li key={c.id}>
-              <button
-                className={c.id === activeId ? "active" : ""}
+            <li key={c.id} className="conv-item">
+              <div
+                className={`conv-content ${c.id === activeId ? "active" : ""}`}
+                role="button"
+                tabIndex={0}
                 onClick={() => onSelect(c.id)}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect(c.id); }}
               >
                 <div className="conv-lead">
                   <span className="conv-name">{c.leadName || "Unknown"}</span>
@@ -45,15 +47,15 @@ export default function ConversationList({ conversations, activeId, onSelect, ta
                 {listing?.address ? <span className="conv-listing">{String(listing.address)}{listing?.price ? ` • ${String(listing.price)}` : ""}</span> : null}
                 {lastMsg && <span className="conv-preview">{lastMsg.text?.slice(0, 60)}{(lastMsg.text?.length ?? 0) > 60 ? "…" : ""}</span>}
                 <span className="conv-date">{new Date(c.createdAt).toLocaleString()}</span>
-                {tab === "unassigned" && !c.assignedAgentId && agentId && (
-                  <span
-                    className="assign-btn"
-                    onClick={(e) => { e.stopPropagation(); onAssignToMe(c.id); }}
-                  >
-                    Assign to me
-                  </span>
-                )}
-              </button>
+              </div>
+              {tab === "unassigned" && !c.assignedAgentId && agentId && (
+                <button
+                  className="assign-btn"
+                  onClick={() => onAssignToMe(c.id)}
+                >
+                  Assign to me
+                </button>
+              )}
             </li>
           );
         })}

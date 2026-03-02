@@ -23,14 +23,14 @@ model Tenant {
 model Agent {
   id           String   @id @default(uuid())
   tenantId     String
-  email        String
+  email        String   @unique
   passwordHash String
   name         String
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   conversations Conversation[]
 
-  @@unique([tenantId, email])
+  @@index([tenantId])
 }
 
 model Visitor {
