@@ -106,8 +106,6 @@ async function assertConversationTenant(conversationId, tenantId) {
 
 /* ── Routing helpers ─────────────────────────────────────────────────────── */
 
-const DAY_MAP = { 0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat" };
-
 function isAfterHours(officeHours, timezone) {
   try {
     const now = new Date();
@@ -123,9 +121,7 @@ function isAfterHours(officeHours, timezone) {
     const hourPart = parts.find((p) => p.type === "hour");
     const minutePart = parts.find((p) => p.type === "minute");
 
-    const jsDay = now.toLocaleDateString("en-US", { timeZone: timezone, weekday: "long" });
-    const dayIndex = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].indexOf(jsDay);
-    const dayKey = DAY_MAP[dayIndex] || weekdayPart?.value?.toLowerCase()?.slice(0, 3);
+    const dayKey = weekdayPart?.value?.toLowerCase()?.slice(0, 3);
 
     const daySchedule = officeHours?.[dayKey];
     if (!daySchedule) return true;
@@ -180,6 +176,9 @@ async function routeConversation(tenantId) {
 }
 
 /* ── Webhook helpers ─────────────────────────────────────────────────────── */
+
+const MAX_WEBHOOK_RETRY_ATTEMPTS = 8;
+const WEBHOOK_TIMEOUT_MS = 10_000;
 
 async function fireWebhooks(tenantId, eventType, payload) {
   try {
@@ -242,7 +241,7 @@ async function processWebhookDeliveries() {
 
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10_000);
+        const timeout = setTimeout(() => controller.abort(), WEBHOOK_TIMEOUT_MS);
 
         const resp = await fetch(delivery.endpoint.url, {
           method: "POST",
@@ -275,7 +274,7 @@ async function processWebhookDeliveries() {
 
 async function handleDeliveryRetry(delivery, responseCode) {
   const newAttempt = delivery.attemptCount + 1;
-  if (newAttempt >= 8) {
+  if (newAttempt >= MAX_WEBHOOK_RETRY_ATTEMPTS) {
     await prisma.webhookDelivery.update({
       where: { id: delivery.id },
       data: {
