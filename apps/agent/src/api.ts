@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001";
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export async function loginAgent(email: string, password: string) {
   const res = await fetch(`${API_URL}/v1/agent/login`, {
@@ -11,8 +11,9 @@ export async function loginAgent(email: string, password: string) {
     throw new Error(err.error ?? "Login failed");
   }
   return res.json() as Promise<{
-    token: string;
-    agent: { id: string; email: string; name: string };
+    agentJwt: string;
+    agentId: string;
+    name: string;
   }>;
 }
 
@@ -21,25 +22,33 @@ export async function fetchConversations(token: string) {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("Failed to fetch conversations");
-  return res.json() as Promise<{
-    conversations: { id: string; title: string; createdAt: string }[];
-  }>;
+  return res.json() as Promise<Conversation[]>;
+}
+
+export async function fetchMessages(token: string, conversationId: string) {
+  const res = await fetch(
+    `${API_URL}/v1/agent/conversations/${encodeURIComponent(conversationId)}/messages`,
+    { headers: { Authorization: `Bearer ${token}` } },
+  );
+  if (!res.ok) throw new Error("Failed to fetch messages");
+  return res.json() as Promise<Message[]>;
 }
 
 export async function postMessage(
   token: string,
   conversationId: string,
-  body: string,
+  text: string,
 ) {
+  const clientMsgId = crypto.randomUUID();
   const res = await fetch(
-    `${API_URL}/v1/agent/conversations/${encodeURIComponent(conversationId)}/messages`,
+    `${API_URL}/v1/conversations/${encodeURIComponent(conversationId)}/messages`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
       },
-      body: JSON.stringify({ body }),
+      body: JSON.stringify({ text, clientMsgId }),
     },
   );
   if (!res.ok) throw new Error("Failed to send message");
@@ -49,7 +58,20 @@ export async function postMessage(
 export interface Message {
   id: string;
   conversationId: string;
-  sender: string;
-  body: string;
+  senderType: string;
+  senderId: string;
+  text: string | null;
+  clientMsgId: string | null;
   createdAt: string;
+}
+
+export interface Conversation {
+  id: string;
+  tenantId: string;
+  status: string;
+  assignedAgentId: string | null;
+  context: Record<string, unknown>;
+  createdAt: string;
+  assignedAgent: { id: string; name: string; email: string } | null;
+  messages: Message[];
 }

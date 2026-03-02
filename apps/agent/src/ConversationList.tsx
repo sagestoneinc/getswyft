@@ -1,8 +1,4 @@
-interface Conversation {
-  id: string;
-  title: string;
-  createdAt: string;
-}
+import type { Conversation } from "./api";
 
 interface Props {
   conversations: Conversation[];
@@ -21,7 +17,13 @@ export default function ConversationList({ conversations, activeId, onSelect }: 
               className={c.id === activeId ? "active" : ""}
               onClick={() => onSelect(c.id)}
             >
-              {c.title}
+              <span className="conv-status">{c.status}</span>
+              {c.assignedAgent && (
+                <span className="conv-agent">{c.assignedAgent.name}</span>
+              )}
+              <span className="conv-date">
+                {new Date(c.createdAt).toLocaleString()}
+              </span>
             </button>
           </li>
         ))}

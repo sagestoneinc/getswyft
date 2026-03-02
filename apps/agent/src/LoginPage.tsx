@@ -16,8 +16,8 @@ export default function LoginPage({ onLogin }: Props) {
     setError("");
     setLoading(true);
     try {
-      const { token } = await loginAgent(email, password);
-      onLogin(token);
+      const { agentJwt } = await loginAgent(email, password);
+      onLogin(agentJwt);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {

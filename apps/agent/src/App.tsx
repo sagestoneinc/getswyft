@@ -2,15 +2,9 @@ import { useEffect, useState } from "react";
 import LoginPage from "./LoginPage";
 import ConversationList from "./ConversationList";
 import ChatView from "./ChatView";
-import { fetchConversations } from "./api";
+import { fetchConversations, type Conversation } from "./api";
 import { connectSocket, disconnectSocket } from "./socket";
 import "./App.css";
-
-interface Conversation {
-  id: string;
-  title: string;
-  createdAt: string;
-}
 
 function App() {
   const [token, setToken] = useState<string | null>(null);
@@ -20,9 +14,7 @@ function App() {
   useEffect(() => {
     if (!token) return;
     connectSocket(token);
-    fetchConversations(token).then((data) =>
-      setConversations(data.conversations),
-    );
+    fetchConversations(token).then(setConversations);
     return () => disconnectSocket();
   }, [token]);
 

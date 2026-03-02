@@ -55,7 +55,7 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
           if (!cancelled) setConnected(false);
         });
 
-        socket.on("message.created", (msg: { id: string; body: string; sender: string; createdAt: string }) => {
+        socket.on("message.created", (msg: { id: string; text: string; senderType: string; createdAt: string }) => {
           if (cancelled) return;
           setMessages((prev) => {
             if (prev.some((m) => m.id === msg.id)) return prev;
@@ -63,8 +63,8 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
               ...prev,
               {
                 id: msg.id,
-                body: msg.body,
-                sender: msg.sender === "visitor" ? "visitor" : "agent",
+                body: msg.text,
+                sender: msg.senderType === "visitor" ? "visitor" : "agent",
                 timestamp: msg.createdAt,
               },
             ];

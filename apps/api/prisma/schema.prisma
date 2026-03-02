@@ -44,11 +44,12 @@ model Visitor {
 }
 
 model Conversation {
-  id              String  @id @default(uuid())
+  id              String   @id @default(uuid())
   tenantId        String
-  status          String  @default("open")
+  status          String   @default("open")
   assignedAgentId String?
-  context         Json    @default("{}")
+  context         Json     @default("{}")
+  createdAt       DateTime @default(now())
 
   tenant        Tenant    @relation(fields: [tenantId], references: [id])
   assignedAgent Agent?    @relation(fields: [assignedAgentId], references: [id])

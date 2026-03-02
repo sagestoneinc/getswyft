@@ -50,7 +50,7 @@ export async function sendMessage(
         "Content-Type": "application/json",
         Authorization: `Bearer ${visitorJwt}`,
       },
-      body: JSON.stringify({ body, clientMsgId }),
+      body: JSON.stringify({ text: body, clientMsgId }),
     },
   );
 
