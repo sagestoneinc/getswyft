@@ -65,6 +65,14 @@
   font-size: 13px;
 }
 
+.chat-after-hours {
+  padding: 8px 16px;
+  background: #fff8e1;
+  color: #f57f17;
+  font-size: 13px;
+  font-weight: 500;
+}
+
 .chat-messages {
   flex: 1;
   overflow-y: auto;

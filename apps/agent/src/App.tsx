@@ -1,27 +1,48 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import LoginPage from "./LoginPage";
 import ConversationList from "./ConversationList";
-import ChatView from "./ChatView";
-import { fetchConversations, type Conversation } from "./api";
+import ChatView, { type Tab } from "./ChatView";
+import RoutingSettingsPage from "./RoutingSettingsPage";
+import { fetchConversations, assignConversation, closeConversation, reopenConversation, type Conversation } from "./api";
 import { connectSocket, disconnectSocket } from "./socket";
 import "./App.css";
 
+type Page = "inbox" | "settings";
+
 function App() {
   const [token, setToken] = useState<string | null>(null);
+  const [agentId, setAgentId] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("mine");
+  const [page, setPage] = useState<Page>("inbox");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tabRef = useRef<Tab>(tab);
+
+  useEffect(() => {
+    tabRef.current = tab;
+  }, [tab]);
+
+  const loadConversations = useCallback(() => {
+    if (!token) return;
+    const currentTab = tabRef.current;
+    const params: { status?: string; assigned?: string } = {};
+    if (currentTab === "mine") { params.assigned = "me"; params.status = "open"; }
+    if (currentTab === "unassigned") { params.assigned = "unassigned"; params.status = "open"; }
+    if (currentTab === "closed") { params.status = "closed"; }
+    fetchConversations(token, params).then(setConversations);
+  }, [token]);
 
   useEffect(() => {
     if (!token) return;
     const sock = connectSocket(token);
-    fetchConversations(token).then(setConversations);
+    loadConversations();
 
     const handleEvent = (evt: { type: string }) => {
-      if (evt.type === "conversation.created" || evt.type === "message.created") {
+      if (evt.type === "conversation.created" || evt.type === "message.created" || evt.type === "conversation.assigned") {
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-          fetchConversations(token).then(setConversations);
+          loadConversations();
         }, 500);
       }
     };
@@ -32,10 +53,49 @@ function App() {
       sock.off("event", handleEvent);
       disconnectSocket();
     };
-  }, [token]);
+  }, [token, loadConversations]);
+
+  useEffect(() => {
+    loadConversations();
+  }, [tab, loadConversations]);
+
+  function handleLogin(jwt: string, id: string) {
+    setToken(jwt);
+    setAgentId(id);
+  }
+
+  async function handleAssignToMe(conversationId: string) {
+    if (!token || !agentId) return;
+    await assignConversation(token, conversationId, agentId);
+    loadConversations();
+  }
+
+  async function handleClose(conversationId: string) {
+    if (!token) return;
+    await closeConversation(token, conversationId);
+    loadConversations();
+  }
+
+  async function handleReopen(conversationId: string) {
+    if (!token) return;
+    await reopenConversation(token, conversationId);
+    loadConversations();
+  }
 
   if (!token) {
-    return <LoginPage onLogin={setToken} />;
+    return <LoginPage onLogin={handleLogin} />;
+  }
+
+  if (page === "settings") {
+    return (
+      <div className="agent-shell">
+        <aside className="conversation-list">
+          <h2>Settings</h2>
+          <button className="nav-btn" onClick={() => setPage("inbox")}>← Back to Inbox</button>
+        </aside>
+        <RoutingSettingsPage token={token} />
+      </div>
+    );
   }
 
   return (
@@ -44,12 +104,29 @@ function App() {
         conversations={conversations}
         activeId={activeConvId}
         onSelect={setActiveConvId}
+        tab={tab}
+        onTabChange={setTab}
+        onAssignToMe={handleAssignToMe}
+        agentId={agentId}
       />
-      {activeConvId ? (
-        <ChatView conversationId={activeConvId} token={token} />
-      ) : (
-        <div className="empty-state">Select a conversation</div>
-      )}
+      <div className="main-area">
+        <div className="top-bar">
+          <button className="nav-btn" onClick={() => setPage("settings")}>⚙ Routing Settings</button>
+        </div>
+        {activeConvId ? (
+          <ChatView
+            conversationId={activeConvId}
+            token={token}
+            agentId={agentId}
+            tab={tab}
+            onAssignToMe={handleAssignToMe}
+            onClose={handleClose}
+            onReopen={handleReopen}
+          />
+        ) : (
+          <div className="empty-state">Select a conversation</div>
+        )}
+      </div>
     </div>
   );
 }

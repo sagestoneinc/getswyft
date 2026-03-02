@@ -4,6 +4,33 @@
   height: 100vh;
 }
 
+.main-area {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.top-bar {
+  display: flex;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+  gap: 0.5rem;
+}
+
+.nav-btn {
+  padding: 0.4rem 0.75rem;
+  background: #fff;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.nav-btn:hover {
+  background: #e8f0fe;
+}
+
 /* ---------- Login ---------- */
 .login-page {
   display: flex;
@@ -63,9 +90,42 @@
   font-size: 0.85rem;
 }
 
+.success {
+  color: #2e7d32;
+  margin: 0;
+  font-size: 0.85rem;
+}
+
+/* ---------- Tabs ---------- */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.tab {
+  flex: 1;
+  padding: 0.5rem;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #666;
+  border-bottom: 2px solid transparent;
+}
+
+.tab.active {
+  color: #1a73e8;
+  border-bottom-color: #1a73e8;
+}
+
+.tab:hover {
+  background: #f0f0f0;
+}
+
 /* ---------- Conversation list ---------- */
 .conversation-list {
-  width: 280px;
+  width: 320px;
   border-right: 1px solid #e0e0e0;
   overflow-y: auto;
   background: #fafafa;
@@ -84,25 +144,106 @@
   padding: 0;
 }
 
-.conversation-list li button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 0.75rem 1rem;
-  border: none;
-  background: transparent;
-  cursor: pointer;
-  font-size: 0.9rem;
+.conv-item {
   border-bottom: 1px solid #eee;
 }
 
-.conversation-list li button:hover {
+.conv-content {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  text-align: left;
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  font-size: 0.85rem;
+  gap: 2px;
+}
+
+.conv-content:hover {
   background: #e8f0fe;
 }
 
-.conversation-list li button.active {
+.conv-content.active {
   background: #d2e3fc;
   font-weight: 600;
+}
+
+.empty-list {
+  padding: 1rem;
+  text-align: center;
+  color: #888;
+  font-size: 0.9rem;
+}
+
+.conv-lead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.conv-name {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.conv-email, .conv-phone {
+  color: #666;
+  font-size: 0.78rem;
+}
+
+.conv-listing {
+  color: #555;
+  font-size: 0.78rem;
+  font-style: italic;
+}
+
+.conv-preview {
+  color: #888;
+  font-size: 0.78rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conv-date {
+  color: #999;
+  font-size: 0.72rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 8px;
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+.badge-afterhours {
+  background: #fff3e0;
+  color: #e65100;
+}
+
+.badge-unassigned {
+  background: #fce4ec;
+  color: #c62828;
+}
+
+.assign-btn {
+  display: block;
+  margin: 0 1rem 0.5rem;
+  padding: 4px 10px;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.assign-btn:hover {
+  background: #1557b0;
 }
 
 /* ---------- Chat view ---------- */
@@ -110,6 +251,32 @@
   flex: 1;
   display: flex;
   flex-direction: column;
+}
+
+.chat-actions {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  background: #fafafa;
+}
+
+.action-btn {
+  padding: 0.3rem 0.75rem;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.action-btn:hover {
+  opacity: 0.9;
+}
+
+.action-close {
+  background: #d32f2f;
 }
 
 .messages {
@@ -185,4 +352,86 @@
   justify-content: center;
   color: #888;
   font-size: 1.1rem;
+}
+
+/* ---------- Settings page ---------- */
+.settings-page {
+  flex: 1;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.settings-page h2 {
+  margin: 0 0 1.5rem;
+  font-size: 1.3rem;
+}
+
+.settings-page form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  max-width: 500px;
+}
+
+.settings-page label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.settings-page input,
+.settings-page select {
+  padding: 0.5rem;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+.settings-page fieldset {
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.settings-page legend {
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.office-hours-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.day-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-width: 80px;
+  font-weight: normal !important;
+  flex-direction: row !important;
+}
+
+.day-toggle input[type="checkbox"] {
+  width: auto;
+}
+
+.settings-page button[type="submit"] {
+  padding: 0.6rem;
+  background: #1a73e8;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+}
+
+.settings-page button[type="submit"]:disabled {
+  opacity: 0.6;
 }

@@ -19,6 +19,7 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [afterHours, setAfterHours] = useState(false);
   const visitorJwtRef = useRef<string | null>(null);
   const conversationIdRef = useRef<string | null>(null);
   const initializedRef = useRef(false);
@@ -31,23 +32,20 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
 
     async function init() {
       try {
-        const { visitorJwt, conversationId } = await createSession(
-          tenantId,
-          lead,
-          listing,
-        );
+        const resp = await createSession(tenantId, lead, listing);
 
         if (cancelled) return;
 
-        visitorJwtRef.current = visitorJwt;
-        conversationIdRef.current = conversationId;
+        visitorJwtRef.current = resp.visitorJwt;
+        conversationIdRef.current = resp.conversationId;
+        if (resp.afterHours) setAfterHours(true);
 
-        const socket = connectSocket(visitorJwt);
+        const socket = connectSocket(resp.visitorJwt);
 
         socket.on("connect", () => {
           if (!cancelled) {
             setConnected(true);
-            joinConversation(conversationId);
+            joinConversation(resp.conversationId);
           }
         });
 
@@ -73,8 +71,8 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
           if (evt.type === "message.created") {
             const msg = evt.payload as { id: string; text: string; senderType: string; createdAt: string; clientMsgId?: string };
             setMessages((prev) => {
-              // deduplicate by id or clientMsgId
-              if (prev.some((m) => m.id === msg.id || (msg.clientMsgId && m.id === msg.clientMsgId))) {
+              if (prev.some((m) => m.id === msg.id)) return prev;
+              if (msg.clientMsgId && prev.some((m) => m.id === msg.clientMsgId)) {
                 return prev.map((m) =>
                   (m.id === msg.clientMsgId) ? { ...m, id: msg.id } : m
                 );
@@ -127,5 +125,5 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
     }
   }, []);
 
-  return { messages, connected, error, send };
+  return { messages, connected, error, afterHours, send };
 }

@@ -29,7 +29,7 @@ async function main() {
   const passwordHash = await bcrypt.hash("Password123!", 10);
 
   const agent = await prisma.agent.upsert({
-    where: { tenantId_email: { tenantId: tenant.id, email: "agent@example.com" } },
+    where: { email: "agent@example.com" },
     update: { passwordHash, name: "Demo Agent" },
     create: {
       tenantId: tenant.id,
@@ -39,9 +39,30 @@ async function main() {
     }
   });
 
+  const defaultOfficeHours = {
+    mon: { start: "09:00", end: "18:00" },
+    tue: { start: "09:00", end: "18:00" },
+    wed: { start: "09:00", end: "18:00" },
+    thu: { start: "09:00", end: "18:00" },
+    fri: { start: "09:00", end: "18:00" },
+  };
+
+  await prisma.routingSettings.upsert({
+    where: { tenantId: tenant.id },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      mode: "first_available",
+      timezone: "Asia/Manila",
+      officeHours: defaultOfficeHours,
+      fallbackAgentId: agent.id,
+    }
+  });
+
   console.log("Seeded tenant:", tenant.id);
   console.log("Seeded agent :", agent.id, agent.email);
   console.log("Password     : Password123!");
+  console.log("Seeded routing settings for tenant:", tenant.id);
 }
 
 main()

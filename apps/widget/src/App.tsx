@@ -2,19 +2,39 @@ import { useState, useRef, useEffect, type FormEvent } from 'react'
 import { useChat } from './useChat'
 import './App.css'
 
-const TENANT_ID = 'tnt_demo'
+declare global {
+  interface Window {
+    SwyftWidget?: {
+      tenantId?: string;
+      listingId?: string;
+      address?: string;
+      price?: string;
+    };
+  }
+}
+
+const widgetConfig = window.SwyftWidget || {};
+const TENANT_ID = widgetConfig.tenantId || 'default';
 
 function App() {
   const [open, setOpen] = useState(false)
   const [started, setStarted] = useState(false)
   const [lead, setLead] = useState<Record<string, string>>({})
+  const [listing, setListing] = useState<Record<string, string>>({})
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [phone, setPhone] = useState('')
 
   function handleStartChat(e: FormEvent) {
     e.preventDefault()
+    if (!name.trim()) return
     setLead({ name, email, phone })
+    setListing({
+      url: window.location.href,
+      ...(widgetConfig.listingId ? { listingId: widgetConfig.listingId } : {}),
+      ...(widgetConfig.address ? { address: widgetConfig.address } : {}),
+      ...(widgetConfig.price ? { price: widgetConfig.price } : {}),
+    })
     setStarted(true)
   }
 
@@ -35,8 +55,8 @@ function App() {
         </header>
         <form className="prechat-form" onSubmit={handleStartChat}>
           <label>
-            Name
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+            Name *
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" required />
           </label>
           <label>
             Email
@@ -52,14 +72,14 @@ function App() {
     )
   }
 
-  return <ChatWindow lead={lead} onClose={() => setOpen(false)} />
+  return <ChatWindow lead={lead} listing={listing} onClose={() => setOpen(false)} />
 }
 
-function ChatWindow({ lead, onClose }: { lead: Record<string, string>; onClose: () => void }) {
-  const { messages, connected, error, send } = useChat({
+function ChatWindow({ lead, listing, onClose }: { lead: Record<string, string>; listing: Record<string, string>; onClose: () => void }) {
+  const { messages, connected, error, afterHours, send } = useChat({
     tenantId: TENANT_ID,
     lead,
-    listing: { url: window.location.href },
+    listing,
   })
 
   const [input, setInput] = useState('')
@@ -84,6 +104,10 @@ function ChatWindow({ lead, onClose }: { lead: Record<string, string>; onClose: 
         <span>Chat {connected ? '(connected)' : '(connecting…)'}</span>
         <button className="chat-close" onClick={onClose}>✕</button>
       </header>
+
+      {afterHours && (
+        <div className="chat-after-hours">We're currently offline — leave a message and we'll get back to you!</div>
+      )}
 
       {error && <div className="chat-error">{error}</div>}
 

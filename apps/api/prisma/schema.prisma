@@ -12,23 +12,25 @@ model Tenant {
   name           String
   allowedOrigins String[]
 
-  agents        Agent[]
-  visitors      Visitor[]
-  conversations Conversation[]
-  messages      Message[]
+  agents           Agent[]
+  visitors         Visitor[]
+  conversations    Conversation[]
+  messages         Message[]
+  routingSettings  RoutingSettings?
+  webhookEndpoints WebhookEndpoint[]
 }
 
 model Agent {
   id           String   @id @default(uuid())
   tenantId     String
-  email        String
+  email        String   @unique
   passwordHash String
   name         String
 
   tenant        Tenant         @relation(fields: [tenantId], references: [id])
   conversations Conversation[]
 
-  @@unique([tenantId, email])
+  @@index([tenantId])
 }
 
 model Visitor {
@@ -50,6 +52,11 @@ model Conversation {
   assignedAgentId String?
   context         Json     @default("{}")
   createdAt       DateTime @default(now())
+  source          String   @default("web")
+  afterHours      Boolean  @default(false)
+  leadName        String?
+  leadEmail       String?
+  leadPhone       String?
 
   tenant        Tenant    @relation(fields: [tenantId], references: [id])
   assignedAgent Agent?    @relation(fields: [assignedAgentId], references: [id])
@@ -74,4 +81,47 @@ model Message {
 
   @@unique([conversationId, clientMsgId])
   @@index([conversationId, createdAt])
+}
+
+model RoutingSettings {
+  id                  String  @id @default(uuid())
+  tenantId            String  @unique
+  mode                String  @default("first_available")
+  timezone            String  @default("Asia/Manila")
+  officeHours         Json    @default("{}")
+  fallbackAgentId     String?
+  lastAssignedAgentId String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+}
+
+model WebhookEndpoint {
+  id       String  @id @default(uuid())
+  tenantId String
+  url      String
+  secret   String?
+  events   String[]
+  isActive Boolean @default(true)
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id])
+  deliveries WebhookDelivery[]
+
+  @@index([tenantId])
+}
+
+model WebhookDelivery {
+  id               String   @id @default(uuid())
+  endpointId       String
+  eventType        String
+  payload          Json
+  status           String   @default("pending")
+  attemptCount     Int      @default(0)
+  lastResponseCode Int?
+  nextRetryAt      DateTime?
+  createdAt        DateTime @default(now())
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id])
+
+  @@index([endpointId])
+  @@index([status, nextRetryAt])
 }

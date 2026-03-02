@@ -2,12 +2,19 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 import { fetchMessages, postMessage, type Message } from "./api";
 import { getSocket } from "./socket";
 
+export type Tab = "unassigned" | "mine" | "closed";
+
 interface Props {
   conversationId: string;
   token: string;
+  agentId: string | null;
+  tab: Tab;
+  onAssignToMe: (conversationId: string) => void;
+  onClose: (conversationId: string) => void;
+  onReopen: (conversationId: string) => void;
 }
 
-export default function ChatView({ conversationId, token }: Props) {
+export default function ChatView({ conversationId, token, agentId, tab, onAssignToMe, onClose, onReopen }: Props) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
@@ -63,6 +70,17 @@ export default function ChatView({ conversationId, token }: Props) {
 
   return (
     <section className="chat-view">
+      <div className="chat-actions">
+        {tab === "unassigned" && agentId && (
+          <button className="action-btn" onClick={() => onAssignToMe(conversationId)}>Assign to me</button>
+        )}
+        {tab !== "closed" && (
+          <button className="action-btn action-close" onClick={() => onClose(conversationId)}>Close</button>
+        )}
+        {tab === "closed" && (
+          <button className="action-btn" onClick={() => onReopen(conversationId)}>Reopen</button>
+        )}
+      </div>
       <div className="messages">
         {messages.map((m) => (
           <div key={m.id} className={`msg msg-${m.senderType}`}>
