@@ -104,6 +104,202 @@ async function assertConversationTenant(conversationId, tenantId) {
   return conversation;
 }
 
+/* ── Routing helpers ─────────────────────────────────────────────────────── */
+
+const DAY_MAP = { 0: "sun", 1: "mon", 2: "tue", 3: "wed", 4: "thu", 5: "fri", 6: "sat" };
+
+function isAfterHours(officeHours, timezone) {
+  try {
+    const now = new Date();
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: timezone,
+      weekday: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    const weekdayPart = parts.find((p) => p.type === "weekday");
+    const hourPart = parts.find((p) => p.type === "hour");
+    const minutePart = parts.find((p) => p.type === "minute");
+
+    const jsDay = now.toLocaleDateString("en-US", { timeZone: timezone, weekday: "long" });
+    const dayIndex = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"].indexOf(jsDay);
+    const dayKey = DAY_MAP[dayIndex] || weekdayPart?.value?.toLowerCase()?.slice(0, 3);
+
+    const daySchedule = officeHours?.[dayKey];
+    if (!daySchedule) return true;
+
+    const currentTime = `${hourPart?.value?.padStart(2, "0")}:${minutePart?.value?.padStart(2, "0")}`;
+    return currentTime < daySchedule.start || currentTime >= daySchedule.end;
+  } catch {
+    return false;
+  }
+}
+
+async function routeConversation(tenantId) {
+  const settings = await prisma.routingSettings.findUnique({ where: { tenantId } });
+  if (!settings) {
+    const agent = await prisma.agent.findFirst({ where: { tenantId }, select: { id: true } });
+    return { agentId: agent?.id || null, afterHours: false };
+  }
+
+  const afterHours = isAfterHours(settings.officeHours, settings.timezone);
+
+  if (afterHours) {
+    return { agentId: settings.fallbackAgentId || null, afterHours: true };
+  }
+
+  if (settings.mode === "manual") {
+    return { agentId: null, afterHours: false };
+  }
+
+  if (settings.mode === "round_robin") {
+    const agents = await prisma.agent.findMany({
+      where: { tenantId },
+      orderBy: { email: "asc" },
+      select: { id: true },
+    });
+    if (agents.length === 0) return { agentId: null, afterHours: false };
+
+    const lastIdx = agents.findIndex((a) => a.id === settings.lastAssignedAgentId);
+    const nextIdx = (lastIdx + 1) % agents.length;
+    const nextAgent = agents[nextIdx];
+
+    await prisma.routingSettings.update({
+      where: { tenantId },
+      data: { lastAssignedAgentId: nextAgent.id },
+    });
+
+    return { agentId: nextAgent.id, afterHours: false };
+  }
+
+  // first_available (default)
+  const agent = await prisma.agent.findFirst({ where: { tenantId }, select: { id: true } });
+  return { agentId: agent?.id || null, afterHours: false };
+}
+
+/* ── Webhook helpers ─────────────────────────────────────────────────────── */
+
+async function fireWebhooks(tenantId, eventType, payload) {
+  try {
+    const endpoints = await prisma.webhookEndpoint.findMany({
+      where: { tenantId, isActive: true },
+    });
+
+    for (const ep of endpoints) {
+      if (!ep.events.includes(eventType)) continue;
+
+      const body = JSON.stringify(payload);
+      const headers = { "Content-Type": "application/json" };
+      if (ep.secret) {
+        const sig = crypto.createHmac("sha256", ep.secret).update(body).digest("hex");
+        headers["X-Signature"] = sig;
+      }
+
+      await prisma.webhookDelivery.create({
+        data: {
+          endpointId: ep.id,
+          eventType,
+          payload,
+          status: "pending",
+          attemptCount: 0,
+          nextRetryAt: new Date(),
+        },
+      });
+    }
+  } catch (err) {
+    console.error("fireWebhooks error:", err);
+  }
+}
+
+async function processWebhookDeliveries() {
+  try {
+    const deliveries = await prisma.webhookDelivery.findMany({
+      where: {
+        status: "pending",
+        nextRetryAt: { lte: new Date() },
+      },
+      include: { endpoint: true },
+      take: 50,
+    });
+
+    for (const delivery of deliveries) {
+      if (!delivery.endpoint || !delivery.endpoint.isActive) {
+        await prisma.webhookDelivery.update({
+          where: { id: delivery.id },
+          data: { status: "skipped" },
+        });
+        continue;
+      }
+
+      const body = JSON.stringify(delivery.payload);
+      const headers = { "Content-Type": "application/json" };
+      if (delivery.endpoint.secret) {
+        const sig = crypto.createHmac("sha256", delivery.endpoint.secret).update(body).digest("hex");
+        headers["X-Signature"] = sig;
+      }
+
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10_000);
+
+        const resp = await fetch(delivery.endpoint.url, {
+          method: "POST",
+          headers,
+          body,
+          signal: controller.signal,
+        });
+        clearTimeout(timeout);
+
+        if (resp.ok) {
+          await prisma.webhookDelivery.update({
+            where: { id: delivery.id },
+            data: {
+              status: "delivered",
+              attemptCount: delivery.attemptCount + 1,
+              lastResponseCode: resp.status,
+            },
+          });
+        } else {
+          await handleDeliveryRetry(delivery, resp.status);
+        }
+      } catch {
+        await handleDeliveryRetry(delivery, null);
+      }
+    }
+  } catch (err) {
+    console.error("processWebhookDeliveries error:", err);
+  }
+}
+
+async function handleDeliveryRetry(delivery, responseCode) {
+  const newAttempt = delivery.attemptCount + 1;
+  if (newAttempt >= 8) {
+    await prisma.webhookDelivery.update({
+      where: { id: delivery.id },
+      data: {
+        status: "failed",
+        attemptCount: newAttempt,
+        lastResponseCode: responseCode,
+      },
+    });
+  } else {
+    const delayMs = Math.pow(2, newAttempt) * 1000;
+    await prisma.webhookDelivery.update({
+      where: { id: delivery.id },
+      data: {
+        attemptCount: newAttempt,
+        lastResponseCode: responseCode,
+        nextRetryAt: new Date(Date.now() + delayMs),
+      },
+    });
+  }
+}
+
+// Process webhook deliveries every 30 seconds
+setInterval(processWebhookDeliveries, 30_000);
+
 /* ────────────────────────────────────────────────────────────────────────── */
 /* Auth middleware                                                           */
 /* ────────────────────────────────────────────────────────────────────────── */
@@ -171,6 +367,24 @@ app.post("/v1/agent/login", loginLimiter, async (req, res) => {
   }
 });
 
+/* ── GET /v1/agent/me ────────────────────────────────────────────────────── */
+
+app.get("/v1/agent/me", apiLimiter, authenticateAgent, async (req, res) => {
+  try {
+    const agent = await prisma.agent.findUnique({
+      where: { id: req.user.sub },
+      select: { id: true, tenantId: true, name: true, email: true },
+    });
+    if (!agent) return res.status(404).json({ error: "agent not found" });
+    return res.json({ agentId: agent.id, tenantId: agent.tenantId, name: agent.name, email: agent.email });
+  } catch (err) {
+    console.error("agent/me error:", err);
+    return res.status(500).json({ error: "internal error" });
+  }
+});
+
+/* ── Widget session with routing ─────────────────────────────────────────── */
+
 app.post("/v1/widget/session", apiLimiter, async (req, res) => {
   try {
     const { tenantId, lead, listing, utm } = req.body || {};
@@ -208,16 +422,18 @@ app.post("/v1/widget/session", apiLimiter, async (req, res) => {
       });
     }
 
-    const agent = await prisma.agent.findFirst({
-      where: { tenantId },
-      select: { id: true },
-    });
+    const routing = await routeConversation(tenantId);
 
     const conversation = await prisma.conversation.create({
       data: {
         tenantId,
         status: "open",
-        assignedAgentId: agent?.id || null,
+        assignedAgentId: routing.agentId,
+        source: "web",
+        afterHours: routing.afterHours,
+        leadName: lead?.name || null,
+        leadEmail: lead?.email || null,
+        leadPhone: lead?.phone || null,
         context: {
           listing: listing || {},
           utm: utm || {},
@@ -225,7 +441,9 @@ app.post("/v1/widget/session", apiLimiter, async (req, res) => {
           createdAt: new Date().toISOString(),
         },
       },
-      select: { id: true, tenantId: true, assignedAgentId: true },
+      include: {
+        assignedAgent: { select: { id: true, name: true, email: true } },
+      },
     });
 
     const visitorJwt = signJwt(
@@ -233,25 +451,30 @@ app.post("/v1/widget/session", apiLimiter, async (req, res) => {
       "24h"
     );
 
-    if (conversation.assignedAgentId) {
-      const evt = makeEvent("conversation.created", {
-        tenantId,
-        conversationId: conversation.id,
-        payload: { conversationId: conversation.id },
-      });
-      io.to(`agent:${conversation.assignedAgentId}`).emit("event", evt);
-    }
+    // Emit conversation.created to all tenant agents
+    const convCreatedEvt = makeEvent("conversation.created", {
+      tenantId,
+      conversationId: conversation.id,
+      payload: conversation,
+    });
+    io.to(`tenant:${tenantId}:agents`).emit("event", convCreatedEvt);
+
+    // Fire webhook
+    fireWebhooks(tenantId, "conversation.created", conversation);
 
     return res.json({
       visitorJwt,
       conversationId: conversation.id,
       visitorId: visitor.id,
+      afterHours: routing.afterHours,
     });
   } catch (err) {
     console.error("widget/session error:", err);
     return res.status(500).json({ error: "internal error" });
   }
 });
+
+/* ── Agent conversations ─────────────────────────────────────────────────── */
 
 app.get("/v1/agent/conversations", apiLimiter, authenticateAgent, async (req, res) => {
   try {
@@ -260,6 +483,7 @@ app.get("/v1/agent/conversations", apiLimiter, authenticateAgent, async (req, re
 
     if (status) where.status = String(status);
     if (assigned === "me") where.assignedAgentId = req.user.sub;
+    if (assigned === "unassigned") where.assignedAgentId = null;
 
     const conversations = await prisma.conversation.findMany({
       where,
@@ -300,6 +524,194 @@ app.get(
     }
   }
 );
+
+/* ── Assign / Close / Reopen ─────────────────────────────────────────────── */
+
+app.post(
+  "/v1/agent/conversations/:id/assign",
+  apiLimiter,
+  authenticateAgent,
+  async (req, res) => {
+    try {
+      const conversationId = req.params.id;
+      const { agentId } = req.body || {};
+      const assignTo = agentId || req.user.sub;
+
+      const convo = await assertConversationTenant(conversationId, req.user.tenantId);
+      if (!convo) return res.status(404).json({ error: "conversation not found" });
+
+      const agent = await prisma.agent.findFirst({
+        where: { id: assignTo, tenantId: req.user.tenantId },
+      });
+      if (!agent) return res.status(404).json({ error: "agent not found" });
+
+      const updated = await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { assignedAgentId: assignTo },
+        include: {
+          assignedAgent: { select: { id: true, name: true, email: true } },
+        },
+      });
+
+      const evt = makeEvent("conversation.assigned", {
+        tenantId: req.user.tenantId,
+        conversationId,
+        payload: updated,
+      });
+      io.to(`tenant:${req.user.tenantId}:agents`).emit("event", evt);
+      io.to(conversationId).emit("event", evt);
+
+      fireWebhooks(req.user.tenantId, "conversation.assigned", updated);
+
+      return res.json(updated);
+    } catch (err) {
+      console.error("agent/conversations/assign error:", err);
+      return res.status(500).json({ error: "internal error" });
+    }
+  }
+);
+
+app.post(
+  "/v1/agent/conversations/:id/close",
+  apiLimiter,
+  authenticateAgent,
+  async (req, res) => {
+    try {
+      const conversationId = req.params.id;
+
+      const convo = await assertConversationTenant(conversationId, req.user.tenantId);
+      if (!convo) return res.status(404).json({ error: "conversation not found" });
+
+      const updated = await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { status: "closed" },
+      });
+
+      return res.json(updated);
+    } catch (err) {
+      console.error("agent/conversations/close error:", err);
+      return res.status(500).json({ error: "internal error" });
+    }
+  }
+);
+
+app.post(
+  "/v1/agent/conversations/:id/reopen",
+  apiLimiter,
+  authenticateAgent,
+  async (req, res) => {
+    try {
+      const conversationId = req.params.id;
+
+      const convo = await assertConversationTenant(conversationId, req.user.tenantId);
+      if (!convo) return res.status(404).json({ error: "conversation not found" });
+
+      const updated = await prisma.conversation.update({
+        where: { id: conversationId },
+        data: { status: "open" },
+      });
+
+      return res.json(updated);
+    } catch (err) {
+      console.error("agent/conversations/reopen error:", err);
+      return res.status(500).json({ error: "internal error" });
+    }
+  }
+);
+
+/* ── Routing settings ────────────────────────────────────────────────────── */
+
+app.get("/v1/settings/routing", apiLimiter, authenticateAgent, async (req, res) => {
+  try {
+    const settings = await prisma.routingSettings.findUnique({
+      where: { tenantId: req.user.tenantId },
+    });
+    if (!settings) return res.status(404).json({ error: "routing settings not found" });
+    return res.json(settings);
+  } catch (err) {
+    console.error("settings/routing GET error:", err);
+    return res.status(500).json({ error: "internal error" });
+  }
+});
+
+app.put("/v1/settings/routing", apiLimiter, authenticateAgent, async (req, res) => {
+  try {
+    const { mode, timezone, officeHours, fallbackAgentId } = req.body || {};
+    const data = {};
+    if (mode !== undefined) data.mode = mode;
+    if (timezone !== undefined) data.timezone = timezone;
+    if (officeHours !== undefined) data.officeHours = officeHours;
+    if (fallbackAgentId !== undefined) data.fallbackAgentId = fallbackAgentId;
+
+    const settings = await prisma.routingSettings.upsert({
+      where: { tenantId: req.user.tenantId },
+      update: data,
+      create: { tenantId: req.user.tenantId, ...data },
+    });
+
+    return res.json(settings);
+  } catch (err) {
+    console.error("settings/routing PUT error:", err);
+    return res.status(500).json({ error: "internal error" });
+  }
+});
+
+/* ── Webhooks CRUD ───────────────────────────────────────────────────────── */
+
+app.post("/v1/webhooks", apiLimiter, authenticateAgent, async (req, res) => {
+  try {
+    const { url, events, secret } = req.body || {};
+    if (!url || !events || !Array.isArray(events)) {
+      return res.status(400).json({ error: "url and events[] required" });
+    }
+
+    const endpoint = await prisma.webhookEndpoint.create({
+      data: {
+        tenantId: req.user.tenantId,
+        url,
+        events,
+        secret: secret || null,
+        isActive: true,
+      },
+    });
+
+    return res.status(201).json(endpoint);
+  } catch (err) {
+    console.error("webhooks POST error:", err);
+    return res.status(500).json({ error: "internal error" });
+  }
+});
+
+app.get("/v1/webhooks", apiLimiter, authenticateAgent, async (req, res) => {
+  try {
+    const endpoints = await prisma.webhookEndpoint.findMany({
+      where: { tenantId: req.user.tenantId },
+    });
+    return res.json(endpoints);
+  } catch (err) {
+    console.error("webhooks GET error:", err);
+    return res.status(500).json({ error: "internal error" });
+  }
+});
+
+app.delete("/v1/webhooks/:id", apiLimiter, authenticateAgent, async (req, res) => {
+  try {
+    const endpoint = await prisma.webhookEndpoint.findFirst({
+      where: { id: req.params.id, tenantId: req.user.tenantId },
+    });
+    if (!endpoint) return res.status(404).json({ error: "webhook not found" });
+
+    await prisma.webhookDelivery.deleteMany({ where: { endpointId: endpoint.id } });
+    await prisma.webhookEndpoint.delete({ where: { id: endpoint.id } });
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("webhooks DELETE error:", err);
+    return res.status(500).json({ error: "internal error" });
+  }
+});
+
+/* ── Messages ────────────────────────────────────────────────────────────── */
 
 app.post(
   "/v1/conversations/:id/messages",
@@ -344,6 +756,8 @@ app.post(
 
       io.to(conversationId).emit("event", evt);
       io.to(`tenant:${msg.tenantId}:agents`).emit("event", evt);
+
+      fireWebhooks(msg.tenantId, "message.created", msg);
 
       return res.status(201).json(msg);
     } catch (err) {

@@ -39,9 +39,30 @@ async function main() {
     }
   });
 
+  const defaultOfficeHours = {
+    mon: { start: "09:00", end: "18:00" },
+    tue: { start: "09:00", end: "18:00" },
+    wed: { start: "09:00", end: "18:00" },
+    thu: { start: "09:00", end: "18:00" },
+    fri: { start: "09:00", end: "18:00" },
+  };
+
+  await prisma.routingSettings.upsert({
+    where: { tenantId: tenant.id },
+    update: {},
+    create: {
+      tenantId: tenant.id,
+      mode: "first_available",
+      timezone: "Asia/Manila",
+      officeHours: defaultOfficeHours,
+      fallbackAgentId: agent.id,
+    }
+  });
+
   console.log("Seeded tenant:", tenant.id);
   console.log("Seeded agent :", agent.id, agent.email);
   console.log("Password     : Password123!");
+  console.log("Seeded routing settings for tenant:", tenant.id);
 }
 
 main()
