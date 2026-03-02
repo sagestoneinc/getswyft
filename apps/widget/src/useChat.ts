@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createSession, sendMessage } from "./api";
-import { connectSocket, joinConversation, disconnectSocket, getSocket } from "./socket";
+import { connectSocket, joinConversation, disconnectSocket } from "./socket";
 
 export interface ChatMessage {
   id: string;
@@ -55,20 +55,41 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
           if (!cancelled) setConnected(false);
         });
 
-        socket.on("message.created", (msg: { id: string; text: string; senderType: string; createdAt: string }) => {
+        socket.on("event", (evt: { type: string; payload: unknown; conversationId: string }) => {
           if (cancelled) return;
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === msg.id)) return prev;
-            return [
-              ...prev,
-              {
-                id: msg.id,
-                body: msg.text,
-                sender: msg.senderType === "visitor" ? "visitor" : "agent",
-                timestamp: msg.createdAt,
-              },
-            ];
-          });
+
+          if (evt.type === "conversation.history") {
+            const historyPayload = evt.payload as { messages: Array<{ id: string; text: string; senderType: string; createdAt: string }> };
+            setMessages(
+              historyPayload.messages.map((m) => ({
+                id: m.id,
+                body: m.text,
+                sender: m.senderType === "visitor" ? "visitor" as const : "agent" as const,
+                timestamp: m.createdAt,
+              }))
+            );
+          }
+
+          if (evt.type === "message.created") {
+            const msg = evt.payload as { id: string; text: string; senderType: string; createdAt: string; clientMsgId?: string };
+            setMessages((prev) => {
+              // deduplicate by id or clientMsgId
+              if (prev.some((m) => m.id === msg.id || (msg.clientMsgId && m.id === msg.clientMsgId))) {
+                return prev.map((m) =>
+                  (m.id === msg.clientMsgId) ? { ...m, id: msg.id } : m
+                );
+              }
+              return [
+                ...prev,
+                {
+                  id: msg.id,
+                  body: msg.text,
+                  sender: msg.senderType === "visitor" ? "visitor" as const : "agent" as const,
+                  timestamp: msg.createdAt,
+                },
+              ];
+            });
+          }
         });
       } catch (err) {
         if (!cancelled) {
@@ -106,13 +127,5 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
     }
   }, []);
 
-  const sendTyping = useCallback(() => {
-    const socket = getSocket();
-    const convId = conversationIdRef.current;
-    if (socket && convId) {
-      socket.emit("typing", convId);
-    }
-  }, []);
-
-  return { messages, connected, error, send, sendTyping };
+  return { messages, connected, error, send };
 }

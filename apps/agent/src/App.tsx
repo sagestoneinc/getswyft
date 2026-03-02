@@ -13,9 +13,20 @@ function App() {
 
   useEffect(() => {
     if (!token) return;
-    connectSocket(token);
+    const sock = connectSocket(token);
     fetchConversations(token).then(setConversations);
-    return () => disconnectSocket();
+
+    const handleEvent = (evt: { type: string }) => {
+      if (evt.type === "conversation.created" || evt.type === "message.created") {
+        fetchConversations(token).then(setConversations);
+      }
+    };
+    sock.on("event", handleEvent);
+
+    return () => {
+      sock.off("event", handleEvent);
+      disconnectSocket();
+    };
   }, [token]);
 
   if (!token) {

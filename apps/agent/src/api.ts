@@ -18,7 +18,7 @@ export async function loginAgent(email: string, password: string) {
 }
 
 export async function fetchConversations(token: string) {
-  const res = await fetch(`${API_URL}/v1/agent/conversations`, {
+  const res = await fetch(`${API_URL}/v1/agent/conversations?assigned=me&status=open`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   if (!res.ok) throw new Error("Failed to fetch conversations");
