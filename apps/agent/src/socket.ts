@@ -6,6 +6,7 @@ let socket: Socket | null = null;
 
 export function connectSocket(token: string): Socket {
   if (socket?.connected) return socket;
+  if (socket) socket.disconnect();
   socket = io(API_URL, { auth: { token } });
   return socket;
 }

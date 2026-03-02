@@ -5,7 +5,11 @@ import cors from "cors";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
 
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error("JWT_SECRET environment variable is required");
+  process.exit(1);
+}
 
 const app = express();
 app.use(cors({ origin: true, credentials: true }));
@@ -14,8 +18,20 @@ app.use(express.json());
 app.get("/health", (_, res) => res.json({ ok: true }));
 
 /* ---------- in-memory stores ---------- */
+// password hash: scrypt(password, salt) stored as salt:hash
+function hashPassword(password, salt = crypto.randomBytes(16).toString("hex")) {
+  const hash = crypto.scryptSync(password, salt, 64).toString("hex");
+  return `${salt}:${hash}`;
+}
+
+function verifyPassword(password, stored) {
+  const [salt, hash] = stored.split(":");
+  const candidate = crypto.scryptSync(password, salt, 64).toString("hex");
+  return crypto.timingSafeEqual(Buffer.from(hash, "hex"), Buffer.from(candidate, "hex"));
+}
+
 const agents = [
-  { id: "agent-1", email: "agent@example.com", password: "password", name: "Demo Agent" },
+  { id: "agent-1", email: "agent@example.com", passwordHash: hashPassword("password"), name: "Demo Agent" },
 ];
 
 const conversations = [
@@ -49,8 +65,10 @@ function authMiddleware(req, res, next) {
 /* ---------- REST routes ---------- */
 app.post("/v1/agent/login", (req, res) => {
   const { email, password } = req.body;
-  const agent = agents.find((a) => a.email === email && a.password === password);
-  if (!agent) return res.status(401).json({ error: "Invalid credentials" });
+  const agent = agents.find((a) => a.email === email);
+  if (!agent || !verifyPassword(password, agent.passwordHash)) {
+    return res.status(401).json({ error: "Invalid credentials" });
+  }
   const token = jwt.sign({ id: agent.id, email: agent.email, name: agent.name }, JWT_SECRET, {
     expiresIn: "8h",
   });
