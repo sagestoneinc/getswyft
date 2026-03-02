@@ -11,6 +11,7 @@ export interface SessionResponse {
   visitorJwt: string;
   conversationId: string;
   visitorId: string;
+  afterHours?: boolean;
 }
 
 export async function createSession(
@@ -24,7 +25,7 @@ export async function createSession(
     body: JSON.stringify({
       tenantId,
       lead,
-      listing,
+      listing: { ...listing, url: listing.url || window.location.href },
       pageUrl: window.location.href,
     }),
   });

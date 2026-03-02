@@ -2,7 +2,7 @@ import { useState, type FormEvent } from "react";
 import { loginAgent } from "./api";
 
 interface Props {
-  onLogin: (token: string) => void;
+  onLogin: (token: string, agentId: string) => void;
 }
 
 export default function LoginPage({ onLogin }: Props) {
@@ -16,8 +16,8 @@ export default function LoginPage({ onLogin }: Props) {
     setError("");
     setLoading(true);
     try {
-      const { agentJwt } = await loginAgent(email, password);
-      onLogin(agentJwt);
+      const { agentJwt, agentId } = await loginAgent(email, password);
+      onLogin(agentJwt, agentId);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
