@@ -12,7 +12,7 @@ RUN corepack enable && pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm -C apps/api db:generate && pnpm prune --prod
+RUN pnpm -C apps/api db:generate && pnpm run build
 
 ENV NODE_ENV=production
 
