@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Tenant {
+  id             String         @id @default(uuid())
+  name           String
+  allowedOrigins String[]
+
+  agents        Agent[]
+  visitors      Visitor[]
+  conversations Conversation[]
+  messages      Message[]
+}
+
+model Agent {
+  id           String   @id @default(uuid())
+  tenantId     String
+  email        String
+  passwordHash String
+  name         String
+
+  tenant        Tenant         @relation(fields: [tenantId], references: [id])
+  conversations Conversation[]
+
+  @@unique([tenantId, email])
+}
+
+model Visitor {
+  id       String  @id @default(uuid())
+  tenantId String
+  name     String?
+  email    String?
+  phone    String?
+
+  tenant Tenant @relation(fields: [tenantId], references: [id])
+
+  @@index([tenantId, email])
+}
+
+model Conversation {
+  id              String  @id @default(uuid())
+  tenantId        String
+  status          String  @default("open")
+  assignedAgentId String?
+  context         Json    @default("{}")
+
+  tenant        Tenant    @relation(fields: [tenantId], references: [id])
+  assignedAgent Agent?    @relation(fields: [assignedAgentId], references: [id])
+  messages      Message[]
+
+  @@index([tenantId, status])
+}
+
+model Message {
+  id             String   @id @default(uuid())
+  tenantId       String
+  conversationId String
+  senderType     String
+  senderId       String
+  text           String?
+  createdAt      DateTime @default(now())
+  clientMsgId    String?
+
+  tenant       Tenant       @relation(fields: [tenantId], references: [id])
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+
+  @@unique([conversationId, clientMsgId])
+  @@index([conversationId, createdAt])
+}
