@@ -17,7 +17,7 @@ The production runtime is the API app (`apps/api`).
 docker build -t getswyft .
 docker run --rm -p 3000:3000 \
   -e DATABASE_URL="postgresql://user:password@host:5432/dbname" \
-  -e JWT_SECRET="replace-with-a-long-random-secret" \
+  -e JWT_SECRET="w9j1Qx4tR8mN2pV7sK6dF3hL0cB5yU1eA9zG2nJ4rT7vM8qP" \
   -e CORS_ORIGINS="https://your-app.example.com" \
   getswyft
 ```
