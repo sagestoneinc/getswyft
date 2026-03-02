@@ -30,7 +30,7 @@ fields in the Railway dashboard.
 | Field | Command |
 |-------|---------|
 | Build | `npm run install:ci && npm run build:api` |
-| Start | `npm run start:api` |
+| Start | `npm run migrate:api && npm run start:api` |
 
 ### Agent
 
@@ -47,7 +47,8 @@ fields in the Railway dashboard.
 | Start | `npm run start:widget` |
 
 > `install:ci` enables corepack, activates the pinned pnpm version, and
-> runs `pnpm install --frozen-lockfile`.
+> runs `pnpm install --frozen-lockfile --prod=false` (dev dependencies are
+> needed for Prisma, TypeScript, and Vite builds).
 
 ---
 
@@ -100,11 +101,19 @@ npm run seed:api
 
 ## 5. How it works
 
-1. **nixpacks.toml** runs `corepack enable` + `corepack prepare pnpm@9.15.4`
-   during the Nixpacks setup phase so pnpm is always available.
-2. **`.nvmrc`** pins Node to version 20.
-3. Root **`package.json`** exposes short `install:ci`, `build:*`, and
-   `start:*` scripts so Railway build/start fields stay readable.
+> **Note:** The repository includes both `nixpacks.toml` and `railway.json`.
+> `railway.json` is configured with `"builder": "DOCKERFILE"`, so Railway will
+> use the `Dockerfile` by default. If you switch to the Nixpacks builder,
+> `nixpacks.toml` runs `corepack enable` + `corepack prepare pnpm@9.15.4`
+> during the setup phase so pnpm is always available. Choose one approach and
+> configure your Railway services accordingly.
+
+1. **`.nvmrc`** pins Node to version 20.
+2. Root **`package.json`** exposes short `install:ci`, `build:*`, `migrate:*`,
+   and `start:*` scripts so Railway build/start fields stay readable.
+3. `migrate:api` runs Prisma migrations as a separate step — run it in the
+   start command or as a one-off release command, but avoid running it from
+   multiple concurrent instances.
 4. Agent and Widget `vite preview` binds to `0.0.0.0` on `$PORT`
    (defaults to 4173 locally).
 5. API listens on `process.env.PORT` (defaults to 3000 locally).
