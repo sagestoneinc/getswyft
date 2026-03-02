@@ -5,31 +5,38 @@ const prisma = new PrismaClient();
 
 async function main() {
   const tenant = await prisma.tenant.upsert({
-    where: { id: "tnt_demo" },
-    update: {},
+    where: { id: "default" },
+    update: {
+      allowedOrigins: [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "https://widgetswyftup.up.railway.app",
+        "https://agentswyftup.up.railway.app"
+      ]
+    },
     create: {
-      id: "tnt_demo",
+      id: "default",
       name: "Demo Realty",
       allowedOrigins: [
         "http://localhost:5173",
         "http://localhost:5174",
-        "https://agentswyftup.up.railway.app",
         "https://widgetswyftup.up.railway.app",
-      ],
-    },
+        "https://agentswyftup.up.railway.app"
+      ]
+    }
   });
 
   const passwordHash = await bcrypt.hash("Password123!", 10);
 
   const agent = await prisma.agent.upsert({
-    where: { email: "agent@example.com" },
-    update: {},
+    where: { tenantId_email: { tenantId: tenant.id, email: "agent@example.com" } },
+    update: { passwordHash, name: "Demo Agent" },
     create: {
       tenantId: tenant.id,
       email: "agent@example.com",
       passwordHash,
-      name: "Demo Agent",
-    },
+      name: "Demo Agent"
+    }
   });
 
   console.log("Seeded tenant:", tenant.id);
