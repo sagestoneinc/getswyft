@@ -101,8 +101,8 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
 
     try {
       await sendMessage(convId, jwt, body, clientMsgId);
-    } catch {
-      setError("Failed to send message");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to send message");
     }
   }, []);
 

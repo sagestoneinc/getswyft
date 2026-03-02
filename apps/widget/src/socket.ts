@@ -1,6 +1,7 @@
 import { io, type Socket } from "socket.io-client";
 
 const WS_URL = import.meta.env.VITE_WS_URL;
+if (!WS_URL) throw new Error("VITE_WS_URL is not configured");
 
 let socket: Socket | null = null;
 
