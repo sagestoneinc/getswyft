@@ -728,6 +728,10 @@ app.post("/v1/webhooks", apiLimiter, authenticateAgent, async (req, res) => {
       hostname.startsWith("10.") ||
       hostname.startsWith("192.168.") ||
       /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+      hostname.startsWith("169.254.") ||
+      hostname.startsWith("fc") ||
+      hostname.startsWith("fd") ||
+      hostname.startsWith("fe80") ||
       hostname.endsWith(".local") ||
       hostname.endsWith(".internal");
     if (blocked) {

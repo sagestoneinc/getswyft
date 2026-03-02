@@ -35,7 +35,7 @@ export default function ConversationList({ conversations, activeId, onSelect, ta
                 role="button"
                 tabIndex={0}
                 onClick={() => onSelect(c.id)}
-                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") onSelect(c.id); }}
+                onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelect(c.id); } }}
               >
                 <div className="conv-lead">
                   <span className="conv-name">{c.leadName || "Unknown"}</span>
