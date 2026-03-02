@@ -2,9 +2,23 @@ FROM node:20-alpine
 
 WORKDIR /app
 
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/agent/package.json apps/agent/package.json
+COPY apps/widget/package.json apps/widget/package.json
+COPY packages/shared/package.json packages/shared/package.json
+
+RUN corepack enable && pnpm install --frozen-lockfile
+
 COPY . .
 
-RUN corepack enable && pnpm install && pnpm -C apps/api db:generate
+RUN pnpm -C apps/api db:generate && pnpm prune --prod
+
+ENV NODE_ENV=production
+
+RUN addgroup -S appuser && adduser -S -G appuser appuser && chown -R appuser:appuser /app
+
+USER appuser
 
 EXPOSE 3000
 
