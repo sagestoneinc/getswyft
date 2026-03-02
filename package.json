@@ -3,9 +3,9 @@
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
-    "dev:api": "pnpm -C apps/api dev",
-    "dev:agent": "pnpm -C apps/agent dev",
-    "dev:widget": "pnpm -C apps/widget dev",
-    "build": "pnpm -r build"
+    "dev:api": "corepack pnpm -C apps/api dev",
+    "dev:agent": "corepack pnpm -C apps/agent dev",
+    "dev:widget": "corepack pnpm -C apps/widget dev",
+    "build": "corepack pnpm -r build"
   }
 }
