@@ -101,7 +101,10 @@ CREATE TABLE "WebhookDelivery" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Agent_tenantId_email_key" ON "Agent"("tenantId", "email");
+CREATE UNIQUE INDEX "Agent_email_key" ON "Agent"("email");
+
+-- CreateIndex
+CREATE INDEX "Agent_tenantId_idx" ON "Agent"("tenantId");
 
 -- CreateIndex
 CREATE INDEX "Visitor_tenantId_email_idx" ON "Visitor"("tenantId", "email");
