@@ -99,14 +99,31 @@ npm run seed:api
 
 ---
 
-## 5. How it works
+## 5. Nixpacks deployment (alternative)
 
-> **Note:** The repository includes both `nixpacks.toml` and `railway.json`.
-> `railway.json` is configured with `"builder": "DOCKERFILE"`, so Railway will
-> use the `Dockerfile` by default. If you switch to the Nixpacks builder,
-> `nixpacks.toml` runs `corepack enable` + `corepack prepare pnpm@9.15.4`
-> during the setup phase so pnpm is always available. Choose one approach and
-> configure your Railway services accordingly.
+The repository ships with `nixpacks.toml` files that fully configure each
+service for the Nixpacks builder. If you prefer Nixpacks over the Dockerfile
+approach, switch each Railway service's builder to **Nixpacks** and the
+`nixpacks.toml` in each app handles setup, install, build, and start
+automatically — no manual build/start commands are needed.
+
+Each `nixpacks.toml` runs:
+
+| Phase | What it does |
+|-------|-------------|
+| `setup` | Enables corepack and activates pnpm 9.15.4 |
+| `install` | Runs `pnpm install --frozen-lockfile` |
+| `build` | Runs `pnpm run build` (TypeScript + Vite for agent/widget, Prisma generate for API) |
+| `start` | Runs `pnpm run preview` (agent/widget) or `pnpm run start` (API) |
+
+> **Note:** `railway.json` is configured with `"builder": "DOCKERFILE"` by
+> default, which only applies to the API service. The agent and widget services
+> should use the Nixpacks builder or have their build/start commands set
+> manually as described in section 2.
+
+---
+
+## 6. How it works
 
 1. **`.nvmrc`** pins Node to version 20.
 2. Root **`package.json`** exposes short `install:ci`, `build:*`, `migrate:*`,
