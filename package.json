@@ -1,7 +1,7 @@
 {
   "name": "real-estate-comms",
   "private": true,
-  "packageManager": "pnpm@9",
+  "packageManager": "pnpm@9.15.4",
   "scripts": {
     "dev:api": "pnpm -C apps/api dev",
     "dev:agent": "pnpm -C apps/agent dev",
