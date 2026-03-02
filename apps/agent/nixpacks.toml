@@ -1,2 +1,2 @@
 [phases.setup]
-cmds = ["corepack enable"]
+cmds = ["corepack enable", "corepack prepare pnpm@9.15.4 --activate"]
