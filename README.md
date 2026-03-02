@@ -2,7 +2,13 @@
 
 ## Deploy
 
-The production runtime is the API app (`apps/api`).
+This monorepo has 3 deployable services:
+
+- API (`apps/api`)
+- Agent (`apps/agent`)
+- Widget (`apps/widget`)
+
+Run all install/build commands from the repository root.
 
 ### Required environment variables
 
@@ -13,10 +19,31 @@ The production runtime is the API app (`apps/api`).
 
 ### Railway deployment
 
-Deploy this repository to a Railway service from the repo root. The included `Dockerfile` is used for the build.
+Use this setup/build chain (copy exactly, including `&&`) to avoid `pnpm: not found` errors:
+
+```bash
+corepack enable && corepack prepare pnpm@9.15.4 --activate && pnpm --version && pnpm install --frozen-lockfile
+```
+
+#### API service (`apps/api`)
+
+Deploy from the repository root. The included `Dockerfile` can be used directly, or set:
+
+- Build command: `corepack enable && corepack prepare pnpm@9.15.4 --activate && pnpm --version && pnpm install --frozen-lockfile && pnpm -C apps/api db:generate`
+- Start command: `pnpm -C apps/api start`
 
 After creating the service, configure the required environment variables in Railway and run database migrations before (or during) deployment:
 
 ```bash
 pnpm -C apps/api db:migrate:deploy
 ```
+
+#### Agent service (`apps/agent`)
+
+- Build command: `corepack enable && corepack prepare pnpm@9.15.4 --activate && pnpm --version && pnpm install --frozen-lockfile && pnpm -C apps/agent build`
+- Start command: `pnpm -C apps/agent preview`
+
+#### Widget service (`apps/widget`)
+
+- Build command: `corepack enable && corepack prepare pnpm@9.15.4 --activate && pnpm --version && pnpm install --frozen-lockfile && pnpm -C apps/widget build`
+- Start command: `pnpm -C apps/widget preview`
