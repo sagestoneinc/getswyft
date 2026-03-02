@@ -13,8 +13,8 @@ async function main() {
       allowedOrigins: [
         "http://localhost:5173",
         "http://localhost:5174",
-        "https://widget.up.railway.app",
-        "https://agent.up.railway.app",
+        "https://agentswyftup.up.railway.app",
+        "https://widgetswyftup.up.railway.app",
       ],
     },
   });

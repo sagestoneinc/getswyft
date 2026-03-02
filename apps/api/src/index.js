@@ -2,6 +2,7 @@
 import express from "express";
 import http from "http";
 import cors from "cors";
+import { PrismaClient } from "@prisma/client";
 import rateLimit from "express-rate-limit";
 import jwt from "jsonwebtoken";
 import bcrypt from "bcryptjs";
@@ -48,6 +49,15 @@ app.use(express.json({ limit: "1mb" }));
 /* Rate limiters                                                             */
 /* ────────────────────────────────────────────────────────────────────────── */
 
+// ─── HTTP server + Socket.IO ──────────────────────────────────────────────────
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: true, credentials: true },
+  pingInterval: 25000,
+  pingTimeout: 20000,
+});
+
+// ─── Health ───────────────────────────────────────────────────────────────────
 const loginLimiter = rateLimit({
   windowMs: 60_000,
   max: 10,
@@ -370,6 +380,8 @@ app.post(
         },
       });
 
+      // Emit via Socket.IO
+      io.to(conversationId).emit("message.created", message);
       const evt = makeEvent("message.created", {
         tenantId: msg.tenantId,
         conversationId: msg.conversationId,
@@ -408,6 +420,9 @@ io.use((socket, next) => {
 });
 
 io.on("connection", (socket) => {
+  socket.on("join", (conversationId) => {
+    socket.join(conversationId);
+  });
   const user = socket.data.user; // { sub, tenantId, role }
 
   // agent personal room + tenant agents room
@@ -447,6 +462,8 @@ io.on("connection", (socket) => {
     }
   });
 
+// ─── Start server ─────────────────────────────────────────────────────────────
+const PORT = process.env.PORT || 3000;
   socket.on("leave", (conversationId, ack) => {
     if (conversationId) socket.leave(conversationId);
     if (typeof ack === "function") ack({ ok: true });

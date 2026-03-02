@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from "react";
-import { postMessage, type Message } from "./api";
+import { fetchMessages, postMessage, type Message } from "./api";
 import { getSocket } from "./socket";
 
 interface Props {
@@ -14,28 +14,30 @@ export default function ChatView({ conversationId, token }: Props) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    setMessages([]);
+    fetchMessages(token, conversationId).then(setMessages);
+
     const socket = getSocket();
     if (!socket) return;
 
-    setMessages([]);
     socket.emit("join", conversationId);
 
-    const handleHistory = (history: Message[]) => setMessages(history);
     const handleMessage = (msg: Message) => {
       if (msg.conversationId === conversationId) {
-        setMessages((prev) => [...prev, msg]);
+        setMessages((prev) => {
+          if (prev.some((m) => m.id === msg.id)) return prev;
+          return [...prev, msg];
+        });
       }
     };
 
-    socket.on("history", handleHistory);
     socket.on("message.created", handleMessage);
 
     return () => {
       socket.emit("leave", conversationId);
-      socket.off("history", handleHistory);
       socket.off("message.created", handleMessage);
     };
-  }, [conversationId]);
+  }, [conversationId, token]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -43,11 +45,11 @@ export default function ChatView({ conversationId, token }: Props) {
 
   async function handleSend(e: FormEvent) {
     e.preventDefault();
-    const body = draft.trim();
-    if (!body) return;
+    const text = draft.trim();
+    if (!text) return;
     setSending(true);
     try {
-      await postMessage(token, conversationId, body);
+      await postMessage(token, conversationId, text);
       setDraft("");
     } finally {
       setSending(false);
@@ -58,9 +60,9 @@ export default function ChatView({ conversationId, token }: Props) {
     <section className="chat-view">
       <div className="messages">
         {messages.map((m) => (
-          <div key={m.id} className={`msg msg-${m.sender}`}>
-            <span className="sender">{m.sender}</span>
-            <p>{m.body}</p>
+          <div key={m.id} className={`msg msg-${m.senderType}`}>
+            <span className="sender">{m.senderType}</span>
+            <p>{m.text}</p>
           </div>
         ))}
         <div ref={bottomRef} />
