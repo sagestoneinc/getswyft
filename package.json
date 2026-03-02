@@ -7,13 +7,14 @@
     "dev:agent": "corepack pnpm -C apps/agent dev",
     "dev:widget": "corepack pnpm -C apps/widget dev",
     "build": "corepack pnpm -r build",
-    "install:ci": "corepack enable && corepack prepare pnpm@9.15.4 --activate && pnpm install --frozen-lockfile",
-    "build:api": "pnpm -C apps/api db:generate",
-    "start:api": "pnpm -C apps/api db:migrate:deploy && pnpm -C apps/api start",
-    "seed:api": "pnpm -C apps/api db:seed",
-    "build:agent": "pnpm -C apps/agent build",
-    "start:agent": "pnpm -C apps/agent preview",
-    "build:widget": "pnpm -C apps/widget build",
-    "start:widget": "pnpm -C apps/widget preview"
+    "install:ci": "corepack enable && corepack prepare pnpm@9.15.4 --activate && pnpm install --frozen-lockfile --prod=false",
+    "build:api": "corepack pnpm -C apps/api db:generate",
+    "migrate:api": "corepack pnpm -C apps/api db:migrate:deploy",
+    "start:api": "corepack pnpm -C apps/api start",
+    "seed:api": "corepack pnpm -C apps/api db:seed",
+    "build:agent": "corepack pnpm -C apps/agent build",
+    "start:agent": "corepack pnpm -C apps/agent preview",
+    "build:widget": "corepack pnpm -C apps/widget build",
+    "start:widget": "corepack pnpm -C apps/widget preview"
   }
 }
