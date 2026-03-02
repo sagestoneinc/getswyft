@@ -45,5 +45,5 @@ pnpm -C apps/api db:migrate:deploy
 
 #### Widget service (`apps/widget`)
 
-- Build command: `corepack enable && corepack prepare pnpm@9.15.4 --activate && corepack pnpm --version && corepack pnpm install --frozen-lockfile && corepack pnpm -C apps/widget build`
+- Build command: `corepack enable && corepack prepare pnpm@9.15.4 --activate && corepack pnpm --version && corepack pnpm install --no-frozen-lockfile && corepack pnpm -C apps/widget build`
 - Start command: `corepack pnpm -C apps/widget preview`
