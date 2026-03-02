@@ -1,4 +1,4 @@
-import { CreditCard, FileText, ArrowRight } from "lucide-react";
+import { CreditCard, FileText } from "lucide-react";
 
 export function BillingPage() {
   return (

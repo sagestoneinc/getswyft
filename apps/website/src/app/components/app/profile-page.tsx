@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { User, Mail, Phone, Shield, HelpCircle, ExternalLink, CheckCircle, Save } from "lucide-react";
+import { User, Shield, HelpCircle, ExternalLink, CheckCircle, Save } from "lucide-react";
 
 export function ProfilePage() {
   const [saved, setSaved] = useState(false);

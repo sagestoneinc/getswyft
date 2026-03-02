@@ -1,8 +1,8 @@
 import { Outlet, Link, useLocation } from "react-router";
 import { useState } from "react";
 import {
-  Inbox, MessageCircle, Settings, Webhook, BarChart3, Users,
-  CreditCard, User, HelpCircle, Zap, Menu, X, LogOut, ChevronDown
+  Inbox, Settings, Webhook, BarChart3, Users,
+  CreditCard, User, Zap, Menu, X, LogOut
 } from "lucide-react";
 
 const sidebarItems = [

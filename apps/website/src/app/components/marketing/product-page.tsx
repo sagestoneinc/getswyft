@@ -1,7 +1,7 @@
 import { Link } from "react-router";
 import {
   MessageCircle, Phone, Users, Clock, Webhook, BarChart3,
-  ArrowRight, Shield, Zap, Globe, Paperclip, UserCheck, Search
+  ArrowRight, Zap
 } from "lucide-react";
 
 const features = [
