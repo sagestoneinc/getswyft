@@ -22,8 +22,13 @@ export default function ChatView({ conversationId, token }: Props) {
 
     socket.emit("join", conversationId);
 
-    const handleMessage = (msg: Message) => {
-      if (msg.conversationId === conversationId) {
+    const handleEvent = (evt: { type: string; conversationId: string; payload: unknown }) => {
+      if (evt.type === "conversation.history" && evt.conversationId === conversationId) {
+        const histPayload = evt.payload as { messages: Message[] };
+        setMessages(histPayload.messages);
+      }
+      if (evt.type === "message.created" && evt.conversationId === conversationId) {
+        const msg = evt.payload as Message;
         setMessages((prev) => {
           if (prev.some((m) => m.id === msg.id)) return prev;
           return [...prev, msg];
@@ -31,11 +36,11 @@ export default function ChatView({ conversationId, token }: Props) {
       }
     };
 
-    socket.on("message.created", handleMessage);
+    socket.on("event", handleEvent);
 
     return () => {
       socket.emit("leave", conversationId);
-      socket.off("message.created", handleMessage);
+      socket.off("event", handleEvent);
     };
   }, [conversationId, token]);
 

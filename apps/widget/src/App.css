@@ -1,4 +1,25 @@
+.chat-launcher {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: #4f46e5;
+  color: #fff;
+  font-size: 24px;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .chat-widget {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
   display: flex;
   flex-direction: column;
   width: 100%;
@@ -10,6 +31,7 @@
   background: #fff;
   color: #222;
   font-family: system-ui, sans-serif;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.15);
 }
 
 .chat-header {
@@ -102,4 +124,54 @@
 .chat-input button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.chat-close {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0 4px;
+}
+
+.prechat-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 24px 16px;
+  flex: 1;
+}
+
+.prechat-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: #555;
+}
+
+.prechat-form input {
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  color: #222;
+}
+
+.prechat-form input:focus {
+  border-color: #4f46e5;
+}
+
+.prechat-form button {
+  padding: 10px 16px;
+  background: #4f46e5;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  margin-top: 8px;
 }

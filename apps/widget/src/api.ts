@@ -1,5 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL;
-if (!API_URL) throw new Error("VITE_API_URL is not configured");
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
 
 export interface SessionPayload {
   tenantId: string;
@@ -11,6 +10,7 @@ export interface SessionPayload {
 export interface SessionResponse {
   visitorJwt: string;
   conversationId: string;
+  visitorId: string;
 }
 
 export async function createSession(

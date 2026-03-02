@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import LoginPage from "./LoginPage";
 import ConversationList from "./ConversationList";
 import ChatView from "./ChatView";
@@ -10,12 +10,28 @@ function App() {
   const [token, setToken] = useState<string | null>(null);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!token) return;
-    connectSocket(token);
+    const sock = connectSocket(token);
     fetchConversations(token).then(setConversations);
-    return () => disconnectSocket();
+
+    const handleEvent = (evt: { type: string }) => {
+      if (evt.type === "conversation.created" || evt.type === "message.created") {
+        if (debounceRef.current) clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => {
+          fetchConversations(token).then(setConversations);
+        }, 500);
+      }
+    };
+    sock.on("event", handleEvent);
+
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+      sock.off("event", handleEvent);
+      disconnectSocket();
+    };
   }, [token]);
 
   if (!token) {
