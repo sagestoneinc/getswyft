@@ -3,7 +3,7 @@ import { Plus, Pencil, X, Users, Search } from "lucide-react";
 import { agents, type Agent } from "./mock-data";
 
 export function TeamPage() {
-  const [agentList, setAgentList] = useState(agents);
+  const [agentList] = useState(agents);
   const [showAdd, setShowAdd] = useState(false);
   const [editAgent, setEditAgent] = useState<Agent | null>(null);
   const [searchQuery, setSearchQuery] = useState("");

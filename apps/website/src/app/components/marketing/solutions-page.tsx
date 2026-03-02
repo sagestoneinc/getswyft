@@ -1,6 +1,6 @@
 import { Link } from "react-router";
 import { ImageWithFallback } from "../figma/ImageWithFallback";
-import { ArrowRight, CheckCircle, Building2, Home, Users, TrendingUp, Clock, MessageCircle, Phone, Shield } from "lucide-react";
+import { ArrowRight, CheckCircle, Building2, Home, Users, TrendingUp } from "lucide-react";
 
 const useCases = [
   {

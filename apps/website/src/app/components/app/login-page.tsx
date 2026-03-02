@@ -49,6 +49,7 @@ export function LoginPage() {
         <h1 className="text-2xl text-primary text-center mb-2" style={{ fontWeight: 700 }}>Welcome Back</h1>
         <p className="text-sm text-muted-foreground text-center mb-8">Sign in to your agent dashboard</p>
 
+        {/* TODO: Replace with real authentication. This is a placeholder that navigates directly to the dashboard. */}
         <form onSubmit={(e) => { e.preventDefault(); navigate("/app"); }} className="space-y-4">
           <div>
             <label className="block text-sm text-primary mb-1.5" style={{ fontWeight: 500 }}>Email</label>

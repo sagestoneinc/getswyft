@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { CheckCircle, ArrowRight, X } from "lucide-react";
+import { CheckCircle, X } from "lucide-react";
 
 const plans = [
   {

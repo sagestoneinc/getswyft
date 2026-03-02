@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { BarChart3, TrendingUp, Clock, MessageCircle, Users, Phone, Calendar } from "lucide-react";
+import { TrendingUp, Clock, MessageCircle, Users, Calendar } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, PieChart, Pie, Cell } from "recharts";
 
 const kpis = [
@@ -71,7 +71,7 @@ export function AnalyticsPage() {
               <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${kpi.color}`}>
                 <kpi.icon className="w-5 h-5" />
               </div>
-              <span className="text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded" style={{ fontWeight: 600 }}>
+              <span className={`text-xs px-2 py-0.5 rounded ${kpi.change.startsWith("-") ? "text-red-600 bg-red-50" : "text-green-600 bg-green-50"}`} style={{ fontWeight: 600 }}>
                 {kpi.change}
               </span>
             </div>

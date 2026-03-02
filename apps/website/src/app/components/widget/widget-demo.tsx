@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router";
 import {
-  MessageCircle, X, Send, Paperclip, Phone, PhoneOff, PhoneCall,
-  Mic, MicOff, Zap, ArrowLeft, Clock, AlertTriangle, Loader2, User
+  MessageCircle, X, Send, Paperclip, PhoneOff, PhoneCall,
+  Mic, MicOff, Zap, Clock, AlertTriangle, Loader2
 } from "lucide-react";
 
 type WidgetState = "closed" | "prechat" | "chat" | "afterhours" | "call" | "error";
