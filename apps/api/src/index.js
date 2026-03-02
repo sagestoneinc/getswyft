@@ -4,6 +4,7 @@ import { Server } from "socket.io";
 import cors from "cors";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
+import rateLimit from "express-rate-limit";
 
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
@@ -15,24 +16,9 @@ const app = express();
 app.use(cors({ origin: true, credentials: true }));
 app.use(express.json());
 
-/* ---------- simple rate limiter ---------- */
-const rateLimitMap = new Map();
-function rateLimit({ windowMs = 60_000, max = 60 } = {}) {
-  return (req, res, next) => {
-    const key = req.ip;
-    const now = Date.now();
-    const entry = rateLimitMap.get(key);
-    if (!entry || now - entry.start > windowMs) {
-      rateLimitMap.set(key, { start: now, count: 1 });
-      return next();
-    }
-    entry.count++;
-    if (entry.count > max) {
-      return res.status(429).json({ error: "Too many requests" });
-    }
-    next();
-  };
-}
+/* ---------- rate limiters ---------- */
+const loginLimiter = rateLimit({ windowMs: 60_000, max: 10 });
+const apiLimiter = rateLimit({ windowMs: 60_000, max: 60 });
 
 app.get("/health", (_, res) => res.json({ ok: true }));
 
@@ -82,7 +68,7 @@ function authMiddleware(req, res, next) {
 }
 
 /* ---------- REST routes ---------- */
-app.post("/v1/agent/login", rateLimit({ windowMs: 60_000, max: 10 }), (req, res) => {
+app.post("/v1/agent/login", loginLimiter, (req, res) => {
   const { email, password } = req.body;
   const agent = agents.find((a) => a.email === email);
   if (!agent || !verifyPassword(password, agent.passwordHash)) {
@@ -94,11 +80,11 @@ app.post("/v1/agent/login", rateLimit({ windowMs: 60_000, max: 10 }), (req, res)
   res.json({ token, agent: { id: agent.id, email: agent.email, name: agent.name } });
 });
 
-app.get("/v1/agent/conversations", rateLimit(), authMiddleware, (_req, res) => {
+app.get("/v1/agent/conversations", apiLimiter, authMiddleware, (_req, res) => {
   res.json({ conversations });
 });
 
-app.post("/v1/agent/conversations/:conversationId/messages", rateLimit(), authMiddleware, (req, res) => {
+app.post("/v1/agent/conversations/:conversationId/messages", apiLimiter, authMiddleware, (req, res) => {
   const { conversationId } = req.params;
   const { body } = req.body;
   if (!body) return res.status(400).json({ error: "body is required" });
