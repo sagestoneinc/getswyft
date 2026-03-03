@@ -12,11 +12,33 @@ RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
+COPY apps/agent/package.json apps/agent/package.json
+COPY apps/widget/package.json apps/widget/package.json
+COPY apps/website/package.json apps/website/package.json
+COPY packages/shared/package.json packages/shared/package.json
 
-RUN pnpm install --frozen-lockfile --prod --filter @app/api...
+RUN pnpm install --frozen-lockfile
 
-COPY apps/api ./apps/api
+COPY . .
+
+RUN sh -c '\
+  case "${RAILWAY_SERVICE_NAME:-getswyft}" in \
+    website) pnpm -C apps/website build ;; \
+    widget) pnpm -C apps/widget build ;; \
+    agent) pnpm -C apps/agent build ;; \
+    getswyft|api) : ;; \
+    *) echo "Unsupported RAILWAY_SERVICE_NAME=${RAILWAY_SERVICE_NAME}" && exit 1 ;; \
+  esac \
+'
 
 EXPOSE 8080
 
-CMD ["pnpm", "-C", "apps/api", "start"]
+CMD ["sh", "-c", "\
+  case \"${RAILWAY_SERVICE_NAME:-getswyft}\" in \
+    website) pnpm -C apps/website start ;; \
+    widget) pnpm -C apps/widget start ;; \
+    agent) pnpm -C apps/agent start ;; \
+    getswyft|api) pnpm -C apps/api start ;; \
+    *) echo \"Unsupported RAILWAY_SERVICE_NAME=${RAILWAY_SERVICE_NAME}\" && exit 1 ;; \
+  esac \
+"]
