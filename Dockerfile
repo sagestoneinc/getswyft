@@ -20,15 +20,9 @@ RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN sh -c '\
-  case "${RAILWAY_SERVICE_NAME:-getswyft}" in \
-    website) pnpm -C apps/website build ;; \
-    widget) pnpm -C apps/widget build ;; \
-    agent) pnpm -C apps/agent build ;; \
-    getswyft|api) : ;; \
-    *) echo "Unsupported RAILWAY_SERVICE_NAME=${RAILWAY_SERVICE_NAME}" && exit 1 ;; \
-  esac \
-'
+RUN pnpm -C apps/agent build \
+  && pnpm -C apps/widget build \
+  && pnpm -C apps/website build
 
 EXPOSE 8080
 
