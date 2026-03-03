@@ -5,18 +5,50 @@ import cors from "cors";
 import crypto from "crypto";
 
 const PORT = Number(process.env.PORT) || 8080;
+const SHUTDOWN_TIMEOUT_MS = 10000;
 const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
   .split(",")
   .map((origin) => origin.trim())
   .filter(Boolean);
 
-const messageHistoryByConversation = new Map();
+class LRUConversationMap extends Map {
+  constructor(maxSize = 1000) {
+    super();
+    this.maxSize = maxSize;
+  }
+
+  get(key) {
+    if (!super.has(key)) {
+      return undefined;
+    }
+    const value = super.get(key);
+    super.delete(key);
+    super.set(key, value);
+    return value;
+  }
+
+  set(key, value) {
+    if (super.has(key)) {
+      super.delete(key);
+    }
+    const result = super.set(key, value);
+    if (this.maxSize > 0 && this.size >= this.maxSize) {
+      const oldestKey = this.keys().next().value;
+      if (oldestKey !== undefined) {
+        super.delete(oldestKey);
+      }
+    }
+    return result;
+  }
+}
+
+const messageHistoryByConversation = new LRUConversationMap(1000);
 
 const app = express();
 app.use(
   cors({
-    origin: CORS_ORIGINS.length ? CORS_ORIGINS : true,
-    credentials: true,
+    origin: CORS_ORIGINS.length ? CORS_ORIGINS : false,
+    credentials: CORS_ORIGINS.length > 0,
   })
 );
 app.use(express.json());
@@ -39,8 +71,8 @@ app.get("/health", (_, res) => {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: CORS_ORIGINS.length ? CORS_ORIGINS : true,
-    credentials: true,
+    origin: CORS_ORIGINS.length ? CORS_ORIGINS : false,
+    credentials: CORS_ORIGINS.length > 0,
   },
   // keep connections alive under Railway edge timeouts
   pingInterval: 25000,
@@ -69,7 +101,8 @@ io.on("connection", (socket) => {
     connectedAt: new Date().toISOString(),
   });
 
-  socket.on("conversation:join", ({ conversationId }, callback) => {
+  socket.on("conversation:join", (payload = {}, callback) => {
+    const { conversationId } = payload;
     if (!conversationId || typeof conversationId !== "string") {
       safeAck(callback, { ok: false, error: "conversationId is required" });
       return;
@@ -80,7 +113,8 @@ io.on("connection", (socket) => {
     safeAck(callback, { ok: true, conversationId, history });
   });
 
-  socket.on("conversation:leave", ({ conversationId }, callback) => {
+  socket.on("conversation:leave", (payload = {}, callback) => {
+    const { conversationId } = payload;
     if (!conversationId || typeof conversationId !== "string") {
       safeAck(callback, { ok: false, error: "conversationId is required" });
       return;
@@ -90,7 +124,8 @@ io.on("connection", (socket) => {
     safeAck(callback, { ok: true, conversationId });
   });
 
-  socket.on("conversation:history", ({ conversationId }, callback) => {
+  socket.on("conversation:history", (payload = {}, callback) => {
+    const { conversationId } = payload;
     if (!conversationId || typeof conversationId !== "string") {
       safeAck(callback, { ok: false, error: "conversationId is required" });
       return;
@@ -134,8 +169,17 @@ server.listen(PORT, "0.0.0.0", () => {
 
 function shutdown(signal) {
   console.log(`Received ${signal}; shutting down.`);
-  server.close(() => {
-    process.exit(0);
+
+  const forceExitTimeout = setTimeout(() => {
+    console.error("Shutdown taking too long; forcing exit.");
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+
+  io.close(() => {
+    server.close(() => {
+      clearTimeout(forceExitTimeout);
+      process.exit(0);
+    });
   });
 }
 
