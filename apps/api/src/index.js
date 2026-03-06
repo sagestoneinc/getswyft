@@ -1,141 +1,51 @@
-import express from "express";
 import http from "http";
 import { Server } from "socket.io";
-import cors from "cors";
-import crypto from "crypto";
+import { env } from "./config/env.js";
+import { createApp } from "./app.js";
+import { logger } from "./lib/logger.js";
+import { getPrismaClient } from "./lib/db.js";
+import { getRedisClient } from "./lib/redis.js";
+import { registerPresenceSocket } from "./modules/presence/presence.socket.js";
 
-const PORT = Number(process.env.PORT) || 8080;
-const CORS_ORIGINS = (process.env.CORS_ORIGINS || "")
-  .split(",")
-  .map((origin) => origin.trim())
-  .filter(Boolean);
-
-const messageHistoryByConversation = new Map();
-
-const app = express();
-app.use(
-  cors({
-    origin: CORS_ORIGINS.length ? CORS_ORIGINS : true,
-    credentials: true,
-  })
-);
-app.use(express.json());
-
-app.get("/", (_, res) => {
-  res.json({
-    name: "getswyft-api",
-    ok: true,
-    message: "Socket.IO API is running",
-  });
-});
-
-app.get("/health", (_, res) => {
-  res.json({
-    ok: true,
-    uptimeSeconds: Math.floor(process.uptime()),
-  });
-});
-
+const app = createApp();
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
-    origin: CORS_ORIGINS.length ? CORS_ORIGINS : true,
+    origin: env.CORS_ORIGINS.length ? env.CORS_ORIGINS : true,
     credentials: true,
   },
-  // keep connections alive under Railway edge timeouts
   pingInterval: 25000,
   pingTimeout: 20000,
 });
 
-function safeAck(callback, payload) {
-  if (typeof callback === "function") {
-    callback(payload);
-  }
-}
+app.set("io", io);
+registerPresenceSocket(io);
 
-function buildMessage({ conversationId, sender, body }) {
-  return {
-    id: crypto.randomUUID(),
-    conversationId,
-    sender: sender || "visitor",
-    body,
-    createdAt: new Date().toISOString(),
-  };
-}
-
-io.on("connection", (socket) => {
-  socket.emit("system:ready", {
-    socketId: socket.id,
-    connectedAt: new Date().toISOString(),
-  });
-
-  socket.on("conversation:join", ({ conversationId }, callback) => {
-    if (!conversationId || typeof conversationId !== "string") {
-      safeAck(callback, { ok: false, error: "conversationId is required" });
-      return;
-    }
-
-    socket.join(conversationId);
-    const history = messageHistoryByConversation.get(conversationId) || [];
-    safeAck(callback, { ok: true, conversationId, history });
-  });
-
-  socket.on("conversation:leave", ({ conversationId }, callback) => {
-    if (!conversationId || typeof conversationId !== "string") {
-      safeAck(callback, { ok: false, error: "conversationId is required" });
-      return;
-    }
-
-    socket.leave(conversationId);
-    safeAck(callback, { ok: true, conversationId });
-  });
-
-  socket.on("conversation:history", ({ conversationId }, callback) => {
-    if (!conversationId || typeof conversationId !== "string") {
-      safeAck(callback, { ok: false, error: "conversationId is required" });
-      return;
-    }
-
-    safeAck(callback, {
-      ok: true,
-      conversationId,
-      history: messageHistoryByConversation.get(conversationId) || [],
-    });
-  });
-
-  socket.on("message:send", (payload, callback) => {
-    const conversationId = payload?.conversationId;
-    const body = payload?.body?.toString()?.trim();
-    const sender = payload?.sender;
-
-    if (!conversationId || typeof conversationId !== "string") {
-      safeAck(callback, { ok: false, error: "conversationId is required" });
-      return;
-    }
-
-    if (!body) {
-      safeAck(callback, { ok: false, error: "message body is required" });
-      return;
-    }
-
-    const message = buildMessage({ conversationId, sender, body });
-    const history = messageHistoryByConversation.get(conversationId) || [];
-    history.push(message);
-    messageHistoryByConversation.set(conversationId, history.slice(-100));
-
-    io.to(conversationId).emit("message:new", message);
-    safeAck(callback, { ok: true, message });
+server.listen(env.PORT, "0.0.0.0", () => {
+  logger.info("api_server_started", {
+    port: env.PORT,
+    nodeEnv: env.NODE_ENV,
+    authProvider: env.AUTH_PROVIDER,
+    storageProvider: env.STORAGE_PROVIDER,
   });
 });
 
-server.listen(PORT, "0.0.0.0", () => {
-  console.log(`API listening on port ${PORT}`);
-});
+async function shutdown(signal) {
+  logger.info("shutdown_requested", { signal });
 
-function shutdown(signal) {
-  console.log(`Received ${signal}; shutting down.`);
-  server.close(() => {
-    process.exit(0);
+  server.close(async () => {
+    try {
+      await getPrismaClient().$disconnect();
+      const redis = getRedisClient();
+      if (redis) {
+        await redis.quit();
+      }
+    } catch (error) {
+      logger.warn("shutdown_cleanup_error", { error: error.message });
+    } finally {
+      process.exit(0);
+    }
   });
 }
 

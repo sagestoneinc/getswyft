@@ -1,35 +1,84 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from '/vite.svg'
-import './App.css'
+import { useEffect, useState } from "react";
+import { io } from "socket.io-client";
+import "./App.css";
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || apiBaseUrl;
+const socketToken = import.meta.env.VITE_SOCKET_TOKEN as string | undefined;
+
+type WidgetMode = "booting" | "ready" | "error";
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [mode, setMode] = useState<WidgetMode>("booting");
+  const [details, setDetails] = useState<string>("Initializing widget runtime...");
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function boot() {
+      try {
+        const response = await fetch(`${apiBaseUrl}/health`);
+        if (!response.ok) {
+          throw new Error(`API health failed (${response.status})`);
+        }
+
+        const socket = io(wsBaseUrl, {
+          transports: ["websocket"],
+          auth: socketToken
+            ? { token: socketToken, tenantSlug: "default" }
+            : {
+                devUserId: "widget-local",
+                devEmail: "widget@getswyft.local",
+                tenantSlug: "default",
+              },
+        });
+
+        socket.on("connect", () => {
+          if (!mounted) {
+            return;
+          }
+          setMode("ready");
+          setDetails(`Connected to realtime with socket ${socket.id}`);
+        });
+
+        socket.on("connect_error", (error) => {
+          if (!mounted) {
+            return;
+          }
+          setMode("error");
+          setDetails(error.message || "Realtime connection failed");
+        });
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+        setMode("error");
+        setDetails(error instanceof Error ? error.message : "Widget bootstrap failed");
+      }
+    }
+
+    boot();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   return (
-    <>
-      <div>
-        <a href="https://vite.dev" target="_blank">
-          <img src={viteLogo} className="logo" alt="Vite logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <h1>Vite + React</h1>
-      <div className="card">
-        <button onClick={() => setCount((count) => count + 1)}>
-          count is {count}
-        </button>
-        <p>
-          Edit <code>src/App.tsx</code> and save to test HMR
-        </p>
-      </div>
-      <p className="read-the-docs">
-        Click on the Vite and React logos to learn more
-      </p>
-    </>
-  )
+    <main className="widget-shell">
+      <section className="widget-card">
+        <h1>Getswyft Widget Runtime</h1>
+        <p className="muted">Embeddable runtime foundation with API and websocket bootstrapping.</p>
+
+        <div className="pill-row">
+          <span className={`pill ${mode}`}>{mode}</span>
+          <code>{apiBaseUrl}</code>
+        </div>
+
+        <p className="details">{details}</p>
+      </section>
+    </main>
+  );
 }
 
-export default App
+export default App;
