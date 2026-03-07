@@ -32,6 +32,12 @@ enum ConversationStatus {
   CLOSED
 }
 
+enum RoutingMode {
+  MANUAL
+  FIRST_AVAILABLE
+  ROUND_ROBIN
+}
+
 enum MessageSenderType {
   VISITOR
   AGENT
@@ -45,6 +51,36 @@ enum InvitationStatus {
   EXPIRED
 }
 
+enum WebhookEndpointStatus {
+  ACTIVE
+  DISABLED
+}
+
+enum WebhookDeliveryStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+enum BillingInterval {
+  MONTHLY
+  YEARLY
+}
+
+enum BillingSubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum BillingInvoiceStatus {
+  DRAFT
+  OPEN
+  PAID
+  VOID
+}
+
 model Tenant {
   id        String       @id @default(cuid())
   slug      String       @unique
@@ -56,6 +92,7 @@ model Tenant {
   domains           TenantDomain[]
   branding          TenantBranding?
   featureFlags      TenantFeatureFlag[]
+  routingSettings   TenantRoutingSettings?
   userRoles         UserRole[]
   presenceSessions  PresenceSession[]
   notifications     Notification[]
@@ -65,6 +102,10 @@ model Tenant {
   moderationReports ModerationReport[]
   conversations     Conversation[]
   invitations       TenantInvitation[]
+  webhookEndpoints  WebhookEndpoint[]
+  webhookDeliveries WebhookDelivery[]
+  billingSubscription BillingSubscription?
+  billingInvoices   BillingInvoice[]
 }
 
 model TenantDomain {
@@ -106,6 +147,23 @@ model TenantFeatureFlag {
   @@index([tenantId, createdAt])
 }
 
+model TenantRoutingSettings {
+  id                 String      @id @default(cuid())
+  tenantId           String      @unique
+  routingMode        RoutingMode @default(ROUND_ROBIN)
+  officeHoursEnabled Boolean     @default(true)
+  timezone           String      @default("America/Chicago")
+  officeHoursStart   String      @default("09:00")
+  officeHoursEnd     String      @default("18:00")
+  fallbackUserId     String?
+  afterHoursMessage  String?
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  tenant       Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  fallbackUser User?  @relation("RoutingFallbackUser", fields: [fallbackUserId], references: [id], onDelete: SetNull)
+}
+
 model User {
   id             String   @id @default(cuid())
   externalAuthId String   @unique
@@ -129,6 +187,7 @@ model User {
   messageReceipts       MessageReceipt[]
   sentInvitations       TenantInvitation[]    @relation("SentInvitations")
   acceptedInvitations   TenantInvitation[]    @relation("AcceptedInvitations")
+  routingFallbackTenants TenantRoutingSettings[] @relation("RoutingFallbackUser")
 }
 
 model Profile {
@@ -334,6 +393,86 @@ model TenantInvitation {
   @@index([tenantId, status, createdAt])
   @@index([tenantId, email, status])
   @@index([email, status, expiresAt])
+}
+
+model WebhookEndpoint {
+  id              String                @id @default(cuid())
+  tenantId        String
+  url             String
+  description     String?
+  status          WebhookEndpointStatus @default(ACTIVE)
+  signingSecret   String?
+  eventTypes      String[]
+  lastDeliveredAt DateTime?
+  lastErrorAt     DateTime?
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
+
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([tenantId, status, createdAt])
+}
+
+model WebhookDelivery {
+  id           String                @id @default(cuid())
+  tenantId     String
+  endpointId   String
+  eventType    String
+  status       WebhookDeliveryStatus @default(PENDING)
+  statusCode   Int?
+  requestId    String?
+  responseBody String?
+  payload      Json?
+  durationMs   Int?
+  attemptedAt  DateTime              @default(now())
+
+  tenant   Tenant          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, attemptedAt])
+  @@index([endpointId, attemptedAt])
+}
+
+model BillingSubscription {
+  id             String                    @id @default(cuid())
+  tenantId       String                    @unique
+  provider       String                    @default("manual")
+  planKey        String                    @default("professional")
+  planName       String                    @default("Professional")
+  interval       BillingInterval           @default(MONTHLY)
+  status         BillingSubscriptionStatus @default(ACTIVE)
+  seatPriceCents Int                       @default(4900)
+  currency       String                    @default("USD")
+  activeSeats    Int                       @default(1)
+  nextBillingAt  DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+
+  tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  invoices BillingInvoice[]
+}
+
+model BillingInvoice {
+  id             String               @id @default(cuid())
+  tenantId       String
+  subscriptionId String
+  invoiceNumber  String               @unique
+  status         BillingInvoiceStatus @default(PAID)
+  amountCents    Int
+  currency       String               @default("USD")
+  issuedAt       DateTime
+  periodStart    DateTime?
+  periodEnd      DateTime?
+  paidAt         DateTime?
+  hostedUrl      String?
+  createdAt      DateTime             @default(now())
+
+  tenant       Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription BillingSubscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, issuedAt])
+  @@index([subscriptionId, issuedAt])
 }
 
 model Notification {
