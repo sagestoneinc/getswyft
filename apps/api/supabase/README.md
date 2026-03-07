@@ -21,6 +21,7 @@ pnpm -C apps/api supabase:migrate
 ## Environment
 
 Set `SUPABASE_DB_URL` to a Postgres connection string with privileges to apply SQL migrations.
+If your runtime cannot route IPv6, keep `SUPABASE_DB_FORCE_IPV4=true` (default behavior) for the migration runner.
 
 ## Migration tracking
 

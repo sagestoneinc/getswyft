@@ -1,6 +1,6 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { setDefaultResultOrder } from "node:dns";
+import dns, { setDefaultResultOrder } from "node:dns";
 import { Client } from "pg";
 
 const MIGRATIONS_TABLE = "_supabase_migrations";
@@ -11,6 +11,40 @@ try {
   setDefaultResultOrder("ipv4first");
 } catch {
   // Ignore on older Node runtimes that do not support this API.
+}
+
+function ipv4OnlyLookup(hostname, options, callback) {
+  if (typeof options === "function") {
+    return dns.lookup(hostname, { family: 4, verbatim: false }, options);
+  }
+
+  if (typeof options === "number") {
+    return dns.lookup(hostname, { family: 4, verbatim: false }, callback);
+  }
+
+  const lookupOptions = options ?? {};
+  if (lookupOptions.all) {
+    return dns.lookup(
+      hostname,
+      {
+        ...lookupOptions,
+        all: true,
+        family: 4,
+        verbatim: false,
+      },
+      callback,
+    );
+  }
+
+  return dns.lookup(
+    hostname,
+    {
+      ...lookupOptions,
+      family: 4,
+      verbatim: false,
+    },
+    callback,
+  );
 }
 
 export function isSqlMigrationFile(filename) {
@@ -68,7 +102,13 @@ export async function migrateSupabase({
   }
 
   const migrations = await readMigrationFiles(migrationsDir);
-  const client = clientFactory ? clientFactory(connectionString) : new Client({ connectionString });
+  const forceIpv4 = process.env.SUPABASE_DB_FORCE_IPV4 !== "false";
+  const client = clientFactory
+    ? clientFactory(connectionString)
+    : new Client({
+        connectionString,
+        ...(forceIpv4 ? { lookup: ipv4OnlyLookup } : {}),
+      });
 
   await client.connect();
   try {
