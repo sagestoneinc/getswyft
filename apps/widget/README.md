@@ -46,3 +46,27 @@ pnpm -C apps/widget lint
 | `VITE_API_BASE_URL` | Backend API base URL |
 | `VITE_WS_BASE_URL` | WebSocket base URL |
 | `VITE_SOCKET_TOKEN` | Pre-shared token for socket authentication |
+
+## Marketing Site Embed
+
+The marketing site should load the built loader script (`/embed.js`) and pass tenant context as data attributes:
+
+```html
+<script
+  src="https://widget.getswyftup.com/embed.js"
+  async
+  data-swyft-widget-script="true"
+  data-workspace-id="tenant_123"
+  data-launcher="bubble"
+  data-environment="production"
+></script>
+```
+
+Required:
+
+- `data-workspace-id`: SwyftUp tenant/workspace ID used for widget routing/auth context
+
+Optional:
+
+- `data-launcher`: `bubble` (default), `open`, or `expanded`
+- `data-environment`: environment label passed through to widget runtime (for diagnostics)

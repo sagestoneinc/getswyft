@@ -106,6 +106,19 @@
 | `VITE_SWYFT_WIDGET_LAUNCHER` | — | Optional launcher mode/config key for widget behavior |
 | `VITE_SWYFT_WIDGET_ENV` | — | Optional environment hint (`staging`, `production`, etc.) for widget initialization |
 
+### Getting widget env vars for marketing site
+
+- `VITE_SWYFT_WIDGET_SCRIPT_URL`
+  Use the public URL where the widget app is hosted, ending with `/embed.js`.
+  Example: `https://widget.getswyftup.com/embed.js`
+- `VITE_SWYFT_WIDGET_WORKSPACE_ID`
+  Use the target tenant/workspace ID from SwyftUp backend data (`tenant.id`).
+  You can fetch it from `GET /v1/tenant/current` while authenticated as that workspace.
+- `VITE_SWYFT_WIDGET_LAUNCHER` (optional)
+  Suggested default: `bubble`. Other supported values: `open`, `expanded`.
+- `VITE_SWYFT_WIDGET_ENV` (optional)
+  Set a readable runtime label such as `production` or `staging`.
+
 ## Agent / Widget (`apps/agent`, `apps/widget`)
 
 | Variable | Default | Description |

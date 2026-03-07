@@ -42,6 +42,12 @@ function useSwyftWidgetEmbed() {
     document.body.appendChild(script);
 
     return () => {
+      const widgetApi = (
+        window as Window & {
+          SwyftUpWidget?: { destroy?: () => void };
+        }
+      ).SwyftUpWidget;
+      widgetApi?.destroy?.();
       script.remove();
     };
   }, [environment, launcher, scriptUrl, workspaceId]);

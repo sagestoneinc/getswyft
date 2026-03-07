@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { io } from "socket.io-client";
 import "./App.css";
 
@@ -8,12 +8,42 @@ const socketToken = import.meta.env.VITE_SOCKET_TOKEN as string | undefined;
 
 type WidgetMode = "booting" | "ready" | "error";
 
+function getRuntimeContext() {
+  const params = new URLSearchParams(window.location.search);
+
+  return {
+    tenantId: params.get("tenantId")?.trim() || params.get("workspaceId")?.trim() || "",
+    tenantSlug: params.get("tenantSlug")?.trim() || "",
+    environment: params.get("env")?.trim() || "production",
+    launcher: params.get("launcher")?.trim() || "bubble",
+    embedded: window.self !== window.top,
+  };
+}
+
 function App() {
+  const context = useMemo(() => getRuntimeContext(), []);
   const [mode, setMode] = useState<WidgetMode>("booting");
-  const [details, setDetails] = useState<string>("Initializing widget runtime...");
+  const [details, setDetails] = useState<string>("Connecting to SwyftUp services...");
 
   useEffect(() => {
     let mounted = true;
+    const tenantContext =
+      context.tenantId
+        ? { tenantId: context.tenantId }
+        : context.tenantSlug
+          ? { tenantSlug: context.tenantSlug }
+          : { tenantSlug: "default" };
+    let heartbeatTimer: number | null = null;
+    const socket = io(wsBaseUrl, {
+      transports: ["websocket"],
+      auth: socketToken
+        ? { token: socketToken, ...tenantContext }
+        : {
+            devUserId: "widget-local",
+            devEmail: "widget@getswyft.local",
+            ...tenantContext,
+          },
+    });
 
     async function boot() {
       try {
@@ -22,23 +52,12 @@ function App() {
           throw new Error(`API health failed (${response.status})`);
         }
 
-        const socket = io(wsBaseUrl, {
-          transports: ["websocket"],
-          auth: socketToken
-            ? { token: socketToken, tenantSlug: "default" }
-            : {
-                devUserId: "widget-local",
-                devEmail: "widget@getswyft.local",
-                tenantSlug: "default",
-              },
-        });
-
         socket.on("connect", () => {
           if (!mounted) {
             return;
           }
           setMode("ready");
-          setDetails(`Connected to realtime with socket ${socket.id}`);
+          setDetails("Connected. Your widget runtime is online.");
         });
 
         socket.on("connect_error", (error) => {
@@ -54,25 +73,64 @@ function App() {
         }
         setMode("error");
         setDetails(error instanceof Error ? error.message : "Widget bootstrap failed");
+        socket.disconnect();
       }
     }
 
     boot();
+    heartbeatTimer = window.setInterval(async () => {
+      try {
+        const response = await fetch(`${apiBaseUrl}/health`);
+        if (!response.ok && mounted) {
+          setMode("error");
+          setDetails("Health check failed. Verify API and socket connectivity.");
+        }
+      } catch (_error) {
+        if (mounted) {
+          setMode("error");
+          setDetails("Health check failed. Verify API and socket connectivity.");
+        }
+      }
+    }, 30000);
 
     return () => {
       mounted = false;
+      socket.disconnect();
+      if (heartbeatTimer) {
+        window.clearInterval(heartbeatTimer);
+      }
     };
-  }, []);
+  }, [context.tenantId, context.tenantSlug]);
 
   return (
-    <main className="widget-shell">
+    <main className={`widget-shell ${context.embedded ? "embedded" : "standalone"}`}>
       <section className="widget-card">
-        <h1>Getswyft Widget Runtime</h1>
-        <p className="muted">Embeddable runtime foundation with API and websocket bootstrapping.</p>
+        <p className="eyebrow">SwyftUp Widget</p>
+        <h1>Customer communication is ready</h1>
+        <p className="muted">Live chat and voice routing can run from this embedded runtime.</p>
 
         <div className="pill-row">
           <span className={`pill ${mode}`}>{mode}</span>
-          <code>{apiBaseUrl}</code>
+          <code>{context.environment}</code>
+        </div>
+
+        <div className="meta-grid">
+          <div className="meta-block">
+            <p className="meta-label">API</p>
+            <p className="meta-value">{apiBaseUrl}</p>
+          </div>
+          <div className="meta-block">
+            <p className="meta-label">Websocket</p>
+            <p className="meta-value">{wsBaseUrl}</p>
+          </div>
+          <div className="meta-block">
+            <p className="meta-label">Workspace</p>
+            <p className="meta-value">{context.tenantId || context.tenantSlug || "default"}</p>
+          </div>
+          <div className="meta-block">
+            <p className="meta-label">Launcher</p>
+            <p className="meta-value">{context.launcher}</p>
+          </div>
         </div>
 
         <p className="details">{details}</p>
