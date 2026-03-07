@@ -133,6 +133,11 @@ export function getMarketingSeo(pathname: string): SeoConfig {
 
 const appRouteMetadata = [
   {
+    match: (pathname: string) => pathname === "/app/features",
+    title: "Features | SwyftUp",
+    description: "Review every implemented SwyftUp domain with UI access and live API availability checks.",
+  },
+  {
     match: (pathname: string) => pathname === "/app" || pathname === "/app/inbox",
     title: "Inbox | SwyftUp",
     description: "Manage customer conversations, assignments, and team follow-up in the SwyftUp inbox.",

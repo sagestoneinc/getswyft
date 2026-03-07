@@ -1,6 +1,7 @@
 import type { RouteObject } from "react-router";
 import { AppLayout } from "../components/app/app-layout";
 import { LoginPage } from "../components/app/login-page";
+import { FeaturesPage } from "../components/app/features-page";
 import { InboxPage } from "../components/app/inbox-page";
 import { ConversationPage } from "../components/app/conversation-page";
 import { RoutingPage } from "../components/app/routing-page";
@@ -20,6 +21,7 @@ export const privateRoutes: RouteObject[] = [
     path: "/app",
     Component: AppLayout,
     children: [
+      { path: "features", Component: FeaturesPage },
       { index: true, Component: InboxPage },
       { path: "inbox", Component: InboxPage },
       { path: "conversation/:id", Component: ConversationPage },
