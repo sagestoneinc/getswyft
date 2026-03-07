@@ -22,7 +22,8 @@ COPY . .
 
 RUN pnpm -C apps/agent build \
   && pnpm -C apps/widget build \
-  && pnpm -C apps/website build
+  && pnpm -C apps/website build \
+  && pnpm -C apps/api prisma:generate
 
 EXPOSE 8080
 
