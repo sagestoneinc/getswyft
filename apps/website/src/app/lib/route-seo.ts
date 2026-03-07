@@ -173,6 +173,31 @@ const appRouteMetadata = [
     description: "Review plans, invoices, seats, and payment details for your SwyftUp workspace.",
   },
   {
+    match: (pathname: string) => pathname === "/app/notifications",
+    title: "Notifications | SwyftUp",
+    description: "Review in-app notifications, push readiness, and delivery status in your SwyftUp workspace.",
+  },
+  {
+    match: (pathname: string) => pathname === "/app/ai",
+    title: "AI Config | SwyftUp",
+    description: "Configure tenant AI providers, prompts, and runtime settings for SwyftUp assistants.",
+  },
+  {
+    match: (pathname: string) => pathname === "/app/moderation",
+    title: "Moderation | SwyftUp",
+    description: "Track and resolve moderation reports across messages and tenant interactions.",
+  },
+  {
+    match: (pathname: string) => pathname === "/app/audit",
+    title: "Audit Logs | SwyftUp",
+    description: "Inspect tenant audit logs for secure operations, access control, and compliance reviews.",
+  },
+  {
+    match: (pathname: string) => pathname === "/app/collaboration",
+    title: "Collaboration | SwyftUp",
+    description: "Manage channels, call sessions, feed posts, and compliance exports in one workspace.",
+  },
+  {
     match: (pathname: string) => pathname === "/app/profile",
     title: "Profile | SwyftUp",
     description: "Update your account profile, security preferences, and support settings in SwyftUp.",

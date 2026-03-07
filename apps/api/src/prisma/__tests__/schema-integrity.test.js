@@ -25,6 +25,11 @@ describe("Prisma schema integrity", () => {
     expectRegex(schema, /model\s+BillingSubscription\s+\{[\s\S]*?tenantId\s+String\s+@unique[\s\S]*?\n\}/m, "BillingSubscription should enforce one subscription per tenant");
     expectRegex(schema, /model\s+BillingInvoice\s+\{[\s\S]*?invoiceNumber\s+String\s+@unique[\s\S]*?\n\}/m, "BillingInvoice.invoiceNumber should be unique");
     expectRegex(schema, /model\s+NotificationDevice\s+\{[\s\S]*?token\s+String\s+@unique[\s\S]*?\n\}/m, "NotificationDevice.token should be unique");
+    expectRegex(schema, /model\s+Channel\s+\{[\s\S]*?@@unique\(\[tenantId,\s*slug\]\)[\s\S]*?\n\}/m, "Channel should enforce unique tenant/slug");
+    expectRegex(schema, /model\s+ChannelMember\s+\{[\s\S]*?@@unique\(\[channelId,\s*userId\]\)[\s\S]*?\n\}/m, "ChannelMember should enforce unique channel/user membership");
+    expectRegex(schema, /model\s+ChannelMessageReaction\s+\{[\s\S]*?@@unique\(\[messageId,\s*userId,\s*emoji\]\)[\s\S]*?\n\}/m, "ChannelMessageReaction should enforce unique message/user/emoji reactions");
+    expectRegex(schema, /model\s+CallParticipant\s+\{[\s\S]*?@@unique\(\[callSessionId,\s*userId\]\)[\s\S]*?\n\}/m, "CallParticipant should enforce unique session/user participants");
+    expectRegex(schema, /model\s+PostReaction\s+\{[\s\S]*?@@unique\(\[postId,\s*userId,\s*emoji\]\)[\s\S]*?\n\}/m, "PostReaction should enforce unique post/user/emoji reactions");
   });
 
   it("keeps cascade and set-null onDelete behaviors for key relations", () => {
@@ -46,6 +51,19 @@ describe("Prisma schema integrity", () => {
 
     const invitations = getModelBlock("TenantInvitation");
     expectRegex(invitations, /acceptedUser\s+User\?\s+@relation\([^)]+onDelete:\s*SetNull[^)]*\)/, "TenantInvitation.acceptedUser should use SetNull");
+
+    const channel = getModelBlock("Channel");
+    expectRegex(channel, /tenant\s+Tenant\s+@relation\([^)]+onDelete:\s*Cascade[^)]*\)/, "Channel.tenant should use Cascade");
+    expectRegex(channel, /createdByUser\s+User\?\s+@relation\([^)]+onDelete:\s*SetNull[^)]*\)/, "Channel.createdByUser should use SetNull");
+
+    const callSession = getModelBlock("CallSession");
+    expectRegex(callSession, /tenant\s+Tenant\s+@relation\([^)]+onDelete:\s*Cascade[^)]*\)/, "CallSession.tenant should use Cascade");
+    expectRegex(callSession, /conversation\s+Conversation\?\s+@relation\([^)]+onDelete:\s*SetNull[^)]*\)/, "CallSession.conversation should use SetNull");
+    expectRegex(callSession, /channel\s+Channel\?\s+@relation\([^)]+onDelete:\s*SetNull[^)]*\)/, "CallSession.channel should use SetNull");
+
+    const postComment = getModelBlock("PostComment");
+    expectRegex(postComment, /post\s+Post\s+@relation\([^)]+onDelete:\s*Cascade[^)]*\)/, "PostComment.post should use Cascade");
+    expectRegex(postComment, /parentComment\s+PostComment\?\s+@relation\([^)]+onDelete:\s*SetNull[^)]*\)/, "PostComment.parentComment should use SetNull");
   });
 
   it("keeps tenant-scoped relations and tenant indexes across tenant-bound models", () => {
@@ -63,7 +81,12 @@ describe("Prisma schema integrity", () => {
       "AuditLog",
       "AnalyticsEvent",
       "AIConfig",
+      "AIInteraction",
       "ModerationReport",
+      "Channel",
+      "CallSession",
+      "Post",
+      "ComplianceExport",
     ];
 
     for (const modelName of tenantBoundModels) {
@@ -115,5 +138,27 @@ describe("Prisma schema integrity", () => {
     expectRegex(invoice, /tenant\s+Tenant\s+@relation\([^)]+onDelete:\s*Cascade[^)]*\)/, "BillingInvoice.tenant relation should use Cascade");
     expectRegex(invoice, /@@index\(\[tenantId,\s*issuedAt\]\)/, "BillingInvoice should keep tenant/issuedAt index");
     expectRegex(invoice, /@@index\(\[subscriptionId,\s*issuedAt\]\)/, "BillingInvoice should keep subscription/issuedAt index");
+  });
+
+  it("keeps collaboration and compliance linkage intact", () => {
+    const channelMember = getModelBlock("ChannelMember");
+    const callTelemetry = getModelBlock("CallTelemetry");
+    const post = getModelBlock("Post");
+    const complianceExport = getModelBlock("ComplianceExport");
+    const aiInteraction = getModelBlock("AIInteraction");
+
+    expectRegex(channelMember, /channel\s+Channel\s+@relation\([^)]+onDelete:\s*Cascade[^)]*\)/, "ChannelMember.channel relation should use Cascade");
+    expectRegex(channelMember, /user\s+User\s+@relation\([^)]+onDelete:\s*Cascade[^)]*\)/, "ChannelMember.user relation should use Cascade");
+
+    expectRegex(callTelemetry, /callSession\s+CallSession\s+@relation\([^)]+onDelete:\s*Cascade[^)]*\)/, "CallTelemetry.callSession should use Cascade");
+    expectRegex(callTelemetry, /@@index\(\[callSessionId,\s*occurredAt\]\)/, "CallTelemetry should keep callSession/occurredAt index");
+
+    expectRegex(post, /@@index\(\[tenantId,\s*visibility,\s*createdAt\]\)/, "Post should keep tenant/visibility/createdAt index");
+
+    expectRegex(complianceExport, /status\s+ComplianceExportStatus\s+@default\(PENDING\)/, "ComplianceExport should default to PENDING status");
+    expectRegex(complianceExport, /requestedByUser\s+User\?\s+@relation\([^)]+onDelete:\s*SetNull[^)]*\)/, "ComplianceExport.requestedByUser should use SetNull");
+
+    expectRegex(aiInteraction, /channel\s+Channel\?\s+@relation\([^)]+onDelete:\s*SetNull[^)]*\)/, "AIInteraction.channel should use SetNull");
+    expectRegex(aiInteraction, /@@index\(\[tenantId,\s*type,\s*createdAt\]\)/, "AIInteraction should keep tenant/type/createdAt index");
   });
 });

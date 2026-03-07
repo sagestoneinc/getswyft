@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, Navigate } from "react-router";
 import { useEffect, useState } from "react";
 import {
   Inbox, Settings, Webhook, BarChart3, Users,
-  CreditCard, User, Menu, X, LogOut, Loader2, AlertTriangle, BellRing, LayoutGrid
+  CreditCard, User, Menu, X, LogOut, Loader2, AlertTriangle, BellRing, LayoutGrid, Bot, ShieldAlert, FileClock, MessagesSquare
 } from "lucide-react";
 import { registerPushNotifications, requestPushNotificationsAccess, type PushRegistrationStatus } from "../../lib/push";
 import { useAuth } from "../../providers/auth-provider";
@@ -19,6 +19,11 @@ const sidebarItems = [
   { to: "/app/analytics", icon: BarChart3, label: "Analytics", requiredPermission: "analytics.read" },
   { to: "/app/team", icon: Users, label: "Team", requiredPermission: "user.manage" },
   { to: "/app/billing", icon: CreditCard, label: "Billing", requiredPermission: "tenant.manage" },
+  { to: "/app/notifications", icon: BellRing, label: "Notifications" },
+  { to: "/app/ai", icon: Bot, label: "AI Config", requiredPermission: "tenant.manage" },
+  { to: "/app/moderation", icon: ShieldAlert, label: "Moderation", requiredPermission: "moderation.manage" },
+  { to: "/app/audit", icon: FileClock, label: "Audit", requiredPermission: "analytics.read" },
+  { to: "/app/collaboration", icon: MessagesSquare, label: "Collaboration", requiredPermission: "conversation.read" },
   { to: "/app/profile", icon: User, label: "Profile" },
 ];
 

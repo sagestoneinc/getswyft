@@ -10,6 +10,11 @@ import { AnalyticsPage } from "../components/app/analytics-page";
 import { TeamPage } from "../components/app/team-page";
 import { BillingPage } from "../components/app/billing-page";
 import { ProfilePage } from "../components/app/profile-page";
+import { NotificationsPage } from "../components/app/notifications-page";
+import { AiPage } from "../components/app/ai-page";
+import { ModerationPage } from "../components/app/moderation-page";
+import { AuditPage } from "../components/app/audit-page";
+import { CollaborationPage } from "../components/app/collaboration-page";
 import { WidgetDemo } from "../components/widget/widget-demo";
 
 export const privateRoutes: RouteObject[] = [
@@ -30,6 +35,11 @@ export const privateRoutes: RouteObject[] = [
       { path: "analytics", Component: AnalyticsPage },
       { path: "team", Component: TeamPage },
       { path: "billing", Component: BillingPage },
+      { path: "notifications", Component: NotificationsPage },
+      { path: "ai", Component: AiPage },
+      { path: "moderation", Component: ModerationPage },
+      { path: "audit", Component: AuditPage },
+      { path: "collaboration", Component: CollaborationPage },
       { path: "profile", Component: ProfilePage },
     ],
   },

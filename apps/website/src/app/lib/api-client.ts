@@ -52,6 +52,16 @@ class ApiClient {
     });
   }
 
+  put<T>(path: string, payload: unknown) {
+    return this.request<T>(path, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  }
+
   patch<T>(path: string, payload: unknown) {
     return this.request<T>(path, {
       method: "PATCH",
