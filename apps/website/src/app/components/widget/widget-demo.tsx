@@ -4,6 +4,8 @@ import {
   MessageCircle, X, Send, Paperclip, PhoneOff, PhoneCall,
   Mic, MicOff, Zap, Clock, AlertTriangle, Loader2
 } from "lucide-react";
+import { BrandLogo } from "../brand/logo";
+import { usePageSeo } from "../../lib/seo";
 
 type WidgetState = "closed" | "prechat" | "chat" | "afterhours" | "call" | "error";
 type Theme = "light" | "dark";
@@ -29,6 +31,13 @@ export function WidgetDemo() {
   const border = isDark ? "border-gray-700" : "border-gray-200";
   const inputBg = isDark ? "bg-gray-800" : "bg-gray-50";
   const msgBg = isDark ? "bg-gray-800" : "bg-gray-100";
+
+  usePageSeo({
+    title: "Widget Demo | SwyftUp",
+    description: "Interactive demo of the SwyftUp chat and voice widget for real estate websites.",
+    path: "/widget-demo",
+    noIndex: true,
+  });
 
   const handleSend = () => {
     if (!input.trim()) return;
@@ -268,11 +277,11 @@ export function WidgetDemo() {
       <div className={`border-b ${isDark ? "border-gray-800 bg-gray-900" : "border-gray-200 bg-white"} px-4 py-3`}>
         <div className="max-w-6xl mx-auto flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-[#14b8a6] rounded-lg flex items-center justify-center">
-                <Zap className="w-4 h-4 text-white" />
-              </div>
-              <span className="text-sm" style={{ fontWeight: 700 }}>SwyftUp Widget Demo</span>
+            <Link to="/" className="flex items-center gap-3" aria-label="SwyftUp home">
+              <BrandLogo size="sm" />
+              <span className="text-xs uppercase tracking-[0.18em] text-[#14b8a6]" style={{ fontWeight: 700 }}>
+                Widget Demo
+              </span>
             </Link>
           </div>
 

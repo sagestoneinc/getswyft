@@ -1,0 +1,57 @@
+<svg width="1200" height="630" viewBox="0 0 1200 630" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="120" y1="630" x2="1080" y2="0" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0F2744" />
+      <stop offset="0.5" stop-color="#1E3A5F" />
+      <stop offset="1" stop-color="#123455" />
+    </linearGradient>
+    <linearGradient id="brand" x1="160" y1="470" x2="500" y2="130" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#4F46E5" />
+      <stop offset="1" stop-color="#06B6D4" />
+    </linearGradient>
+    <linearGradient id="word" x1="530" y1="226" x2="888" y2="226" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#A5B4FC" />
+      <stop offset="1" stop-color="#67E8F9" />
+    </linearGradient>
+    <radialGradient id="glowA" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1092 40) rotate(127.11) scale(495.709 622.043)">
+      <stop stop-color="#22D3EE" stop-opacity="0.2" />
+      <stop offset="1" stop-color="#22D3EE" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="glowB" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(115 573) rotate(-14.893) scale(372.452 266.162)">
+      <stop stop-color="#6366F1" stop-opacity="0.28" />
+      <stop offset="1" stop-color="#6366F1" stop-opacity="0" />
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" rx="36" fill="url(#bg)" />
+  <rect width="1200" height="630" rx="36" fill="url(#glowA)" />
+  <rect width="1200" height="630" rx="36" fill="url(#glowB)" />
+  <path d="M0 104H1200" stroke="white" stroke-opacity="0.05" />
+  <path d="M0 526H1200" stroke="white" stroke-opacity="0.05" />
+  <path d="M340 0V630" stroke="white" stroke-opacity="0.04" />
+  <path d="M920 0V630" stroke="white" stroke-opacity="0.04" />
+
+  <g>
+    <rect x="112" y="157" width="300" height="300" rx="72" fill="url(#brand)" />
+    <path
+      d="M168 262.75C168 217.057 205.057 180 250.75 180H280.25C325.943 180 363 217.057 363 262.75V270.25C363 315.943 325.943 353 280.25 353H227.625L188.125 376.25V336.419C175.289 325.757 168 309.677 168 292V262.75Z"
+      fill="rgba(255,255,255,0.18)"
+    />
+    <path d="M267 228L312 281H284V327H250V281H222L267 228Z" fill="white" />
+  </g>
+
+  <text x="483" y="232" fill="white" font-family="Inter, Arial, sans-serif" font-size="80" font-weight="800" letter-spacing="-3.6">Swyft</text>
+  <text x="711" y="232" fill="url(#word)" font-family="Inter, Arial, sans-serif" font-size="80" font-weight="800" letter-spacing="-3.6">Up</text>
+  <text x="483" y="306" fill="white" font-family="Inter, Arial, sans-serif" font-size="26" font-weight="600" opacity="0.9">Embedded Chat + Voice for Real Estate</text>
+  <text x="483" y="360" fill="white" font-family="Inter, Arial, sans-serif" font-size="22" font-weight="400" opacity="0.68">
+    Capture every lead, route conversations instantly, and close deals faster.
+  </text>
+
+  <g opacity="0.94">
+    <rect x="483" y="416" width="212" height="54" rx="16" fill="white" fill-opacity="0.08" stroke="white" stroke-opacity="0.1" />
+    <text x="519" y="450" fill="#67E8F9" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">24/7 Lead Capture</text>
+    <rect x="719" y="416" width="198" height="54" rx="16" fill="white" fill-opacity="0.08" stroke="white" stroke-opacity="0.1" />
+    <text x="754" y="450" fill="#A5B4FC" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">Smart Routing</text>
+    <rect x="941" y="416" width="152" height="54" rx="16" fill="white" fill-opacity="0.08" stroke="white" stroke-opacity="0.1" />
+    <text x="979" y="450" fill="#7DD3FC" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="700">Analytics</text>
+  </g>
+</svg>

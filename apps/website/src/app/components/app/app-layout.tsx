@@ -2,10 +2,13 @@ import { Outlet, Link, useLocation, Navigate } from "react-router";
 import { useState } from "react";
 import {
   Inbox, Settings, Webhook, BarChart3, Users,
-  CreditCard, User, Zap, Menu, X, LogOut, Loader2, AlertTriangle
+  CreditCard, User, Menu, X, LogOut, Loader2, AlertTriangle
 } from "lucide-react";
 import { useAuth } from "../../providers/auth-provider";
 import { useTenant } from "../../providers/tenant-provider";
+import { BrandLogo } from "../brand/logo";
+import { usePageSeo } from "../../lib/seo";
+import { getAppSeo } from "../../lib/route-seo";
 
 const sidebarItems = [
   { to: "/app/inbox", icon: Inbox, label: "Inbox" },
@@ -35,6 +38,12 @@ export function AppLayout() {
   const location = useLocation();
   const { isLoading: authLoading, isAuthenticated, user, logout } = useAuth();
   const { tenant, isLoading: tenantLoading, error: tenantError, refresh } = useTenant();
+  const seo = getAppSeo(location.pathname);
+
+  usePageSeo({
+    ...seo,
+    path: location.pathname,
+  });
 
   if (authLoading || (isAuthenticated && tenantLoading)) {
     return (
@@ -77,12 +86,9 @@ export function AppLayout() {
 
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-4 flex items-center justify-between border-b border-sidebar-border">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
+          <Link to="/app" aria-label="SwyftUp workspace">
             <div>
-              <p className="text-lg text-white leading-5" style={{ fontWeight: 700 }}>SwyftUp</p>
+              <BrandLogo size="sm" theme="dark" />
               <p className="text-[10px] text-sidebar-foreground/70 leading-3">{tenant.name}</p>
             </div>
           </Link>
@@ -138,6 +144,9 @@ export function AppLayout() {
           <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
           </button>
+          <Link to="/app" className="lg:hidden" aria-label="SwyftUp workspace">
+            <BrandLogo size="sm" />
+          </Link>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-1.5 text-sm">

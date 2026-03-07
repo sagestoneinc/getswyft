@@ -1,6 +1,9 @@
 import { Outlet, Link, useLocation } from "react-router";
 import { useState } from "react";
-import { Menu, X, MessageCircle, Phone, Zap } from "lucide-react";
+import { Menu, X, MessageCircle, Phone } from "lucide-react";
+import { BrandLogo } from "../brand/logo";
+import { usePageSeo } from "../../lib/seo";
+import { getMarketingSeo } from "../../lib/route-seo";
 
 const navLinks = [
   { to: "/product", label: "Product" },
@@ -12,17 +15,20 @@ const navLinks = [
 export function MarketingLayout() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const seo = getMarketingSeo(location.pathname);
+
+  usePageSeo({
+    ...seo,
+    path: location.pathname,
+  });
 
   return (
     <div className="min-h-screen flex flex-col font-[Inter,sans-serif]">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-white/95 backdrop-blur border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-          <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl text-primary" style={{ fontWeight: 700 }}>SwyftUp</span>
+          <Link to="/" aria-label="SwyftUp home">
+            <BrandLogo size="sm" />
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -104,10 +110,7 @@ export function MarketingLayout() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div className="col-span-2 md:col-span-1">
               <div className="flex items-center gap-2 mb-4">
-                <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-                  <Zap className="w-5 h-5 text-white" />
-                </div>
-                <span className="text-xl" style={{ fontWeight: 700 }}>SwyftUp</span>
+                <BrandLogo size="sm" theme="dark" />
               </div>
               <p className="text-sm text-primary-foreground/70 mb-4">
                 Embedded Chat + Voice for Real Estate. Convert leads faster.

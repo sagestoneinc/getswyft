@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { Link, Navigate } from "react-router";
-import { Zap, Eye, EyeOff, Loader2 } from "lucide-react";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useAuth } from "../../providers/auth-provider";
+import { BrandLogo } from "../brand/logo";
+import { usePageSeo } from "../../lib/seo";
 
 export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -9,6 +11,13 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const { login, isAuthenticated, isLoading } = useAuth();
+
+  usePageSeo({
+    title: showForgot ? "Forgot Password | SwyftUp" : "Login | SwyftUp",
+    description: "Secure sign-in for the SwyftUp workspace used by real estate agents and teams.",
+    path: "/login",
+    noIndex: true,
+  });
 
   if (isAuthenticated) {
     return <Navigate to="/app" replace />;
@@ -30,11 +39,8 @@ export function LoginPage() {
     return (
       <div className="min-h-screen bg-muted flex items-center justify-center p-4 font-[Inter,sans-serif]">
         <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-          <Link to="/" className="flex items-center gap-2 justify-center mb-8">
-            <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-              <Zap className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-xl text-primary" style={{ fontWeight: 700 }}>SwyftUp</span>
+          <Link to="/" className="flex justify-center mb-8" aria-label="SwyftUp home">
+            <BrandLogo size="md" />
           </Link>
           <h1 className="text-2xl text-primary text-center mb-2" style={{ fontWeight: 700 }}>Forgot Password</h1>
           <p className="text-sm text-muted-foreground text-center mb-8">Password resets are handled by your identity provider.</p>
@@ -53,11 +59,8 @@ export function LoginPage() {
   return (
     <div className="min-h-screen bg-muted flex items-center justify-center p-4 font-[Inter,sans-serif]">
       <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-        <Link to="/" className="flex items-center gap-2 justify-center mb-8">
-          <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
-            <Zap className="w-5 h-5 text-white" />
-          </div>
-          <span className="text-xl text-primary" style={{ fontWeight: 700 }}>SwyftUp</span>
+        <Link to="/" className="flex justify-center mb-8" aria-label="SwyftUp home">
+          <BrandLogo size="md" />
         </Link>
 
         <h1 className="text-2xl text-primary text-center mb-2" style={{ fontWeight: 700 }}>Welcome Back</h1>
