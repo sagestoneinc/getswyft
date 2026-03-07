@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   CheckCircle,
+  Copy,
   ExternalLink,
   HelpCircle,
   Loader2,
@@ -12,6 +13,7 @@ import {
 import { getProfile, type UserProfile, updateProfile } from "../../lib/profile";
 import { getSupabaseClient, isSupabaseConfigured } from "../../lib/supabase";
 import { useAuth } from "../../providers/auth-provider";
+import { useTenant } from "../../providers/tenant-provider";
 
 const fallbackTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "Asia/Manila";
 const timezoneOptions = Array.from(
@@ -63,6 +65,7 @@ function buildInitials(firstName: string, lastName: string, email: string) {
 
 export function ProfilePage() {
   const { provider, requestPasswordReset, supportsPasswordAuth, user } = useAuth();
+  const { tenant } = useTenant();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -74,6 +77,7 @@ export function ProfilePage() {
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [passwordNotice, setPasswordNotice] = useState<string | null>(null);
+  const [workspaceCopyStatus, setWorkspaceCopyStatus] = useState<"idle" | "copied" | "failed">("idle");
 
   useEffect(() => {
     let mounted = true;
@@ -193,6 +197,27 @@ export function ProfilePage() {
     }
   }
 
+  async function handleCopyWorkspaceId() {
+    if (!tenant?.id) {
+      return;
+    }
+
+    if (typeof navigator === "undefined" || !navigator.clipboard?.writeText) {
+      setWorkspaceCopyStatus("failed");
+      window.setTimeout(() => setWorkspaceCopyStatus("idle"), 3000);
+      return;
+    }
+
+    try {
+      await navigator.clipboard.writeText(tenant.id);
+      setWorkspaceCopyStatus("copied");
+      window.setTimeout(() => setWorkspaceCopyStatus("idle"), 2500);
+    } catch (_error) {
+      setWorkspaceCopyStatus("failed");
+      window.setTimeout(() => setWorkspaceCopyStatus("idle"), 3000);
+    }
+  }
+
   if (isLoading) {
     return (
       <div className="p-4 md:p-6 max-w-3xl mx-auto">
@@ -246,6 +271,56 @@ export function ProfilePage() {
           <CheckCircle className="w-4 h-4" /> {passwordNotice}
         </div>
       )}
+
+      {tenant ? (
+        <div className="bg-white rounded-xl border border-border p-6 mb-6">
+          <h2 className="text-lg text-primary mb-2 flex items-center gap-2" style={{ fontWeight: 600 }}>
+            <Shield className="w-5 h-5 text-accent" /> Workspace
+          </h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Use this Workspace ID for widget setup (`VITE_SWYFT_WIDGET_WORKSPACE_ID`).
+          </p>
+
+          <div className="grid sm:grid-cols-[1fr_auto] gap-3 items-end">
+            <div>
+              <label className="block text-sm text-primary mb-1.5" style={{ fontWeight: 500 }}>Workspace ID</label>
+              <input
+                type="text"
+                readOnly
+                value={tenant.id}
+                className="w-full px-4 py-2.5 rounded-lg border border-border bg-muted/60 text-sm text-primary"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => void handleCopyWorkspaceId()}
+              className="h-[42px] px-4 rounded-lg border border-border text-sm text-primary hover:bg-muted flex items-center justify-center gap-2"
+              style={{ fontWeight: 600 }}
+            >
+              <Copy className="w-4 h-4" />
+              Copy ID
+            </button>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-4 mt-4">
+            <div>
+              <p className="text-xs text-muted-foreground">Workspace slug</p>
+              <p className="text-sm text-primary mt-1" style={{ fontWeight: 500 }}>{tenant.slug}</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Workspace name</p>
+              <p className="text-sm text-primary mt-1" style={{ fontWeight: 500 }}>{tenant.name}</p>
+            </div>
+          </div>
+
+          {workspaceCopyStatus === "copied" ? (
+            <p className="text-xs text-accent mt-3">Workspace ID copied to clipboard.</p>
+          ) : null}
+          {workspaceCopyStatus === "failed" ? (
+            <p className="text-xs text-warning mt-3">Copy failed. Please copy the Workspace ID manually.</p>
+          ) : null}
+        </div>
+      ) : null}
 
       <div className="bg-white rounded-xl border border-border p-6 mb-6">
         <h2 className="text-lg text-primary mb-6 flex items-center gap-2" style={{ fontWeight: 600 }}>
