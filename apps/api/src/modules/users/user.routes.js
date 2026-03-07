@@ -534,3 +534,134 @@ userRouter.patch("/team/members/:userId/role", requireAuth, requireTenant, requi
     return next(error);
   }
 });
+
+userRouter.delete("/team/members/:userId", requireAuth, requireTenant, requirePermission("user.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const { adminRole, agentRole } = await resolveManagedRoles(prisma);
+
+    if (!adminRole || !agentRole) {
+      return res.status(500).json({
+        ok: false,
+        error: "Required tenant roles are not configured",
+      });
+    }
+
+    const managedRoleIds = [adminRole.id, agentRole.id];
+
+    const existingMember = await prisma.user.findFirst({
+      where: {
+        id: req.params.userId,
+        userRoles: {
+          some: {
+            tenantId: req.tenant.id,
+            roleId: {
+              in: managedRoleIds,
+            },
+          },
+        },
+      },
+      include: {
+        userRoles: {
+          where: {
+            tenantId: req.tenant.id,
+            roleId: {
+              in: managedRoleIds,
+            },
+          },
+          include: {
+            role: true,
+          },
+        },
+      },
+    });
+
+    if (!existingMember) {
+      return res.status(404).json({
+        ok: false,
+        error: "Team member not found",
+      });
+    }
+
+    const adminAssignments = await prisma.userRole.count({
+      where: {
+        tenantId: req.tenant.id,
+        roleId: adminRole.id,
+      },
+    });
+    const isAdminMember = existingMember.userRoles.some((userRole) => userRole.role.key === "tenant_admin");
+
+    if (isAdminMember && adminAssignments <= 1) {
+      return res.status(400).json({
+        ok: false,
+        error: "At least one tenant admin must remain in the tenant",
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.userRole.deleteMany({
+        where: {
+          tenantId: req.tenant.id,
+          userId: existingMember.id,
+          roleId: {
+            in: managedRoleIds,
+          },
+        },
+      });
+
+      const nextFallback = await tx.userRole.findFirst({
+        where: {
+          tenantId: req.tenant.id,
+          roleId: {
+            in: managedRoleIds,
+          },
+          userId: {
+            not: existingMember.id,
+          },
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+        select: {
+          userId: true,
+        },
+      });
+
+      await tx.tenantRoutingSettings.updateMany({
+        where: {
+          tenantId: req.tenant.id,
+          fallbackUserId: existingMember.id,
+        },
+        data: {
+          fallbackUserId: nextFallback?.userId || null,
+        },
+      });
+    });
+
+    await Promise.all([
+      writeAuditLog(req, {
+        action: "team.member_revoked",
+        entityType: "user",
+        entityId: existingMember.id,
+        metadata: {
+          email: existingMember.email,
+          revokedByUserId: req.auth.user.id,
+        },
+      }),
+      recordAnalyticsEvent(req, {
+        eventName: "team.member_revoked",
+        eventCategory: "team",
+        metadata: {
+          targetUserId: existingMember.id,
+        },
+      }),
+    ]);
+
+    return res.json({
+      ok: true,
+      removedUserId: existingMember.id,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});

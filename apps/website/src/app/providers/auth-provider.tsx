@@ -46,7 +46,9 @@ const authProvider: "keycloak" | "supabase" =
 const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL as string | undefined;
 const keycloakRealm = import.meta.env.VITE_KEYCLOAK_REALM as string | undefined;
 const keycloakClientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID as string | undefined;
-const devBypass = (import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined)?.toLowerCase() === "true";
+const devBypass =
+  import.meta.env.PROD !== true &&
+  (import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined)?.toLowerCase() === "true";
 const passwordResetRedirectPath =
   (import.meta.env.VITE_AUTH_PASSWORD_RESET_REDIRECT_PATH as string | undefined) || "/login?mode=reset";
 

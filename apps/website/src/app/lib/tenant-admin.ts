@@ -45,6 +45,11 @@ export type WebhookDelivery = {
   attemptedAt: string;
 };
 
+export type WebhookDeliveryDetails = {
+  delivery: WebhookDelivery;
+  payload: unknown;
+};
+
 export type BillingSubscription = {
   provider: string;
   planKey: string;
@@ -71,6 +76,35 @@ export type BillingInvoice = {
   hostedUrl: string | null;
 };
 
+export type CreatedTenant = {
+  id: string;
+  slug: string;
+  name: string;
+  status: string;
+  branding: {
+    primaryColor: string | null;
+    logoUrl: string | null;
+    supportEmail: string | null;
+  } | null;
+  featureFlags: Array<{
+    key: string;
+    enabled: boolean;
+    config: unknown;
+  }>;
+};
+
+export async function createTenant(payload: {
+  name: string;
+  slug?: string;
+  supportEmail?: string;
+  primaryColor?: string;
+}) {
+  return apiClient.post<{
+    ok: boolean;
+    tenant: CreatedTenant;
+  }>("/v1/tenants", payload);
+}
+
 export async function getTenantSettings() {
   return apiClient.get<{
     ok: boolean;
@@ -94,6 +128,22 @@ export async function getWebhookWorkspace() {
     endpoints: WebhookEndpoint[];
     deliveries: WebhookDelivery[];
   }>("/v1/tenants/current/webhooks");
+}
+
+export async function getWebhookDelivery(deliveryId: string) {
+  return apiClient.get<{
+    ok: boolean;
+    delivery: WebhookDelivery;
+    payload: unknown;
+  }>(`/v1/tenants/current/webhooks/deliveries/${deliveryId}`);
+}
+
+export async function retryWebhookDelivery(deliveryId: string) {
+  return apiClient.post<{
+    ok: boolean;
+    dispatched: number;
+    delivery: WebhookDelivery | null;
+  }>(`/v1/tenants/current/webhooks/deliveries/${deliveryId}/retry`, {});
 }
 
 export async function createWebhookEndpoint(payload: {

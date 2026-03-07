@@ -17,6 +17,16 @@ export const tenantRouter = Router();
 const MANAGED_ROLE_KEYS = ["tenant_admin", "agent"];
 const ROUTING_MODE_VALUES = ["manual", "first_available", "round_robin"];
 const TIME_PATTERN = /^\d{2}:\d{2}$/;
+const TENANT_SLUG_MAX_LENGTH = 48;
+const DEFAULT_FEATURE_FLAGS = [
+  {
+    key: "phase1_foundations",
+    enabled: true,
+    config: {
+      notes: "Automatically enabled for newly created tenants",
+    },
+  },
+];
 
 function toPrimaryRole(roleKeys) {
   return roleKeys.includes("tenant_admin") ? "admin" : "agent";
@@ -195,6 +205,214 @@ function assertValidWebhookUrl(url) {
     return false;
   }
 }
+
+function normalizeTenantSlug(value) {
+  const slug = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+
+  if (!slug) {
+    return "";
+  }
+
+  return slug.slice(0, TENANT_SLUG_MAX_LENGTH).replace(/-+$/g, "");
+}
+
+function candidateTenantSlug({ requestedSlug, tenantName }) {
+  return normalizeTenantSlug(requestedSlug || tenantName);
+}
+
+async function allocateTenantSlug(prisma, baseSlug) {
+  const normalizedBase = normalizeTenantSlug(baseSlug);
+  if (!normalizedBase) {
+    return "";
+  }
+
+  let slug = normalizedBase;
+  let attempt = 1;
+
+  while (true) {
+    const existing = await prisma.tenant.findUnique({
+      where: {
+        slug,
+      },
+      select: {
+        id: true,
+      },
+    });
+
+    if (!existing) {
+      return slug;
+    }
+
+    const suffix = String(attempt).padStart(2, "0");
+    const maxPrefixLength = Math.max(1, TENANT_SLUG_MAX_LENGTH - (suffix.length + 1));
+    slug = `${normalizedBase.slice(0, maxPrefixLength)}-${suffix}`;
+    attempt += 1;
+
+    if (attempt > 9999) {
+      throw new Error("Unable to allocate a unique tenant slug");
+    }
+  }
+}
+
+tenantRouter.post("/", requireAuth, async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const tenantName = String(req.body?.name || "").trim();
+    const requestedSlug = String(req.body?.slug || "").trim();
+    const requestedSupportEmail = String(req.body?.supportEmail || "").trim().toLowerCase();
+    const requestedPrimaryColor = String(req.body?.primaryColor || "").trim();
+
+    if (!tenantName) {
+      return res.status(400).json({
+        ok: false,
+        error: "Tenant name is required",
+      });
+    }
+
+    const slugCandidate = candidateTenantSlug({
+      requestedSlug,
+      tenantName,
+    });
+    if (!slugCandidate) {
+      return res.status(400).json({
+        ok: false,
+        error: "A valid tenant slug could not be generated from the provided name",
+      });
+    }
+
+    const tenantSlug = await allocateTenantSlug(prisma, slugCandidate);
+    const adminRole = await prisma.role.findUnique({
+      where: {
+        key: "tenant_admin",
+      },
+    });
+
+    if (!adminRole) {
+      return res.status(500).json({
+        ok: false,
+        error: "System role tenant_admin is not configured",
+      });
+    }
+
+    if (requestedPrimaryColor && !/^#?[0-9a-fA-F]{6}$/.test(requestedPrimaryColor)) {
+      return res.status(400).json({
+        ok: false,
+        error: "primaryColor must be a valid 6-digit hex value",
+      });
+    }
+
+    const supportEmail = requestedSupportEmail || req.auth.user.email;
+    const primaryColor = requestedPrimaryColor
+      ? requestedPrimaryColor.startsWith("#")
+        ? requestedPrimaryColor
+        : `#${requestedPrimaryColor}`
+      : "#14b8a6";
+
+    const created = await prisma.$transaction(async (tx) => {
+      const tenant = await tx.tenant.create({
+        data: {
+          slug: tenantSlug,
+          name: tenantName,
+          status: "ACTIVE",
+        },
+      });
+
+      await tx.tenantBranding.create({
+        data: {
+          tenantId: tenant.id,
+          primaryColor,
+          supportEmail,
+        },
+      });
+
+      await tx.tenantFeatureFlag.createMany({
+        data: DEFAULT_FEATURE_FLAGS.map((featureFlag) => ({
+          tenantId: tenant.id,
+          key: featureFlag.key,
+          enabled: featureFlag.enabled,
+          config: featureFlag.config,
+        })),
+        skipDuplicates: true,
+      });
+
+      await tx.userRole.create({
+        data: {
+          tenantId: tenant.id,
+          userId: req.auth.user.id,
+          roleId: adminRole.id,
+        },
+      });
+
+      await tx.tenantRoutingSettings.create({
+        data: {
+          tenantId: tenant.id,
+          fallbackUserId: req.auth.user.id,
+        },
+      });
+
+      await tx.auditLog.create({
+        data: {
+          tenantId: tenant.id,
+          actorUserId: req.auth.user.id,
+          action: "tenant.created",
+          entityType: "tenant",
+          entityId: tenant.id,
+          metadata: {
+            slug: tenantSlug,
+            name: tenantName,
+          },
+          ipAddress: req.ip || null,
+          userAgent: req.header("user-agent") || null,
+        },
+      });
+
+      await tx.analyticsEvent.create({
+        data: {
+          tenantId: tenant.id,
+          userId: req.auth.user.id,
+          eventName: "tenant.created",
+          eventCategory: "tenant",
+          metadata: {
+            slug: tenantSlug,
+          },
+        },
+      });
+
+      const [branding, featureFlags] = await Promise.all([
+        tx.tenantBranding.findUnique({
+          where: {
+            tenantId: tenant.id,
+          },
+        }),
+        tx.tenantFeatureFlag.findMany({
+          where: {
+            tenantId: tenant.id,
+          },
+          orderBy: {
+            key: "asc",
+          },
+        }),
+      ]);
+
+      return {
+        tenant,
+        branding,
+        featureFlags,
+      };
+    });
+
+    return res.status(201).json({
+      ok: true,
+      tenant: serializeTenantBase(created.tenant, created.branding, created.featureFlags),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
 
 tenantRouter.get("/current", requireAuth, requireTenant, async (req, res, next) => {
   try {
@@ -392,6 +610,121 @@ tenantRouter.get("/current/webhooks", requireAuth, requireTenant, requirePermiss
       supportedEvents: SUPPORTED_WEBHOOK_EVENT_TYPES,
       endpoints: endpoints.map(serializeWebhookEndpoint),
       deliveries: deliveries.map(serializeWebhookDelivery),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.get("/current/webhooks/deliveries/:deliveryId", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const delivery = await prisma.webhookDelivery.findFirst({
+      where: {
+        id: req.params.deliveryId,
+        tenantId: req.tenant.id,
+      },
+      include: {
+        endpoint: true,
+      },
+    });
+
+    if (!delivery) {
+      return res.status(404).json({
+        ok: false,
+        error: "Webhook delivery not found",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      delivery: serializeWebhookDelivery(delivery),
+      payload: delivery.payload,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.post("/current/webhooks/deliveries/:deliveryId/retry", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const previousDelivery = await prisma.webhookDelivery.findFirst({
+      where: {
+        id: req.params.deliveryId,
+        tenantId: req.tenant.id,
+      },
+      include: {
+        endpoint: true,
+      },
+    });
+
+    if (!previousDelivery) {
+      return res.status(404).json({
+        ok: false,
+        error: "Webhook delivery not found",
+      });
+    }
+
+    if (previousDelivery.endpoint.status !== "ACTIVE") {
+      return res.status(400).json({
+        ok: false,
+        error: "Webhook endpoint is disabled and cannot be retried",
+      });
+    }
+
+    const retryPayload =
+      previousDelivery.payload && typeof previousDelivery.payload === "object" && !Array.isArray(previousDelivery.payload)
+        ? {
+            ...previousDelivery.payload,
+            retryOfDeliveryId: previousDelivery.id,
+          }
+        : {
+            retryOfDeliveryId: previousDelivery.id,
+            sourcePayload: previousDelivery.payload || null,
+          };
+
+    const dispatchResult = await dispatchTenantWebhookEvent({
+      tenantId: req.tenant.id,
+      tenantSlug: req.tenant.slug,
+      tenantName: req.tenant.name,
+      eventType: previousDelivery.eventType,
+      payload: retryPayload,
+      requestId: req.context?.requestId,
+      endpointIds: [previousDelivery.endpointId],
+    });
+
+    if (!dispatchResult.dispatched || !dispatchResult.deliveryIds?.length) {
+      return res.status(409).json({
+        ok: false,
+        error: "Retry could not be dispatched",
+      });
+    }
+
+    const retriedDelivery = await prisma.webhookDelivery.findUnique({
+      where: {
+        id: dispatchResult.deliveryIds[0],
+      },
+      include: {
+        endpoint: true,
+      },
+    });
+
+    await writeAuditLog(req, {
+      action: "webhook.delivery_retried",
+      entityType: "webhook_delivery",
+      entityId: previousDelivery.id,
+      metadata: {
+        previousDeliveryId: previousDelivery.id,
+        retryDeliveryId: retriedDelivery?.id || null,
+        endpointId: previousDelivery.endpointId,
+      },
+    });
+
+    return res.status(202).json({
+      ok: true,
+      dispatched: dispatchResult.dispatched,
+      delivery: retriedDelivery ? serializeWebhookDelivery(retriedDelivery) : null,
     });
   } catch (error) {
     return next(error);

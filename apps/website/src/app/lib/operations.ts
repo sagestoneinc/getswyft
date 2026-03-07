@@ -104,6 +104,7 @@ export type ComplianceExportItem = {
   storageKey: string | null;
   completedAt: string | null;
   metadata: unknown;
+  downloadUrl: string | null;
   requestedByUserId: string | null;
   createdAt: string;
   updatedAt: string;
@@ -278,6 +279,30 @@ export async function requestComplianceExport(exportType: "full_data" | "convers
   }>("/v1/compliance/exports", {
     exportType,
   });
+}
+
+export async function updateComplianceExport(
+  exportId: string,
+  payload: {
+    status?: "pending" | "processing" | "completed" | "failed";
+    storageKey?: string | null;
+    metadata?: Record<string, unknown>;
+    downloadUrl?: string | null;
+    error?: string | null;
+  },
+) {
+  return apiClient.patch<{
+    ok: boolean;
+    export: ComplianceExportItem;
+  }>(`/v1/compliance/exports/${exportId}`, payload);
+}
+
+export async function getComplianceExportDownload(exportId: string) {
+  return apiClient.get<{
+    ok: boolean;
+    exportId: string;
+    downloadUrl: string;
+  }>(`/v1/compliance/exports/${exportId}/download`);
 }
 
 export async function getAuthMemberships() {

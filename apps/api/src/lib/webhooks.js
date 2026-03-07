@@ -128,6 +128,7 @@ export async function dispatchTenantWebhookEvent({ tenantId, tenantSlug, tenantN
   if (!endpoints.length) {
     return {
       dispatched: 0,
+      deliveryIds: [],
     };
   }
 
@@ -162,6 +163,7 @@ export async function dispatchTenantWebhookEvent({ tenantId, tenantSlug, tenantN
 
   return {
     dispatched: endpoints.length,
+    deliveryIds: deliveries.map((delivery) => delivery.id),
   };
 }
 

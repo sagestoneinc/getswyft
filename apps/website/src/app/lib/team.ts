@@ -43,6 +43,13 @@ export async function updateTeamMemberRole(memberId: string, payload: { role: "a
   return apiClient.patch<{ ok: boolean; member: TeamMember }>(`/v1/users/team/members/${memberId}/role`, payload);
 }
 
+export async function removeTeamMember(memberId: string) {
+  return apiClient.delete<{
+    ok: boolean;
+    removedUserId: string;
+  }>(`/v1/users/team/members/${memberId}`);
+}
+
 export async function getAssignableMembers() {
   return apiClient.get<{
     ok: boolean;

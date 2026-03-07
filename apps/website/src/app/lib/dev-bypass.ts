@@ -2,6 +2,7 @@ const DEV_AUTH_BYPASS = (import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefi
 const DEV_USER_ID = (import.meta.env.VITE_DEV_USER_ID as string | undefined) || "local-user";
 const DEV_USER_EMAIL = (import.meta.env.VITE_DEV_USER_EMAIL as string | undefined) || "admin@getswyft.local";
 const DEV_TENANT_SLUG = (import.meta.env.VITE_DEV_TENANT_SLUG as string | undefined) || "default";
+const IS_PROD_BUILD = import.meta.env.PROD === true;
 
 function isLocalHost(hostname: string) {
   return (
@@ -13,6 +14,10 @@ function isLocalHost(hostname: string) {
 }
 
 export function shouldUseDevAuthBypass() {
+  if (IS_PROD_BUILD) {
+    return false;
+  }
+
   if (!DEV_AUTH_BYPASS) {
     return false;
   }

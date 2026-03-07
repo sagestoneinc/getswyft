@@ -1,6 +1,10 @@
 import { getPrismaClient } from "./db.js";
 import { env } from "../config/env.js";
 
+function isDevBypassAllowed() {
+  return env.DEV_AUTH_BYPASS && env.NODE_ENV !== "production";
+}
+
 function aggregateMemberships(userRoles) {
   const byTenant = new Map();
 
@@ -162,7 +166,7 @@ export async function loadAccessContextFromClaims(claims, { autoProvision = true
     },
   });
 
-  if (userRoles.length === 0 && env.DEV_AUTH_BYPASS) {
+  if (userRoles.length === 0 && isDevBypassAllowed()) {
     const [defaultTenant, adminRole] = await Promise.all([
       prisma.tenant.findUnique({ where: { slug: env.DEV_DEFAULT_TENANT_SLUG } }),
       prisma.role.findUnique({ where: { key: "tenant_admin" } }),

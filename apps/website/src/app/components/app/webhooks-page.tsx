@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import {
   Plus,
   Pencil,
+  RotateCcw,
   Trash2,
   X,
   CheckCircle,
@@ -17,10 +18,13 @@ import {
 import {
   createWebhookEndpoint,
   deleteWebhookEndpoint,
+  getWebhookDelivery,
   getWebhookWorkspace,
+  retryWebhookDelivery,
   sendTestWebhook,
   updateWebhookEndpoint,
   type WebhookDelivery,
+  type WebhookDeliveryDetails,
   type WebhookEndpoint,
 } from "../../lib/tenant-admin";
 
@@ -49,6 +53,9 @@ export function WebhooksPage() {
   const [draft, setDraft] = useState<WebhookDraft>(emptyDraft);
   const [isSaving, setIsSaving] = useState(false);
   const [isTestingEndpointId, setIsTestingEndpointId] = useState<string | null>(null);
+  const [isRetryingDeliveryId, setIsRetryingDeliveryId] = useState<string | null>(null);
+  const [isInspectingDeliveryId, setIsInspectingDeliveryId] = useState<string | null>(null);
+  const [selectedDelivery, setSelectedDelivery] = useState<WebhookDeliveryDetails | null>(null);
   const [latestSecret, setLatestSecret] = useState<string | null>(null);
 
   useEffect(() => {
@@ -159,6 +166,39 @@ export function WebhooksPage() {
       setError(testError instanceof Error ? testError.message : "Failed to send test webhook");
     } finally {
       setIsTestingEndpointId(null);
+    }
+  }
+
+  async function handleRetryDelivery(deliveryId: string) {
+    setIsRetryingDeliveryId(deliveryId);
+    setError(null);
+
+    try {
+      await retryWebhookDelivery(deliveryId);
+      const response = await getWebhookWorkspace();
+      setEndpoints(response.endpoints);
+      setDeliveries(response.deliveries);
+    } catch (retryError) {
+      setError(retryError instanceof Error ? retryError.message : "Failed to retry webhook delivery");
+    } finally {
+      setIsRetryingDeliveryId(null);
+    }
+  }
+
+  async function handleInspectDelivery(deliveryId: string) {
+    setIsInspectingDeliveryId(deliveryId);
+    setError(null);
+
+    try {
+      const response = await getWebhookDelivery(deliveryId);
+      setSelectedDelivery({
+        delivery: response.delivery,
+        payload: response.payload,
+      });
+    } catch (inspectError) {
+      setError(inspectError instanceof Error ? inspectError.message : "Failed to inspect webhook delivery");
+    } finally {
+      setIsInspectingDeliveryId(null);
     }
   }
 
@@ -286,6 +326,7 @@ export function WebhooksPage() {
                 <th className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell" style={{ fontWeight: 600 }}>Endpoint</th>
                 <th className="px-4 py-3 text-xs text-muted-foreground hidden md:table-cell" style={{ fontWeight: 600 }}>Code</th>
                 <th className="px-4 py-3 text-xs text-muted-foreground" style={{ fontWeight: 600 }}>Timestamp</th>
+                <th className="px-4 py-3 text-xs text-muted-foreground text-right" style={{ fontWeight: 600 }}>Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -303,6 +344,27 @@ export function WebhooksPage() {
                   <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell max-w-[260px] truncate">{delivery.endpointUrl}</td>
                   <td className="px-4 py-3 text-sm text-muted-foreground hidden md:table-cell">{delivery.statusCode || "-"}</td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(delivery.attemptedAt).toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="inline-flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void handleInspectDelivery(delivery.id)}
+                        disabled={isInspectingDeliveryId === delivery.id}
+                        className="px-2 py-1 rounded border border-border text-xs text-primary hover:bg-muted disabled:opacity-60"
+                      >
+                        {isInspectingDeliveryId === delivery.id ? "Loading..." : "Inspect"}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleRetryDelivery(delivery.id)}
+                        disabled={delivery.status !== "failed" || isRetryingDeliveryId === delivery.id}
+                        className="px-2 py-1 rounded border border-border text-xs text-primary hover:bg-muted disabled:opacity-50 inline-flex items-center gap-1"
+                      >
+                        {isRetryingDeliveryId === delivery.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+                        Retry
+                      </button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -393,6 +455,46 @@ export function WebhooksPage() {
                 {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 {isSaving ? "Saving..." : editEndpoint ? "Save Changes" : "Create Endpoint"}
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedDelivery && (
+        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl p-6 max-h-[85vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg text-primary" style={{ fontWeight: 600 }}>
+                Delivery details
+              </h2>
+              <button onClick={() => setSelectedDelivery(null)} className="p-1 hover:bg-muted rounded">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                Event <span className="text-primary" style={{ fontWeight: 600 }}>{selectedDelivery.delivery.eventType}</span> ·
+                Status <span className="text-primary" style={{ fontWeight: 600 }}> {selectedDelivery.delivery.status}</span>
+              </p>
+              <p className="text-muted-foreground">Endpoint: {selectedDelivery.delivery.endpointUrl}</p>
+              <p className="text-muted-foreground">
+                Request ID: {selectedDelivery.delivery.requestId || "n/a"} · Status code: {selectedDelivery.delivery.statusCode || "n/a"} · Duration: {selectedDelivery.delivery.durationMs ?? "n/a"}ms
+              </p>
+
+              <div>
+                <p className="text-primary mb-1" style={{ fontWeight: 600 }}>Payload</p>
+                <pre className="bg-muted rounded-lg border border-border p-3 text-xs overflow-x-auto whitespace-pre-wrap break-words">
+                  {JSON.stringify(selectedDelivery.payload, null, 2)}
+                </pre>
+              </div>
+
+              <div>
+                <p className="text-primary mb-1" style={{ fontWeight: 600 }}>Response body</p>
+                <pre className="bg-muted rounded-lg border border-border p-3 text-xs overflow-x-auto whitespace-pre-wrap break-words">
+                  {selectedDelivery.delivery.responseBody || "(empty)"}
+                </pre>
+              </div>
             </div>
           </div>
         </div>

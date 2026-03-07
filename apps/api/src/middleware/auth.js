@@ -3,6 +3,10 @@ import { extractBearerToken, verifyAccessToken } from "../lib/auth-tokens.js";
 import { loadAccessContextFromClaims } from "../lib/access-context.js";
 import { extendRequestContext } from "../lib/request-context.js";
 
+function isDevBypassAllowed() {
+  return env.DEV_AUTH_BYPASS && env.NODE_ENV !== "production";
+}
+
 async function buildAuthenticatedRequest(req, claims) {
   const access = await loadAccessContextFromClaims(claims, {
     autoProvision: true,
@@ -40,8 +44,9 @@ export async function authenticateRequest(req, _res, next) {
   try {
     const token = extractBearerToken(req.header("authorization"));
     const devUserHeader = req.header("x-dev-user-id");
+    const devBypassAllowed = isDevBypassAllowed();
 
-    if (!token && env.DEV_AUTH_BYPASS && devUserHeader) {
+    if (!token && devBypassAllowed && devUserHeader) {
       await buildAuthenticatedRequest(req, getDevClaims(req));
       return next();
     }

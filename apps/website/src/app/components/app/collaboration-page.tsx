@@ -1,8 +1,10 @@
 import { useEffect, useState } from "react";
 import {
   AlertTriangle,
+  CheckCircle2,
   FileDown,
   Hash,
+  Link2,
   Loader2,
   MessageSquare,
   Phone,
@@ -16,7 +18,9 @@ import {
   listChannels,
   listComplianceExports,
   listFeedPosts,
+  getComplianceExportDownload,
   requestComplianceExport,
+  updateComplianceExport,
   type CallSessionItem,
   type ChannelItem,
   type ComplianceExportItem,
@@ -76,6 +80,7 @@ export function CollaborationPage() {
   const [isSubmittingChannel, setIsSubmittingChannel] = useState(false);
   const [isSubmittingPost, setIsSubmittingPost] = useState(false);
   const [isSubmittingExport, setIsSubmittingExport] = useState(false);
+  const [isUpdatingExportId, setIsUpdatingExportId] = useState<string | null>(null);
 
   async function loadAll() {
     setChannelsState((current) => ({ ...current, isLoading: true, error: null }));
@@ -204,6 +209,90 @@ export function CollaborationPage() {
       }));
     } finally {
       setIsSubmittingExport(false);
+    }
+  }
+
+  async function handleMarkExportCompleted(exportEntry: ComplianceExportItem) {
+    setIsUpdatingExportId(exportEntry.id);
+    setExportsState((current) => ({ ...current, error: null }));
+
+    try {
+      const response = await updateComplianceExport(exportEntry.id, {
+        status: "completed",
+      });
+      setExportsState((current) => ({
+        ...current,
+        data: current.data.map((entry) => (entry.id === response.export.id ? response.export : entry)),
+      }));
+    } catch (updateError) {
+      setExportsState((current) => ({
+        ...current,
+        error: updateError instanceof Error ? updateError.message : "Unable to update export status",
+      }));
+    } finally {
+      setIsUpdatingExportId(null);
+    }
+  }
+
+  async function handleSetDownloadLink(exportEntry: ComplianceExportItem) {
+    const existingMetadata =
+      exportEntry.metadata && typeof exportEntry.metadata === "object" && !Array.isArray(exportEntry.metadata)
+        ? (exportEntry.metadata as Record<string, unknown>)
+        : {};
+    const existingLink =
+      typeof existingMetadata.downloadUrl === "string" ? existingMetadata.downloadUrl : exportEntry.downloadUrl || "";
+    const nextLink = window.prompt("Set download URL for this export (leave empty to clear):", existingLink);
+    if (nextLink === null) {
+      return;
+    }
+
+    setIsUpdatingExportId(exportEntry.id);
+    setExportsState((current) => ({ ...current, error: null }));
+
+    try {
+      const response = await updateComplianceExport(exportEntry.id, {
+        downloadUrl: nextLink.trim() || null,
+      });
+      setExportsState((current) => ({
+        ...current,
+        data: current.data.map((entry) => (entry.id === response.export.id ? response.export : entry)),
+      }));
+    } catch (updateError) {
+      setExportsState((current) => ({
+        ...current,
+        error: updateError instanceof Error ? updateError.message : "Unable to update export download URL",
+      }));
+    } finally {
+      setIsUpdatingExportId(null);
+    }
+  }
+
+  async function handleOpenTrackedDownload(exportEntry: ComplianceExportItem) {
+    const existingMetadata =
+      exportEntry.metadata && typeof exportEntry.metadata === "object" && !Array.isArray(exportEntry.metadata)
+        ? (exportEntry.metadata as Record<string, unknown>)
+        : {};
+    const directUrl =
+      typeof existingMetadata.downloadUrl === "string" ? existingMetadata.downloadUrl : exportEntry.downloadUrl;
+
+    if (directUrl) {
+      window.open(directUrl, "_blank", "noopener,noreferrer");
+      return;
+    }
+
+    setIsUpdatingExportId(exportEntry.id);
+    setExportsState((current) => ({ ...current, error: null }));
+
+    try {
+      const response = await getComplianceExportDownload(exportEntry.id);
+      window.open(response.downloadUrl, "_blank", "noopener,noreferrer");
+    } catch (downloadError) {
+      setExportsState((current) => ({
+        ...current,
+        error: downloadError instanceof Error ? downloadError.message : "Unable to resolve export download URL",
+      }));
+    } finally {
+      setIsUpdatingExportId(null);
     }
   }
 
@@ -396,10 +485,45 @@ export function CollaborationPage() {
             ) : (
               exportsState.data.map((entry) => (
                 <div key={entry.id} className="border border-border rounded-lg p-3">
-                  <p className="text-sm text-primary" style={{ fontWeight: 650 }}>{entry.exportType}</p>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {entry.status} · {new Date(entry.createdAt).toLocaleString()}
-                  </p>
+                  <div className="flex items-center justify-between gap-3 flex-wrap">
+                    <div>
+                      <p className="text-sm text-primary" style={{ fontWeight: 650 }}>{entry.exportType}</p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {entry.status} · {new Date(entry.createdAt).toLocaleString()}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {entry.status !== "COMPLETED" && (
+                        <button
+                          type="button"
+                          onClick={() => void handleMarkExportCompleted(entry)}
+                          disabled={isUpdatingExportId === entry.id}
+                          className="px-2.5 py-1.5 rounded-lg border border-border bg-white text-xs text-primary hover:bg-muted disabled:opacity-60 inline-flex items-center gap-1.5"
+                        >
+                          {isUpdatingExportId === entry.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                          Mark completed
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => void handleSetDownloadLink(entry)}
+                        disabled={isUpdatingExportId === entry.id}
+                        className="px-2.5 py-1.5 rounded-lg border border-border bg-white text-xs text-primary hover:bg-muted disabled:opacity-60 inline-flex items-center gap-1.5"
+                      >
+                        <Link2 className="w-3.5 h-3.5" />
+                        Set download URL
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleOpenTrackedDownload(entry)}
+                        disabled={isUpdatingExportId === entry.id || entry.status !== "COMPLETED"}
+                        className="px-2.5 py-1.5 rounded-lg bg-accent text-white text-xs hover:bg-accent/90 disabled:opacity-60 inline-flex items-center gap-1.5"
+                      >
+                        <FileDown className="w-3.5 h-3.5" />
+                        Download
+                      </button>
+                    </div>
+                  </div>
                 </div>
               ))
             )}
