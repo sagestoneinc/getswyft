@@ -1,8 +1,17 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
+import { setDefaultResultOrder } from "node:dns";
 import { Client } from "pg";
 
 const MIGRATIONS_TABLE = "_supabase_migrations";
+
+// Railway containers can fail on IPv6-only resolution to external DB hosts.
+// Prefer IPv4 when both A and AAAA records exist.
+try {
+  setDefaultResultOrder("ipv4first");
+} catch {
+  // Ignore on older Node runtimes that do not support this API.
+}
 
 export function isSqlMigrationFile(filename) {
   return /^\d+.*\.sql$/i.test(filename);
