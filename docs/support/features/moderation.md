@@ -59,6 +59,7 @@ Any user with `conversation.write` permission can flag content for review. Only 
 1. Identify the content that violates guidelines. Note the `targetType` (e.g., `post`, `comment`, `message`) and the `targetId`.
 2. Send a `POST` request to `/v1/moderation` with the following body:
    ```json
+   POST /v1/moderation
    {
      "targetType": "post",
      "targetId": "abc-123",

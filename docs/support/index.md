@@ -17,9 +17,9 @@ Start here if you manage your organization's Getswyft account — team setup, ro
 - [Webhooks](features/webhooks.md)
 - [Analytics Dashboard](features/analytics.md)
 - [Billing & Subscriptions](features/billing.md)
-- [Moderation](moderation.md)
-- [Compliance](compliance.md)
-- [AI & Automation](ai-features.md)
+- [Moderation](features/moderation.md)
+- [Compliance Exports](features/compliance-exports.md)
+- [AI & Automation](features/ai-features.md)
 - [Admin Guide](admin-guide.md)
 
 ### Agents
@@ -75,14 +75,14 @@ Start here if you are troubleshooting issues or helping users with the platform.
 | [Webhooks](features/webhooks.md) | Webhook CRUD, event types, test delivery, delivery logs |
 | [Analytics Dashboard](features/analytics.md) | KPI cards, conversation volume, response time, lead source charts |
 | [Billing & Subscriptions](features/billing.md) | Subscription management, invoices, seat pricing |
-| [Moderation](moderation.md) | Moderation reports and AI-assisted moderation |
-| [Compliance](compliance.md) | Compliance settings and audit logging |
+| [Moderation](features/moderation.md) | Moderation reports and AI-assisted moderation |
+| [Compliance Exports](features/compliance-exports.md) | Compliance data exports and audit logging |
 
 ### AI & Automation
 
 | Topic | Description |
 |-------|-------------|
-| [AI Features](ai-features.md) | Chatbot, conversation summarization, AI moderation, agent assist, voice-bot |
+| [AI Features](features/ai-features.md) | Chatbot, conversation summarization, AI moderation, agent assist, voice-bot |
 
 ### Technical
 

@@ -62,11 +62,12 @@ No other permission grants access to compliance export functionality. This is in
 
 ### Requesting an Export
 
-1. Determine which type of data you need to export. Choose from: `full_data`, `conversations`, `audit_logs`, or `users`.
+1. Determine which type of data you need to export. Choose from: `FULL_DATA`, `CONVERSATIONS`, `AUDIT_LOGS`, or `USERS`.
 2. Send a `POST` request to `/v1/compliance/exports` with the desired export type:
    ```json
+   POST /v1/compliance/exports
    {
-     "type": "conversations"
+     "type": "CONVERSATIONS"
    }
    ```
 3. The system creates the export request and returns an export object with status `PENDING` and a unique `exportId`.
