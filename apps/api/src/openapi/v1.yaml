@@ -1,0 +1,75 @@
+openapi: 3.1.0
+info:
+  title: Getswyft API
+  version: 1.0.0
+servers:
+  - url: https://{host}
+    variables:
+      host:
+        default: api.getswyft.local
+paths:
+  /v1/auth/me:
+    get:
+      summary: Get current authenticated user context
+      responses:
+        "200":
+          description: Current user and tenant context
+  /v1/tenants/current:
+    get:
+      summary: Get current tenant details and feature flags
+      responses:
+        "200":
+          description: Tenant details
+  /v1/users/me/roles:
+    get:
+      summary: Get current user's roles and permissions in tenant
+      responses:
+        "200":
+          description: Role and permission details
+  /v1/notifications:
+    get:
+      summary: List notifications for current user
+      responses:
+        "200":
+          description: Notification list
+  /v1/notifications/{id}/read:
+    post:
+      summary: Mark notification as read
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notification marked as read
+  /v1/storage/presign-upload:
+    post:
+      summary: Create upload URL for attachment storage
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                filename:
+                  type: string
+                contentType:
+                  type: string
+      responses:
+        "200":
+          description: Presigned upload response
+  /v1/analytics/events:
+    post:
+      summary: Ingest analytics event
+      responses:
+        "202":
+          description: Event accepted
+  /v1/audit-logs:
+    get:
+      summary: List tenant audit logs
+      responses:
+        "200":
+          description: Audit log list

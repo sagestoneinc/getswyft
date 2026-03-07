@@ -1,6 +1,13 @@
+# syntax=docker/dockerfile:1.7
+
 FROM node:20-alpine
 
 WORKDIR /app
+
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+
+RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml ./
 COPY apps/api/package.json apps/api/package.json
@@ -9,18 +16,22 @@ COPY apps/widget/package.json apps/widget/package.json
 COPY apps/website/package.json apps/website/package.json
 COPY packages/shared/package.json packages/shared/package.json
 
-RUN corepack enable && pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 COPY . .
 
-RUN pnpm -C apps/api db:generate && pnpm run build
+RUN pnpm -C apps/agent build \
+  && pnpm -C apps/widget build \
+  && pnpm -C apps/website build
 
-ENV NODE_ENV=production
+EXPOSE 8080
 
-RUN addgroup -S appuser && adduser -S -G appuser appuser && chown -R appuser:appuser /app
-
-USER appuser
-
-EXPOSE 3000
-
-CMD ["node", "apps/api/src/index.js"]
+CMD ["sh", "-c", "\
+  case \"${RAILWAY_SERVICE_NAME:-getswyft}\" in \
+    website) pnpm -C apps/website start ;; \
+    widget) pnpm -C apps/widget start ;; \
+    agent) pnpm -C apps/agent start ;; \
+    getswyft|api) pnpm -C apps/api start ;; \
+    *) echo \"Unsupported RAILWAY_SERVICE_NAME=${RAILWAY_SERVICE_NAME}\" && exit 1 ;; \
+  esac \
+"]

@@ -1,4 +1,8 @@
+.git
+.gitignore
 node_modules
-dist
-.env
-.env.local
+**/node_modules
+**/dist
+**/.env
+**/.env.local
+pnpm-debug.log

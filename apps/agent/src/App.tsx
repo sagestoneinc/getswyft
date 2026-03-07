@@ -1,133 +1,103 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import LoginPage from "./LoginPage";
-import ConversationList from "./ConversationList";
-import ChatView, { type Tab } from "./ChatView";
-import RoutingSettingsPage from "./RoutingSettingsPage";
-import { fetchConversations, assignConversation, closeConversation, reopenConversation, type Conversation } from "./api";
-import { connectSocket, disconnectSocket } from "./socket";
+import { useEffect, useMemo, useState } from "react";
+import { io, type Socket } from "socket.io-client";
 import "./App.css";
 
-type Page = "inbox" | "settings";
+type HealthResponse = {
+  ok: boolean;
+  uptimeSeconds: number;
+  timestamp: string;
+};
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+const wsBaseUrl = import.meta.env.VITE_WS_BASE_URL || apiBaseUrl;
+const socketToken = import.meta.env.VITE_SOCKET_TOKEN as string | undefined;
 
 function App() {
-  const [token, setToken] = useState<string | null>(null);
-  const [agentId, setAgentId] = useState<string | null>(null);
-  const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
-  const [tab, setTab] = useState<Tab>("mine");
-  const [page, setPage] = useState<Page>("inbox");
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tabRef = useRef<Tab>(tab);
+  const [health, setHealth] = useState<HealthResponse | null>(null);
+  const [healthError, setHealthError] = useState<string | null>(null);
+  const [socketState, setSocketState] = useState("disconnected");
 
-  useEffect(() => {
-    tabRef.current = tab;
-  }, [tab]);
+  const socketAuth = useMemo(() => {
+    if (socketToken) {
+      return {
+        token: socketToken,
+        tenantSlug: "default",
+      };
+    }
 
-  const loadConversations = useCallback(() => {
-    if (!token) return;
-    const currentTab = tabRef.current;
-    const params: { status?: string; assigned?: string } = {};
-    if (currentTab === "mine") { params.assigned = "me"; params.status = "open"; }
-    if (currentTab === "unassigned") { params.assigned = "unassigned"; params.status = "open"; }
-    if (currentTab === "closed") { params.status = "closed"; }
-    fetchConversations(token, params).then(setConversations);
-  }, [token]);
-
-  useEffect(() => {
-    if (!token) return;
-    const sock = connectSocket(token);
-    loadConversations();
-
-    const handleEvent = (evt: { type: string }) => {
-      if (evt.type === "conversation.created" || evt.type === "message.created" || evt.type === "conversation.assigned") {
-        if (debounceRef.current) clearTimeout(debounceRef.current);
-        debounceRef.current = setTimeout(() => {
-          loadConversations();
-        }, 500);
-      }
+    return {
+      devUserId: "agent-local",
+      devEmail: "agent@getswyft.local",
+      tenantSlug: "default",
     };
-    sock.on("event", handleEvent);
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    async function loadHealth() {
+      try {
+        const response = await fetch(`${apiBaseUrl}/health`);
+        if (!response.ok) {
+          throw new Error(`Health check failed with ${response.status}`);
+        }
+
+        const data = (await response.json()) as HealthResponse;
+        if (mounted) {
+          setHealth(data);
+          setHealthError(null);
+        }
+      } catch (error) {
+        if (mounted) {
+          setHealthError(error instanceof Error ? error.message : "Health check failed");
+        }
+      }
+    }
+
+    loadHealth();
+
+    const socket: Socket = io(wsBaseUrl, {
+      transports: ["websocket"],
+      auth: socketAuth,
+    });
+
+    socket.on("connect", () => setSocketState("connected"));
+    socket.on("disconnect", () => setSocketState("disconnected"));
+    socket.on("connect_error", () => setSocketState("error"));
 
     return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-      sock.off("event", handleEvent);
-      disconnectSocket();
+      mounted = false;
+      socket.disconnect();
     };
-  }, [token, loadConversations]);
-
-  useEffect(() => {
-    loadConversations();
-  }, [tab, loadConversations]);
-
-  function handleLogin(jwt: string, id: string) {
-    setToken(jwt);
-    setAgentId(id);
-  }
-
-  async function handleAssignToMe(conversationId: string) {
-    if (!token || !agentId) return;
-    await assignConversation(token, conversationId, agentId);
-    loadConversations();
-  }
-
-  async function handleClose(conversationId: string) {
-    if (!token) return;
-    await closeConversation(token, conversationId);
-    loadConversations();
-  }
-
-  async function handleReopen(conversationId: string) {
-    if (!token) return;
-    await reopenConversation(token, conversationId);
-    loadConversations();
-  }
-
-  if (!token) {
-    return <LoginPage onLogin={handleLogin} />;
-  }
-
-  if (page === "settings") {
-    return (
-      <div className="agent-shell">
-        <aside className="conversation-list">
-          <h2>Settings</h2>
-          <button className="nav-btn" onClick={() => setPage("inbox")}>← Back to Inbox</button>
-        </aside>
-        <RoutingSettingsPage token={token} />
-      </div>
-    );
-  }
+  }, [socketAuth]);
 
   return (
-    <div className="agent-shell">
-      <ConversationList
-        conversations={conversations}
-        activeId={activeConvId}
-        onSelect={setActiveConvId}
-        tab={tab}
-        onTabChange={setTab}
-        onAssignToMe={handleAssignToMe}
-        agentId={agentId}
-      />
-      <div className="main-area">
-        <div className="top-bar">
-          <button className="nav-btn" onClick={() => setPage("settings")}>⚙ Routing Settings</button>
+    <main className="shell">
+      <section className="card">
+        <h1>Getswyft Agent Console (Phase 1)</h1>
+        <p className="muted">Production shell is now wired for API + realtime readiness.</p>
+
+        <div className="row">
+          <span>API base URL</span>
+          <code>{apiBaseUrl}</code>
         </div>
-        {activeConvId ? (
-          <ChatView
-            conversationId={activeConvId}
-            token={token}
-            agentId={agentId}
-            tab={tab}
-            onAssignToMe={handleAssignToMe}
-            onClose={handleClose}
-            onReopen={handleReopen}
-          />
-        ) : (
-          <div className="empty-state">Select a conversation</div>
-        )}
-      </div>
-    </div>
+        <div className="row">
+          <span>Realtime URL</span>
+          <code>{wsBaseUrl}</code>
+        </div>
+
+        <div className="status-grid">
+          <div>
+            <p className="label">Health</p>
+            <p>{health ? `ok (uptime ${health.uptimeSeconds}s)` : healthError || "loading..."}</p>
+          </div>
+          <div>
+            <p className="label">Socket</p>
+            <p>{socketState}</p>
+          </div>
+        </div>
+      </section>
+    </main>
   );
 }
 

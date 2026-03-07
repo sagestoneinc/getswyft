@@ -1,1 +1,9 @@
-{ "name": "@app/shared", "private": true, "type": "module" }
+{
+  "name": "@app/shared",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./permissions": "./src/permissions.ts",
+    "./contracts": "./src/contracts.ts"
+  }
+}

@@ -1,9 +1,11 @@
-import { Outlet, Link, useLocation } from "react-router";
+import { Outlet, Link, useLocation, Navigate } from "react-router";
 import { useState } from "react";
 import {
   Inbox, Settings, Webhook, BarChart3, Users,
-  CreditCard, User, Zap, Menu, X, LogOut
+  CreditCard, User, Zap, Menu, X, LogOut, Loader2, AlertTriangle
 } from "lucide-react";
+import { useAuth } from "../../providers/auth-provider";
+import { useTenant } from "../../providers/tenant-provider";
 
 const sidebarItems = [
   { to: "/app/inbox", icon: Inbox, label: "Inbox" },
@@ -15,25 +17,74 @@ const sidebarItems = [
   { to: "/app/profile", icon: User, label: "Profile" },
 ];
 
+function initials(name: string | undefined | null) {
+  if (!name) {
+    return "U";
+  }
+
+  return name
+    .split(" ")
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((segment) => segment[0]?.toUpperCase())
+    .join("");
+}
+
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
+  const { isLoading: authLoading, isAuthenticated, user, logout } = useAuth();
+  const { tenant, isLoading: tenantLoading, error: tenantError, refresh } = useTenant();
+
+  if (authLoading || (isAuthenticated && tenantLoading)) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-muted/30 font-[Inter,sans-serif]">
+        <div className="flex items-center gap-3 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          Loading workspace...
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  if (!tenant) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-muted/30 p-4 font-[Inter,sans-serif]">
+        <div className="bg-white rounded-xl border border-border p-6 w-full max-w-md text-center">
+          <AlertTriangle className="w-10 h-10 text-warning mx-auto mb-3" />
+          <h2 className="text-primary mb-2" style={{ fontWeight: 600 }}>Tenant context unavailable</h2>
+          <p className="text-sm text-muted-foreground mb-4">{tenantError || "We couldn't load tenant configuration for this account."}</p>
+          <button onClick={() => refresh()} className="bg-accent text-white px-4 py-2 rounded-lg text-sm" style={{ fontWeight: 600 }}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  const displayName = user?.name || user?.email || "User";
+  const displayRole = "Tenant User";
 
   return (
     <div className="h-screen flex font-[Inter,sans-serif] overflow-hidden">
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={() => setSidebarOpen(false)} />
       )}
 
-      {/* Sidebar */}
       <aside className={`fixed lg:static inset-y-0 left-0 z-50 w-64 bg-sidebar text-sidebar-foreground flex flex-col transition-transform lg:translate-x-0 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-4 flex items-center justify-between border-b border-sidebar-border">
           <Link to="/" className="flex items-center gap-2">
             <div className="w-8 h-8 bg-accent rounded-lg flex items-center justify-center">
               <Zap className="w-5 h-5 text-white" />
             </div>
-            <span className="text-lg text-white" style={{ fontWeight: 700 }}>SwyftUp</span>
+            <div>
+              <p className="text-lg text-white leading-5" style={{ fontWeight: 700 }}>SwyftUp</p>
+              <p className="text-[10px] text-sidebar-foreground/70 leading-3">{tenant.name}</p>
+            </div>
           </Link>
           <button className="lg:hidden text-sidebar-foreground" onClick={() => setSidebarOpen(false)}>
             <X className="w-5 h-5" />
@@ -67,21 +118,22 @@ export function AppLayout() {
 
         <div className="p-3 border-t border-sidebar-border">
           <Link to="/app/profile" className="flex items-center gap-3 px-3 py-2.5 rounded-lg hover:bg-sidebar-accent/50 transition-colors">
-            <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white text-sm" style={{ fontWeight: 600 }}>SC</div>
+            <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white text-sm" style={{ fontWeight: 600 }}>{initials(displayName)}</div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm text-sidebar-foreground truncate" style={{ fontWeight: 500 }}>Sarah Chen</p>
-              <p className="text-xs text-sidebar-foreground/50">Admin</p>
+              <p className="text-sm text-sidebar-foreground truncate" style={{ fontWeight: 500 }}>{displayName}</p>
+              <p className="text-xs text-sidebar-foreground/50">{displayRole}</p>
             </div>
           </Link>
-          <Link to="/login" className="flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors text-sm mt-1">
+          <button
+            onClick={() => logout()}
+            className="w-full flex items-center gap-3 px-3 py-2 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors text-sm mt-1"
+          >
             <LogOut className="w-4 h-4" /> Sign Out
-          </Link>
+          </button>
         </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
         <header className="h-14 bg-white border-b border-border flex items-center px-4 gap-4 flex-shrink-0">
           <button className="lg:hidden" onClick={() => setSidebarOpen(true)}>
             <Menu className="w-5 h-5" />
@@ -90,15 +142,16 @@ export function AppLayout() {
           <div className="flex items-center gap-3">
             <span className="inline-flex items-center gap-1.5 text-sm">
               <span className="w-2 h-2 bg-green-500 rounded-full"></span>
-              <span className="text-muted-foreground hidden sm:inline">Online</span>
+              <span className="text-muted-foreground hidden sm:inline">{tenant.slug}</span>
             </span>
             <Link to="/app/profile" className="flex items-center gap-2">
-              <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white text-xs" style={{ fontWeight: 600 }}>SC</div>
+              <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white text-xs" style={{ fontWeight: 600 }}>
+                {initials(displayName)}
+              </div>
             </Link>
           </div>
         </header>
 
-        {/* Page content */}
         <main className="flex-1 overflow-auto bg-muted/30">
           <Outlet />
         </main>

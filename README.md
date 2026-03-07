@@ -1,49 +1,46 @@
 # getswyft
 
-## Deploy
+Monorepo with:
 
-This monorepo has 3 deployable services:
+- `apps/api`: Express + Socket.IO API with Phase 1 multi-tenant foundations
+- `apps/website`: React + TypeScript website/dashboard
+- `apps/agent`: Agent console runtime shell
+- `apps/widget`: Widget runtime shell
+- `packages/shared`: API contracts + permission constants
 
-- API (`apps/api`)
-- Agent (`apps/agent`)
-- Widget (`apps/widget`)
-
-Run all install/build commands from the repository root.
-
-### Required environment variables
-
-- `DATABASE_URL` (PostgreSQL connection string)
-- `JWT_SECRET` (used to sign auth tokens)
-- `CORS_ORIGINS` (optional, comma-separated allowed origins)
-- `PORT` (optional, defaults to `3000`)
-
-### Railway deployment
-
-Use this setup/build chain (copy exactly, including `&&`) to avoid `pnpm: not found` errors:
+## Run locally
 
 ```bash
-corepack enable && corepack prepare pnpm@9.15.4 --activate && corepack pnpm --version && corepack pnpm install --frozen-lockfile
+pnpm install
+cp apps/api/.env.example apps/api/.env
+cp apps/website/.env.example apps/website/.env
+pnpm -C apps/api prisma:generate
+pnpm -C apps/api prisma:migrate:deploy
+pnpm -C apps/api prisma:seed
+pnpm dev:api
 ```
 
-#### API service (`apps/api`)
-
-Deploy from the repository root. The included `Dockerfile` can be used directly, or set:
-
-- Build command: `corepack enable && corepack prepare pnpm@9.15.4 --activate && corepack pnpm --version && corepack pnpm install --frozen-lockfile && corepack pnpm -C apps/api db:generate`
-- Start command: `corepack pnpm -C apps/api start`
-
-After creating the service, configure the required environment variables in Railway and run database migrations before (or during) deployment:
+API health check:
 
 ```bash
-pnpm -C apps/api db:migrate:deploy
+curl http://localhost:8080/health
 ```
 
-#### Agent service (`apps/agent`)
+Website dev server:
 
-- Build command: `corepack enable && corepack prepare pnpm@9.15.4 --activate && corepack pnpm --version && corepack pnpm install --frozen-lockfile && corepack pnpm -C apps/agent build`
-- Start command: `corepack pnpm -C apps/agent preview`
+```bash
+pnpm dev:website
+```
 
-#### Widget service (`apps/widget`)
+## Deploy to Railway
 
-- Build command: `corepack enable && corepack prepare pnpm@9.15.4 --activate && corepack pnpm --version && corepack pnpm install --no-frozen-lockfile && corepack pnpm -C apps/widget build`
-- Start command: `corepack pnpm -C apps/widget preview`
+This repo includes a root `Dockerfile` and `railway.json`. Deploy each service with `RAILWAY_SERVICE_NAME`:
+- `api` (or `getswyft`)
+- `website`
+- `agent`
+- `widget`
+
+```bash
+railway link # choose the correct project/service
+railway up
+```
