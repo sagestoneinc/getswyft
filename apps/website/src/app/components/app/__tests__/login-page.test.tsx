@@ -77,6 +77,13 @@ describe("LoginPage", () => {
     expect(screen.getByRole("button", { name: /continue with microsoft \/ outlook/i })).toBeInTheDocument();
   });
 
+  it("shows invite context from invitation links", () => {
+    renderLogin("/login?invite=test-token&tenant=swyftup&email=invitee@getswyftup.com");
+
+    expect(screen.getByText("Invitation link detected")).toBeInTheDocument();
+    expect(screen.getByText(/join the swyftup workspace/i)).toBeInTheDocument();
+  });
+
   it("submits credentials for multiple account logins", async () => {
     renderLogin();
 
@@ -124,5 +131,12 @@ describe("LoginPage", () => {
         password: "ResetPass#123",
       }),
     );
+  });
+
+  it("enters recovery mode when Supabase provides type=recovery", () => {
+    renderLogin("/login?type=recovery");
+
+    expect(screen.getByText("Reset Password")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /update password/i })).toBeInTheDocument();
   });
 });

@@ -47,6 +47,20 @@ const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL as string | undefined;
 const keycloakRealm = import.meta.env.VITE_KEYCLOAK_REALM as string | undefined;
 const keycloakClientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID as string | undefined;
 const devBypass = (import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined)?.toLowerCase() === "true";
+const passwordResetRedirectPath =
+  (import.meta.env.VITE_AUTH_PASSWORD_RESET_REDIRECT_PATH as string | undefined) || "/login?mode=reset";
+
+function toAbsoluteAppUrl(pathOrUrl: string) {
+  if (typeof window === "undefined") {
+    return pathOrUrl;
+  }
+
+  try {
+    return new URL(pathOrUrl, window.location.origin).toString();
+  } catch (_error) {
+    return new URL("/login?mode=reset", window.location.origin).toString();
+  }
+}
 
 function mapKeycloakTokenToUser(tokenParsed: Keycloak.KeycloakTokenParsed | undefined): AuthUser | null {
   if (!tokenParsed) {
@@ -392,7 +406,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const supabase = getSupabaseClient();
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: `${window.location.origin}/login?mode=reset`,
+          redirectTo: toAbsoluteAppUrl(passwordResetRedirectPath),
         });
 
         if (error) {

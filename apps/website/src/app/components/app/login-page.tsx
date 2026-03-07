@@ -9,6 +9,8 @@ import { getSupabaseClient, isSupabaseConfigured } from "../../lib/supabase";
 export function LoginPage() {
   const [searchParams] = useSearchParams();
   const invitedEmail = searchParams.get("email") || "";
+  const invitedTenant = searchParams.get("tenant") || "";
+  const hasInviteLink = Boolean(searchParams.get("invite"));
   const [showPassword, setShowPassword] = useState(false);
   const [showForgot, setShowForgot] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -81,7 +83,7 @@ export function LoginPage() {
 
     try {
       await requestPasswordReset(email);
-      setForgotMessage("Password reset instructions were sent if that email exists in Supabase Auth.");
+      setForgotMessage("Password reset instructions were sent if that email exists.");
     } catch (error) {
       setAuthError(error instanceof Error ? error.message : "Unable to request a password reset");
     } finally {
@@ -229,7 +231,7 @@ export function LoginPage() {
           <h1 className="text-2xl text-primary text-center mb-2" style={{ fontWeight: 700 }}>Forgot Password</h1>
           <p className="text-sm text-muted-foreground text-center mb-6">
             {supportsPasswordAuth
-              ? "Enter your email and we’ll send a reset link through Supabase Auth."
+              ? "Enter your email and we’ll send a secure reset link."
               : "Password resets are handled by your identity provider."}
           </p>
 
@@ -295,8 +297,19 @@ export function LoginPage() {
 
         <h1 className="text-2xl text-primary text-center mb-2" style={{ fontWeight: 700 }}>Welcome Back</h1>
         <p className="text-sm text-muted-foreground text-center mb-8">
-          {supportsPasswordAuth ? "Sign in with your Supabase account to access your workspace" : "Sign in to your agent dashboard"}
+          {supportsPasswordAuth ? "Sign in to access your workspace" : "Sign in to your agent dashboard"}
         </p>
+
+        {hasInviteLink ? (
+          <div className="mb-6 rounded-lg border border-accent/20 bg-accent/10 px-3 py-2 text-sm text-accent">
+            <p style={{ fontWeight: 600 }}>Invitation link detected</p>
+            <p className="mt-1 text-xs">
+              {invitedTenant
+                ? `Sign in with the invited email to join the ${invitedTenant} workspace.`
+                : "Sign in with the invited email to join your workspace."}
+            </p>
+          </div>
+        ) : null}
 
         {supportsSocialAuth && (
           <div className="space-y-3 mb-6">

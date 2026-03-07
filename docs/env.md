@@ -97,6 +97,7 @@
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | — | Firebase messaging sender ID |
 | `VITE_FIREBASE_APP_ID` | — | Firebase app ID |
 | `VITE_FIREBASE_VAPID_KEY` | — | Firebase VAPID key for web push |
+| `VITE_AUTH_PASSWORD_RESET_REDIRECT_PATH` | `/login?mode=reset` | Optional override path/URL used for Supabase password reset links |
 | `VITE_DEV_AUTH_BYPASS` | `false` | Enable dev auth bypass (must also be enabled on the API) |
 | `VITE_DEV_USER_ID` | — | Simulated user ID during dev bypass |
 | `VITE_DEV_USER_EMAIL` | — | Simulated user email during dev bypass |
@@ -113,11 +114,18 @@
   Example: `https://widget.getswyftup.com/embed.js`
 - `VITE_SWYFT_WIDGET_WORKSPACE_ID`
   Use the target tenant/workspace ID from SwyftUp backend data (`tenant.id`).
-  You can fetch it from `GET /v1/tenant/current` while authenticated as that workspace.
+  You can fetch it from `GET /v1/tenants/current` while authenticated as that workspace.
 - `VITE_SWYFT_WIDGET_LAUNCHER` (optional)
   Suggested default: `bubble`. Other supported values: `open`, `expanded`.
 - `VITE_SWYFT_WIDGET_ENV` (optional)
   Set a readable runtime label such as `production` or `staging`.
+
+### Auth link sanity checks
+
+- API env `APP_BASE_URL` must be your live app domain (example: `https://www.getswyftup.com`), otherwise invite links can point to localhost.
+- In Supabase URL Configuration, include:
+  - Site URL: `https://www.getswyftup.com`
+  - Redirect URL: `https://www.getswyftup.com/login?mode=reset`
 
 ## Agent / Widget (`apps/agent`, `apps/widget`)
 
