@@ -5,7 +5,38 @@ import { verifyAccessToken } from "../../lib/auth-tokens.js";
 import { getPrismaClient } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
 
-const messageHistoryByConversation = new Map();
+class LRUConversationMap extends Map {
+  constructor(maxSize = 1000) {
+    super();
+    this.maxSize = maxSize;
+  }
+
+  get(key) {
+    if (!super.has(key)) {
+      return undefined;
+    }
+    const value = super.get(key);
+    super.delete(key);
+    super.set(key, value);
+    return value;
+  }
+
+  set(key, value) {
+    if (super.has(key)) {
+      super.delete(key);
+    }
+    const result = super.set(key, value);
+    if (this.maxSize > 0 && this.size > this.maxSize) {
+      const oldestKey = this.keys().next().value;
+      if (oldestKey !== undefined) {
+        super.delete(oldestKey);
+      }
+    }
+    return result;
+  }
+}
+
+const messageHistoryByConversation = new LRUConversationMap(1000);
 
 function safeAck(callback, payload) {
   if (typeof callback === "function") {
@@ -203,7 +234,8 @@ export function registerPresenceSocket(io) {
       safeAck(callback, { ok: true, ...event });
     });
 
-    socket.on("conversation:join", ({ conversationId }, callback) => {
+    socket.on("conversation:join", (payload = {}, callback) => {
+      const { conversationId } = payload;
       if (!conversationId || typeof conversationId !== "string") {
         safeAck(callback, { ok: false, error: "conversationId is required" });
         return;
@@ -220,7 +252,8 @@ export function registerPresenceSocket(io) {
       });
     });
 
-    socket.on("conversation:leave", ({ conversationId }, callback) => {
+    socket.on("conversation:leave", (payload = {}, callback) => {
+      const { conversationId } = payload;
       if (!conversationId || typeof conversationId !== "string") {
         safeAck(callback, { ok: false, error: "conversationId is required" });
         return;
@@ -231,7 +264,8 @@ export function registerPresenceSocket(io) {
       safeAck(callback, { ok: true, conversationId });
     });
 
-    socket.on("conversation:history", ({ conversationId }, callback) => {
+    socket.on("conversation:history", (payload = {}, callback) => {
+      const { conversationId } = payload;
       if (!conversationId || typeof conversationId !== "string") {
         safeAck(callback, { ok: false, error: "conversationId is required" });
         return;

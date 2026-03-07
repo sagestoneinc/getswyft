@@ -18,8 +18,8 @@ export function createApp() {
 
   app.use(
     cors({
-      origin: env.CORS_ORIGINS.length ? env.CORS_ORIGINS : true,
-      credentials: true,
+      origin: env.CORS_ORIGINS.length ? env.CORS_ORIGINS : false,
+      credentials: env.CORS_ORIGINS.length > 0,
     })
   );
   app.use(express.json({ limit: "2mb" }));

@@ -12,8 +12,8 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: env.CORS_ORIGINS.length ? env.CORS_ORIGINS : true,
-    credentials: true,
+    origin: env.CORS_ORIGINS.length ? env.CORS_ORIGINS : false,
+    credentials: env.CORS_ORIGINS.length > 0,
   },
   pingInterval: 25000,
   pingTimeout: 20000,
@@ -34,18 +34,28 @@ server.listen(env.PORT, "0.0.0.0", () => {
 async function shutdown(signal) {
   logger.info("shutdown_requested", { signal });
 
-  server.close(async () => {
-    try {
-      await getPrismaClient().$disconnect();
-      const redis = getRedisClient();
-      if (redis) {
-        await redis.quit();
+  const SHUTDOWN_TIMEOUT_MS = 10000;
+
+  const forceExitTimeout = setTimeout(() => {
+    logger.error("shutdown_timeout", { message: "Shutdown taking too long; forcing exit." });
+    process.exit(1);
+  }, SHUTDOWN_TIMEOUT_MS);
+
+  io.close(() => {
+    server.close(async () => {
+      clearTimeout(forceExitTimeout);
+      try {
+        await getPrismaClient().$disconnect();
+        const redis = getRedisClient();
+        if (redis) {
+          await redis.quit();
+        }
+      } catch (error) {
+        logger.warn("shutdown_cleanup_error", { error: error.message });
+      } finally {
+        process.exit(0);
       }
-    } catch (error) {
-      logger.warn("shutdown_cleanup_error", { error: error.message });
-    } finally {
-      process.exit(0);
-    }
+    });
   });
 }
 
