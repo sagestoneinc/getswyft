@@ -34,6 +34,7 @@ describe("resolveAuthConfig", () => {
       AUTH_PROVIDER: "supabase",
       AUTH_ISSUER_URL: undefined,
       AUTH_JWKS_URI: undefined,
+      AUTH_AUDIENCE: undefined,
       SUPABASE_URL: "https://example.supabase.co/",
     });
 
@@ -49,6 +50,7 @@ describe("resolveAuthConfig", () => {
       AUTH_PROVIDER: "supabase",
       AUTH_ISSUER_URL: "https://auth.example.com/custom/",
       AUTH_JWKS_URI: "https://auth.example.com/custom/jwks.json",
+      AUTH_AUDIENCE: undefined,
       SUPABASE_URL: "https://example.supabase.co",
     });
 
