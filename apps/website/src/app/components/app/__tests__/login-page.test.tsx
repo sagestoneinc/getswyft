@@ -6,9 +6,11 @@ vi.mock("../../../providers/auth-provider", () => ({
   useAuth: () => ({
     provider: "supabase",
     supportsPasswordAuth: true,
+    supportsSocialAuth: true,
     isAuthenticated: false,
     isLoading: false,
     login: vi.fn(),
+    loginWithSocialProvider: vi.fn(),
     logout: vi.fn(),
     requestPasswordReset: vi.fn(),
     getAccessToken: vi.fn(),
@@ -35,5 +37,7 @@ describe("LoginPage", () => {
 
     expect(screen.getByText("Welcome Back")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /continue with google/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /continue with microsoft \/ outlook/i })).toBeInTheDocument();
   });
 });

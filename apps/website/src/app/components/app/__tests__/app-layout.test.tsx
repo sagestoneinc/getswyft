@@ -11,6 +11,7 @@ vi.mock("../../../providers/auth-provider", () => ({
   useAuth: () => ({
     provider: "supabase",
     supportsPasswordAuth: true,
+    supportsSocialAuth: true,
     isLoading: false,
     isAuthenticated: false,
     user: null,
@@ -18,6 +19,7 @@ vi.mock("../../../providers/auth-provider", () => ({
     permissions: [],
     can: vi.fn(() => false),
     login: vi.fn(),
+    loginWithSocialProvider: vi.fn(),
     logout: vi.fn(),
     requestPasswordReset: vi.fn(),
     getAccessToken: vi.fn(),

@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
-import type { Session, User as SupabaseUser } from "@supabase/supabase-js";
+import type { Provider, Session, User as SupabaseUser } from "@supabase/supabase-js";
 import Keycloak from "keycloak-js";
 import { apiClient } from "../lib/api-client";
 import { getSupabaseClient, isSupabaseConfigured } from "../lib/supabase";
@@ -15,9 +15,12 @@ type LoginCredentials = {
   password: string;
 };
 
+export type SocialAuthProvider = "google" | "azure";
+
 type AuthContextValue = {
   provider: "keycloak" | "supabase";
   supportsPasswordAuth: boolean;
+  supportsSocialAuth: boolean;
   isLoading: boolean;
   isAuthenticated: boolean;
   user: AuthUser | null;
@@ -25,6 +28,7 @@ type AuthContextValue = {
   permissions: string[];
   can: (permission: string) => boolean;
   login: (targetPath?: string, credentials?: LoginCredentials) => Promise<void>;
+  loginWithSocialProvider: (socialProvider: SocialAuthProvider, targetPath?: string) => Promise<void>;
   logout: () => Promise<void>;
   requestPasswordReset: (email: string) => Promise<void>;
   getAccessToken: () => Promise<string | null>;
@@ -78,6 +82,31 @@ function buildDevUser(): AuthUser {
     email: "admin@getswyft.local",
     name: "Local Admin",
   };
+}
+
+async function signInWithSupabaseOAuth(socialProvider: SocialAuthProvider, targetPath = "/app") {
+  const supabase = getSupabaseClient();
+  const redirectTo = `${window.location.origin}${targetPath}`;
+  const options =
+    socialProvider === "google"
+      ? {
+          redirectTo,
+          queryParams: {
+            prompt: "select_account",
+          },
+        }
+      : {
+          redirectTo,
+        };
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: socialProvider as Provider,
+    options,
+  });
+
+  if (error) {
+    throw error;
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -267,6 +296,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return {
       provider: authProvider,
       supportsPasswordAuth: authProvider === "supabase",
+      supportsSocialAuth: authProvider === "supabase",
       isLoading,
       isAuthenticated,
       user,
@@ -310,6 +340,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await keycloak.login({
           redirectUri: `${window.location.origin}${targetPath}`,
         });
+      },
+      loginWithSocialProvider: async (socialProvider, targetPath = "/app") => {
+        if (authProvider !== "supabase") {
+          throw new Error("Social sign-in is handled by your identity provider");
+        }
+
+        if (!isSupabaseConfigured()) {
+          throw new Error("Supabase environment variables are not configured");
+        }
+
+        await signInWithSupabaseOAuth(socialProvider, targetPath);
       },
       logout: async () => {
         if (authProvider === "supabase") {

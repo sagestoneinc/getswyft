@@ -15,7 +15,16 @@ export function LoginPage() {
   const [password, setPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [forgotMessage, setForgotMessage] = useState<string | null>(null);
-  const { login, requestPasswordReset, supportsPasswordAuth, isAuthenticated, isLoading } = useAuth();
+  const [socialLoadingProvider, setSocialLoadingProvider] = useState<"google" | "azure" | null>(null);
+  const {
+    login,
+    loginWithSocialProvider,
+    requestPasswordReset,
+    supportsPasswordAuth,
+    supportsSocialAuth,
+    isAuthenticated,
+    isLoading,
+  } = useAuth();
 
   usePageSeo({
     title: showForgot ? "Forgot Password | SwyftUp" : "Login | SwyftUp",
@@ -58,6 +67,19 @@ export function LoginPage() {
       setAuthError(error instanceof Error ? error.message : "Unable to request a password reset");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleSocialSignIn(provider: "google" | "azure") {
+    setAuthError(null);
+    setForgotMessage(null);
+    setSocialLoadingProvider(provider);
+
+    try {
+      await loginWithSocialProvider(provider, "/app");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Unable to sign in with social login");
+      setSocialLoadingProvider(null);
     }
   }
 
@@ -140,6 +162,41 @@ export function LoginPage() {
           {supportsPasswordAuth ? "Sign in with your Supabase account to access your workspace" : "Sign in to your agent dashboard"}
         </p>
 
+        {supportsSocialAuth && (
+          <div className="space-y-3 mb-6">
+            <button
+              type="button"
+              onClick={() => void handleSocialSignIn("google")}
+              disabled={Boolean(socialLoadingProvider) || submitting || isLoading}
+              className="w-full bg-white border border-border text-primary py-3 rounded-lg hover:bg-muted transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+              style={{ fontWeight: 600 }}
+            >
+              {(socialLoadingProvider === "google" || isLoading) && <Loader2 className="w-4 h-4 animate-spin" />}
+              Continue with Google
+            </button>
+
+            <button
+              type="button"
+              onClick={() => void handleSocialSignIn("azure")}
+              disabled={Boolean(socialLoadingProvider) || submitting || isLoading}
+              className="w-full bg-white border border-border text-primary py-3 rounded-lg hover:bg-muted transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+              style={{ fontWeight: 600 }}
+            >
+              {(socialLoadingProvider === "azure" || isLoading) && <Loader2 className="w-4 h-4 animate-spin" />}
+              Continue with Microsoft / Outlook
+            </button>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-3 text-muted-foreground">or use email</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         <form
           onSubmit={async (event) => {
             event.preventDefault();
@@ -186,7 +243,7 @@ export function LoginPage() {
             </button>
           </div>
 
-          <button type="submit" disabled={submitting || isLoading} className="w-full bg-accent text-white py-3 rounded-lg hover:bg-accent/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2" style={{ fontWeight: 600 }}>
+          <button type="submit" disabled={submitting || isLoading || Boolean(socialLoadingProvider)} className="w-full bg-accent text-white py-3 rounded-lg hover:bg-accent/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2" style={{ fontWeight: 600 }}>
             {(submitting || isLoading) && <Loader2 className="w-4 h-4 animate-spin" />}
             {supportsPasswordAuth ? "Sign In" : "Continue"}
           </button>
