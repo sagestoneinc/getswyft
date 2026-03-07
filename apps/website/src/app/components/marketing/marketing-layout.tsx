@@ -7,16 +7,16 @@ import { getMarketingSeo } from "../../lib/route-seo";
 import { footerGroups, marketingNavGroups, type NavGroup } from "../../content/marketing-content";
 
 function useSwyftWidgetEmbed() {
-  const scriptUrl = import.meta.env.VITE_SWYFT_WIDGET_SCRIPT_URL as string | undefined;
-  const workspaceId = import.meta.env.VITE_SWYFT_WIDGET_WORKSPACE_ID as string | undefined;
-  const launcher = import.meta.env.VITE_SWYFT_WIDGET_LAUNCHER as string | undefined;
-  const environment = import.meta.env.VITE_SWYFT_WIDGET_ENV as string | undefined;
+  const scriptUrl =
+    (import.meta.env.VITE_SWYFT_WIDGET_SCRIPT_URL as string | undefined) ||
+    "https://widget.getswyftup.com/embed.js";
+  const workspaceId =
+    (import.meta.env.VITE_SWYFT_WIDGET_WORKSPACE_ID as string | undefined) ||
+    "cmmgvcy2a000spo0dh42dwmlr";
+  const launcher = (import.meta.env.VITE_SWYFT_WIDGET_LAUNCHER as string | undefined) || "bubble";
+  const environment = (import.meta.env.VITE_SWYFT_WIDGET_ENV as string | undefined) || "production";
 
   useEffect(() => {
-    if (!scriptUrl || !workspaceId) {
-      return;
-    }
-
     const existingScript = document.querySelector<HTMLScriptElement>(
       'script[data-swyft-widget-script="true"]',
     );
