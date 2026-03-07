@@ -1,6 +1,7 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 import dns, { setDefaultResultOrder } from "node:dns";
+import { isIP } from "node:net";
 import { Client } from "pg";
 
 const MIGRATIONS_TABLE = "_supabase_migrations";
@@ -45,6 +46,34 @@ function ipv4OnlyLookup(hostname, options, callback) {
     },
     callback,
   );
+}
+
+function parseConnectionHost(connectionString) {
+  try {
+    const url = new URL(connectionString);
+    return {
+      host: url.hostname,
+      port: url.port ? Number(url.port) : undefined,
+    };
+  } catch {
+    return {
+      host: undefined,
+      port: undefined,
+    };
+  }
+}
+
+function shouldRetryWithIpv4(error) {
+  return Boolean(error) && error.code === "ENETUNREACH";
+}
+
+async function resolveIpv4Address(host) {
+  if (!host || isIP(host) === 4) {
+    return host;
+  }
+
+  const addresses = await dns.promises.resolve4(host);
+  return addresses[0];
 }
 
 export function isSqlMigrationFile(filename) {
@@ -103,14 +132,42 @@ export async function migrateSupabase({
 
   const migrations = await readMigrationFiles(migrationsDir);
   const forceIpv4 = process.env.SUPABASE_DB_FORCE_IPV4 !== "false";
-  const client = clientFactory
-    ? clientFactory(connectionString)
-    : new Client({
-        connectionString,
-        ...(forceIpv4 ? { lookup: ipv4OnlyLookup } : {}),
-      });
+  const ipv4OverrideUrl = process.env.SUPABASE_DB_URL_IPV4;
+  const baseClientConfig = {
+    connectionString,
+    ...(forceIpv4 ? { lookup: ipv4OnlyLookup } : {}),
+  };
+  let client = clientFactory ? clientFactory(connectionString) : new Client(baseClientConfig);
 
-  await client.connect();
+  try {
+    await client.connect();
+  } catch (error) {
+    if (!shouldRetryWithIpv4(error)) {
+      throw error;
+    }
+
+    const retryConnectionString = ipv4OverrideUrl || connectionString;
+    const { host, port } = parseConnectionHost(retryConnectionString);
+    const ipv4Address = await resolveIpv4Address(host);
+
+    if (!ipv4Address) {
+      throw error;
+    }
+
+    logger.warn(
+      `Initial Supabase migration DB connect failed with ${error.code}; retrying via IPv4 ${ipv4Address}.`,
+    );
+
+    client = new Client({
+      connectionString: retryConnectionString,
+      host: ipv4Address,
+      ...(port ? { port } : {}),
+      ...(forceIpv4 ? { lookup: ipv4OnlyLookup } : {}),
+    });
+
+    await client.connect();
+  }
+
   try {
     await ensureMigrationsTable(client);
     const appliedRows = await getAppliedMigrations(client);
