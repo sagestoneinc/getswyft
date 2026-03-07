@@ -65,8 +65,8 @@ No authentication is required for visitors. The widget session endpoint is publi
 
 | Issue | Cause | Resolution |
 |---|---|---|
-| Widget does not appear on the page | The widget embed script is missing or misconfigured. | Verify the embed snippet is present and that `VITE_API_BASE_URL` and `VITE_WS_BASE_URL` are set correctly. |
-| "Connection error" state displayed | The WebSocket connection could not be established. | Check that `VITE_WS_BASE_URL` is reachable and that `VITE_SOCKET_TOKEN` is valid. |
+| Widget does not appear on the page | The widget embed script is missing or misconfigured. | Verify the embed snippet is present on the page. If you deployed the widget, confirm that `VITE_API_BASE_URL` and `VITE_WS_BASE_URL` were set correctly at build time. |
+| "Connection error" state displayed | The WebSocket connection could not be established. | Contact the widget deployment team to verify that the WebSocket server is reachable and that `VITE_SOCKET_TOKEN` is valid. |
 | Messages not sending | The visitor JWT may have expired or the API is unreachable. | Refresh the page to create a new session. If the problem persists, verify the API server is running. |
 | After-hours form shown unexpectedly | Office hours may be misconfigured in routing settings. | Ask an administrator to review the office hours configuration in the agent console routing settings. |
 | File attachment fails | The file may exceed the 25 MB size limit or the storage service is unavailable. | Try a smaller file. If the problem continues, check the storage service configuration. |

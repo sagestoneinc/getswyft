@@ -64,7 +64,7 @@ Start here if you are troubleshooting issues or helping users with the platform.
 | [Channels](features/channels.md) | Creating and managing communication channels |
 | [Calling](features/calling.md) | Voice calls within conversations |
 | [Feed](features/feed-and-posts.md) | Social-style activity feed |
-| [Visitor Widget](widget.md) | Embeddable chat widget for listing pages, session creation, after-hours detection |
+| [Visitor Widget](features/widget.md) | Embeddable chat widget for listing pages, session creation, after-hours detection |
 
 ### Administration
 
@@ -89,7 +89,7 @@ Start here if you are troubleshooting issues or helping users with the platform.
 | Topic | Description |
 |-------|-------------|
 | [Real-Time Presence](presence.md) | Online/offline status via Socket.IO |
-| [File Uploads](file-uploads.md) | Attachment handling and storage |
+| [File Uploads](features/file-uploads-and-storage.md) | Attachment handling and storage |
 | [Notifications](features/notifications.md) | In-app and push notification delivery |
 | [Permissions Matrix](permissions.md) | Full list of permission keys, values, and what each controls |
 
