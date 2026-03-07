@@ -97,6 +97,7 @@ async function signInWithSupabaseOAuth(socialProvider: SocialAuthProvider, targe
         }
       : {
           redirectTo,
+          scopes: "email",
         };
 
   const { error } = await supabase.auth.signInWithOAuth({
