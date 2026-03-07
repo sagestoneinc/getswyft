@@ -59,6 +59,7 @@ The marketing site should load the built loader script (`/embed.js`) and pass te
   data-workspace-id="tenant_123"
   data-launcher="bubble"
   data-environment="production"
+  data-position="bottom-right"
 ></script>
 ```
 
@@ -70,3 +71,9 @@ Optional:
 
 - `data-launcher`: `bubble` (default), `open`, or `expanded`
 - `data-environment`: environment label passed through to widget runtime (for diagnostics)
+- `data-position`: launcher placement, accepts `right` / `bottom-right` or `left` / `bottom-left`
+
+Runtime API:
+
+- `window.SwyftUpWidget.setPosition("left" | "right")`
+- `window.SwyftUpWidget.getPosition()`

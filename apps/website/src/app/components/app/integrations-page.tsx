@@ -56,6 +56,12 @@ export function IntegrationsPage() {
     (import.meta.env.VITE_SWYFT_WIDGET_SCRIPT_URL as string | undefined) || "https://widget.getswyftup.com/embed.js";
   const widgetLauncher = (import.meta.env.VITE_SWYFT_WIDGET_LAUNCHER as string | undefined) || "bubble";
   const widgetEnvironment = (import.meta.env.VITE_SWYFT_WIDGET_ENV as string | undefined) || "production";
+  const [widgetPosition, setWidgetPosition] = useState<"left" | "right">(() => {
+    const configured = ((import.meta.env.VITE_SWYFT_WIDGET_POSITION as string | undefined) || "right")
+      .trim()
+      .toLowerCase();
+    return configured.includes("left") ? "left" : "right";
+  });
   const apiBaseUrl = (import.meta.env.VITE_API_BASE_URL as string | undefined) || "https://api.getswyftup.com";
   const realtimeBaseUrl = (import.meta.env.VITE_WS_BASE_URL as string | undefined) || apiBaseUrl;
 
@@ -66,8 +72,9 @@ export function IntegrationsPage() {
         `VITE_SWYFT_WIDGET_WORKSPACE_ID=${workspaceId}`,
         `VITE_SWYFT_WIDGET_LAUNCHER=${widgetLauncher}`,
         `VITE_SWYFT_WIDGET_ENV=${widgetEnvironment}`,
+        `VITE_SWYFT_WIDGET_POSITION=${widgetPosition}`,
       ].join("\n"),
-    [widgetEnvironment, widgetLauncher, widgetScriptUrl, workspaceId],
+    [widgetEnvironment, widgetLauncher, widgetPosition, widgetScriptUrl, workspaceId],
   );
 
   const embedSnippet = useMemo(
@@ -80,9 +87,10 @@ export function IntegrationsPage() {
         `  data-workspace-id="${workspaceId}"`,
         `  data-launcher="${widgetLauncher}"`,
         `  data-environment="${widgetEnvironment}"`,
+        `  data-position="${widgetPosition === "left" ? "bottom-left" : "bottom-right"}"`,
         "></script>",
       ].join("\n"),
-    [widgetEnvironment, widgetLauncher, widgetScriptUrl, workspaceId],
+    [widgetEnvironment, widgetLauncher, widgetPosition, widgetScriptUrl, workspaceId],
   );
 
   return (
@@ -141,6 +149,20 @@ export function IntegrationsPage() {
             <p className="text-xs text-muted-foreground break-all">{apiBaseUrl}</p>
             <p className="text-primary mt-3" style={{ fontWeight: 600 }}>Realtime</p>
             <p className="text-xs text-muted-foreground break-all">{realtimeBaseUrl}</p>
+            <div className="pt-2">
+              <label className="block text-primary mb-1.5" style={{ fontWeight: 600 }}>
+                Launcher position
+              </label>
+              <select
+                value={widgetPosition}
+                onChange={(event) => setWidgetPosition(event.target.value === "left" ? "left" : "right")}
+                className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-primary"
+                aria-label="Widget launcher position"
+              >
+                <option value="right">Lower right</option>
+                <option value="left">Lower left</option>
+              </select>
+            </div>
           </div>
         </article>
       </section>

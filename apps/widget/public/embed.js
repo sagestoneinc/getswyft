@@ -22,6 +22,25 @@
   const workspaceId = script.dataset.workspaceId?.trim();
   const launcherMode = script.dataset.launcher?.trim().toLowerCase() || "bubble";
   const environment = script.dataset.environment?.trim();
+  const storageKey = workspaceId ? `swyftup-widget-position:${workspaceId}` : "swyftup-widget-position";
+
+  function normalizePosition(value) {
+    const normalized = String(value || "")
+      .trim()
+      .toLowerCase()
+      .replace(/_/g, "-");
+
+    if (
+      normalized === "left" ||
+      normalized === "bottom-left" ||
+      normalized === "lower-left" ||
+      normalized === "bottomleft"
+    ) {
+      return "left";
+    }
+
+    return "right";
+  }
 
   if (!workspaceId) {
     console.warn("[SwyftUp widget] Missing data-workspace-id on embed script.");
@@ -31,6 +50,15 @@
   if (document.getElementById(ROOT_ID)) {
     return;
   }
+
+  let storedPosition = null;
+  try {
+    storedPosition = window.localStorage.getItem(storageKey);
+  } catch {
+    storedPosition = null;
+  }
+  const configuredPosition = script.dataset.position || storedPosition || "right";
+  const initialPosition = normalizePosition(configuredPosition);
 
   function resolveWidgetBaseUrl() {
     const explicit = script.dataset.widgetUrl?.trim();
@@ -58,6 +86,7 @@
     frameUrl.searchParams.set("workspaceId", workspaceId);
     frameUrl.searchParams.set("embedded", "1");
     frameUrl.searchParams.set("launcher", launcherMode);
+    frameUrl.searchParams.set("position", initialPosition);
     if (environment) {
       frameUrl.searchParams.set("env", environment);
     }
@@ -74,10 +103,17 @@
     style.textContent = `
 #${ROOT_ID} {
   position: fixed;
-  right: 1rem;
   bottom: 1rem;
   z-index: 2147483000;
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+#${ROOT_ID}[data-position="right"] {
+  right: 1rem;
+  left: auto;
+}
+#${ROOT_ID}[data-position="left"] {
+  left: 1rem;
+  right: auto;
 }
 #${ROOT_ID} .swyftup-widget-toggle {
   border: 0;
@@ -91,8 +127,12 @@
   padding: 0 1rem;
   cursor: pointer;
   box-shadow: 0 10px 28px rgba(15, 118, 110, 0.35);
+  position: relative;
+  z-index: 2;
 }
 #${ROOT_ID} .swyftup-widget-panel {
+  position: absolute;
+  bottom: calc(3rem + 0.75rem);
   width: min(420px, calc(100vw - 2rem));
   height: min(680px, calc(100vh - 6rem));
   border: 1px solid #d1d5db;
@@ -100,9 +140,17 @@
   background: #ffffff;
   overflow: hidden;
   box-shadow: 0 22px 42px rgba(15, 23, 42, 0.22);
-  margin-top: 0.75rem;
-  transform-origin: bottom right;
   transition: opacity 160ms ease, transform 160ms ease, visibility 160ms ease;
+}
+#${ROOT_ID}[data-position="right"] .swyftup-widget-panel {
+  right: 0;
+  left: auto;
+  transform-origin: bottom right;
+}
+#${ROOT_ID}[data-position="left"] .swyftup-widget-panel {
+  left: 0;
+  right: auto;
+  transform-origin: bottom left;
 }
 #${ROOT_ID}[data-open="false"] .swyftup-widget-panel {
   opacity: 0;
@@ -124,8 +172,15 @@
 }
 @media (max-width: 640px) {
   #${ROOT_ID} {
-    right: 0.75rem;
     bottom: 0.75rem;
+  }
+  #${ROOT_ID}[data-position="right"] {
+    right: 0.75rem;
+    left: auto;
+  }
+  #${ROOT_ID}[data-position="left"] {
+    left: 0.75rem;
+    right: auto;
   }
   #${ROOT_ID} .swyftup-widget-panel {
     width: calc(100vw - 1.5rem);
@@ -158,8 +213,8 @@
   iframe.allow = "microphone; camera; clipboard-write";
   panel.appendChild(iframe);
 
-  root.appendChild(button);
   root.appendChild(panel);
+  root.appendChild(button);
   document.body.appendChild(root);
 
   let open = root.dataset.open === "true";
@@ -179,7 +234,18 @@
     setOpen(!open);
   }
 
+  function setPosition(nextPosition) {
+    const normalized = normalizePosition(nextPosition);
+    root.dataset.position = normalized;
+    try {
+      window.localStorage.setItem(storageKey, normalized);
+    } catch {
+      // no-op: storage can be unavailable in some browsing contexts
+    }
+  }
+
   button.addEventListener("click", toggle);
+  setPosition(initialPosition);
   render();
 
   window.SwyftUpWidget = {
@@ -189,6 +255,12 @@
     },
     close() {
       setOpen(false);
+    },
+    setPosition(nextPosition) {
+      setPosition(nextPosition);
+    },
+    getPosition() {
+      return root.dataset.position || "right";
     },
     toggle,
     destroy() {

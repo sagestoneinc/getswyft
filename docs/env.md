@@ -109,6 +109,7 @@
 | `VITE_SWYFT_WIDGET_WORKSPACE_ID` | — | Workspace identifier passed to the embedded widget script |
 | `VITE_SWYFT_WIDGET_LAUNCHER` | — | Optional launcher mode/config key for widget behavior |
 | `VITE_SWYFT_WIDGET_ENV` | — | Optional environment hint (`staging`, `production`, etc.) for widget initialization |
+| `VITE_SWYFT_WIDGET_POSITION` | `right` | Optional launcher placement: `right` (lower-right) or `left` (lower-left) |
 
 ### Getting widget env vars for marketing site
 
@@ -122,6 +123,9 @@
   Suggested default: `bubble`. Other supported values: `open`, `expanded`.
 - `VITE_SWYFT_WIDGET_ENV` (optional)
   Set a readable runtime label such as `production` or `staging`.
+- `VITE_SWYFT_WIDGET_POSITION` (optional)
+  Controls where the launcher sits on the page.
+  Supported values: `right`/`bottom-right` or `left`/`bottom-left`.
 
 ### Auth link sanity checks
 

@@ -15,6 +15,7 @@ function useSwyftWidgetEmbed() {
     "cmmgvcy2a000spo0dh42dwmlr";
   const launcher = (import.meta.env.VITE_SWYFT_WIDGET_LAUNCHER as string | undefined) || "bubble";
   const environment = (import.meta.env.VITE_SWYFT_WIDGET_ENV as string | undefined) || "production";
+  const position = (import.meta.env.VITE_SWYFT_WIDGET_POSITION as string | undefined) || "right";
 
   useEffect(() => {
     const existingScript = document.querySelector<HTMLScriptElement>(
@@ -39,6 +40,10 @@ function useSwyftWidgetEmbed() {
       script.dataset.environment = environment;
     }
 
+    if (position) {
+      script.dataset.position = position;
+    }
+
     document.body.appendChild(script);
 
     return () => {
@@ -50,7 +55,7 @@ function useSwyftWidgetEmbed() {
       widgetApi?.destroy?.();
       script.remove();
     };
-  }, [environment, launcher, scriptUrl, workspaceId]);
+  }, [environment, launcher, position, scriptUrl, workspaceId]);
 }
 
 function isGroupActive(group: NavGroup, pathname: string) {

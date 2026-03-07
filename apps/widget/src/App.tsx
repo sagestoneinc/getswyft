@@ -16,6 +16,7 @@ function getRuntimeContext() {
     tenantSlug: params.get("tenantSlug")?.trim() || "",
     environment: params.get("env")?.trim() || "production",
     launcher: params.get("launcher")?.trim() || "bubble",
+    position: params.get("position")?.trim() || "right",
     embedded: window.self !== window.top,
   };
 }
@@ -130,6 +131,10 @@ function App() {
           <div className="meta-block">
             <p className="meta-label">Launcher</p>
             <p className="meta-value">{context.launcher}</p>
+          </div>
+          <div className="meta-block">
+            <p className="meta-label">Position</p>
+            <p className="meta-value">{context.position}</p>
           </div>
         </div>
 

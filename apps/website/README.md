@@ -36,7 +36,7 @@ pnpm dev:website
 The dev server starts at `http://localhost:5173`.
 
 Copy `.env.example` to `.env` and configure the auth provider and API URL. See [docs/env.md](../../docs/env.md) for the full variable reference.
-To embed the live SwyftUp widget on marketing pages, set `VITE_SWYFT_WIDGET_SCRIPT_URL` and `VITE_SWYFT_WIDGET_WORKSPACE_ID`.
+To embed the live SwyftUp widget on marketing pages, set `VITE_SWYFT_WIDGET_SCRIPT_URL`, `VITE_SWYFT_WIDGET_WORKSPACE_ID`, and optionally `VITE_SWYFT_WIDGET_POSITION` (`right` or `left`).
 
 ## Testing
 
