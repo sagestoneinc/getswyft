@@ -119,6 +119,17 @@ pnpm dev:api
 
 The server starts at `http://localhost:8080`.
 
+If your shell is already inside `apps/api` (for example `/app/apps/api` in Railway), do not use `--dir apps/api`.
+
+```bash
+# From inside apps/api
+pnpm run prisma:generate
+pnpm run prisma:migrate:deploy
+pnpm run prisma:seed
+pnpm run supabase:migrate
+pnpm run supabase:migrate:status
+```
+
 Health check:
 
 ```bash
@@ -137,9 +148,22 @@ pnpm -C apps/api test:watch  # watch mode
 Prisma manages the PostgreSQL schema. Key commands:
 
 ```bash
+# from monorepo root
 pnpm -C apps/api prisma:generate        # regenerate client after schema changes
 pnpm -C apps/api prisma:migrate:deploy  # apply pending migrations
 pnpm -C apps/api prisma:seed            # seed development data
+pnpm -C apps/api supabase:migrate       # apply Supabase SQL migrations
+pnpm -C apps/api supabase:migrate:status
+```
+
+Or use root convenience scripts:
+
+```bash
+pnpm run db:prisma:generate
+pnpm run db:prisma:migrate:deploy
+pnpm run db:prisma:seed
+pnpm run db:supabase:migrate
+pnpm run db:supabase:migrate:status
 ```
 
 ## Environment variables
