@@ -12,6 +12,7 @@ import { notificationRouter } from "./modules/notifications/notification.routes.
 import { storageRouter } from "./modules/storage/storage.routes.js";
 import { analyticsRouter } from "./modules/analytics/analytics.routes.js";
 import { auditRouter } from "./modules/audit/audit.routes.js";
+import { messagingRouter } from "./modules/messaging/messaging.routes.js";
 
 export function createApp() {
   const app = express();
@@ -57,6 +58,7 @@ export function createApp() {
   app.use("/v1/storage", storageRouter);
   app.use("/v1/analytics", analyticsRouter);
   app.use("/v1/audit-logs", auditRouter);
+  app.use("/v1", messagingRouter);
 
   app.use((error, req, res, _next) => {
     const statusCode = error.statusCode || 500;
