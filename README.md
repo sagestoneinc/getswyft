@@ -20,11 +20,11 @@ Development is organized into six phases. See [docs/roadmap.md](docs/roadmap.md)
 | Phase | Focus | Status |
 |-------|-------|--------|
 | 1 | Foundations — tenant model, RBAC, presence, notifications, storage, audit | ✅ Complete |
-| 2 | Core Messaging — conversations, messages, reactions, receipts, search, attachments | ✅ Mostly complete (groups/channels and typing indicators planned) |
-| 3 | Calling — voice/video signaling, call state, UI controls, history | ⬜ Scaffolded (Telnyx outbound calls, LiveKit env vars) |
-| 4 | Feed / Social — posts, comments, reactions, privacy controls | ⬜ Planned |
-| 5 | Admin / Analytics / Security — dashboard, moderation, compliance | ✅ Partially complete (analytics, feature flags, webhooks, billing done) |
-| 6 | AI Layer — chatbot, assistant, summarization, moderation AI | ⬜ Scaffolded (AIConfig model exists) |
+| 2 | Core Messaging — conversations, messages, channels, reactions, receipts, search, typing | ✅ Complete |
+| 3 | Calling — voice/video signaling, call state, UI controls, history, telemetry | ✅ Complete |
+| 4 | Feed / Social — posts, comments, reactions, privacy controls | ✅ Complete |
+| 5 | Admin / Analytics / Security — dashboard, moderation, compliance, feature flags | ✅ Complete |
+| 6 | AI Layer — chatbot, assistant, summarization, moderation AI, voice bot | ✅ Complete |
 
 ## What's implemented
 
@@ -34,16 +34,23 @@ Development is organized into six phases. See [docs/roadmap.md](docs/roadmap.md)
 - **Multi-tenancy** — tenant resolution, membership enforcement, domain management, branding, and feature flags
 - **RBAC** — role-based permission middleware (`tenant.manage`, `user.manage`, `conversation.read`, `conversation.write`, `moderation.manage`, `analytics.read`, `featureflag.manage`)
 - **Conversations & messaging** — create, list, assign, reassign, close conversations; send messages with threading, emoji reactions, read receipts, and attachments; full-text search across leads, listings, and messages
+- **Channels** — public/private/direct channels with membership management, channel messaging, threading, and emoji reactions (`/v1/channels`)
+- **Typing indicators** — real-time typing status broadcast via Socket.IO for conversations and channels
 - **Team management** — list members, invite via email (7-day expiry), resend/revoke invitations, role assignment
 - **Presence** — real-time online/away/busy/offline status via Socket.IO
+- **Calling** — call session management with voice/video types, participant tracking (mute, hold), call history with duration, and telemetry hooks (`/v1/calls`)
+- **Feed / Social** — team activity feed with posts, threaded comments, emoji reactions, and privacy controls (public/team/private visibility) (`/v1/feed`)
 - **Notifications** — in-app notifications with FCM push delivery and device registration
 - **Webhooks** — CRUD management of tenant webhook endpoints with HMAC signing, retry logic, delivery logs, and test delivery
 - **File storage** — S3 presigned uploads with local filesystem fallback
 - **Analytics** — event tracking and summary aggregation
 - **Audit logging** — automatic audit trail for all data mutations with IP and user-agent tracking
 - **Billing** — subscription and invoice models with seat-based pricing (processor integration scaffolded)
-- **Telephony** — Telnyx outbound call initiation (scaffolded with fallback logging)
+- **Moderation** — content moderation reports with status workflow (open → reviewing → resolved/dismissed) (`/v1/moderation`)
+- **Compliance** — data export requests with status tracking (`/v1/compliance/exports`)
+- **Telephony** — Telnyx outbound call initiation with fallback logging
 - **Email** — Resend integration for team invitation emails with dev fallback logging
+- **AI** — chatbot, assistant orchestration, summarization, content moderation AI, and voice bot extension points with per-tenant AI provider configuration (`/v1/ai`)
 
 ### Frontend (apps/website)
 

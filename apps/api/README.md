@@ -29,6 +29,48 @@ Express + Socket.IO backend with multi-tenant foundations, powered by Prisma and
 | | | `POST /conversations/:id/read` — mark as read |
 | | | `POST /conversations/:id/call` — initiate outbound call |
 | | | `POST /messages/:id/reactions` — toggle emoji reaction |
+| Channels | `/v1/channels` | `GET /` — list channels with member counts |
+| | | `POST /` — create channel |
+| | | `GET /:channelId` — channel details with members |
+| | | `PATCH /:channelId` — update channel (name, description, topic, archive) |
+| | | `POST /:channelId/members` — add member |
+| | | `DELETE /:channelId/members/:userId` — remove member |
+| | | `GET /:channelId/messages` — list channel messages |
+| | | `POST /:channelId/messages` — send channel message |
+| | | `POST /:channelId/messages/:messageId/reactions` — toggle reaction |
+| Calling | `/v1/calls` | `POST /sessions` — initiate call session |
+| | | `GET /sessions` — list call sessions |
+| | | `GET /sessions/:sessionId` — call session details |
+| | | `PATCH /sessions/:sessionId` — update call status (answer, end) |
+| | | `POST /sessions/:sessionId/participants` — add participant |
+| | | `PATCH /sessions/:sessionId/participants/:userId` — mute, hold |
+| | | `DELETE /sessions/:sessionId/participants/:userId` — remove participant |
+| | | `GET /history` — completed call history |
+| | | `POST /sessions/:sessionId/telemetry` — record telemetry event |
+| Feed | `/v1/feed` | `GET /` — list posts |
+| | | `POST /` — create post |
+| | | `GET /:postId` — post with comments and reactions |
+| | | `PATCH /:postId` — update post |
+| | | `DELETE /:postId` — delete post |
+| | | `POST /:postId/comments` — add comment |
+| | | `DELETE /:postId/comments/:commentId` — delete comment |
+| | | `POST /:postId/reactions` — toggle reaction |
+| Moderation | `/v1/moderation` | `GET /` — list reports with status filter |
+| | | `POST /` — create moderation report |
+| | | `GET /:reportId` — report details |
+| | | `PATCH /:reportId` — update report status |
+| Compliance | `/v1/compliance` | `GET /exports` — list data exports |
+| | | `POST /exports` — request data export |
+| | | `GET /exports/:exportId` — export details |
+| AI | `/v1/ai` | `GET /config` — list AI configurations |
+| | | `PUT /config/:key` — create/update AI configuration |
+| | | `DELETE /config/:key` — delete AI configuration |
+| | | `POST /chat` — chatbot endpoint |
+| | | `POST /summarize` — conversation/channel summarization |
+| | | `POST /moderate` — content moderation AI |
+| | | `POST /assist` — assistant orchestration |
+| | | `GET /interactions` — list AI interactions |
+| | | `POST /voice-bot` — voice bot extension point |
 | Notifications | `/v1/notifications` | `GET /` — list user notifications |
 | | | `POST /:id/read` — mark notification as read |
 | | | `POST /devices` — register push device |
@@ -40,6 +82,10 @@ Express + Socket.IO backend with multi-tenant foundations, powered by Prisma and
 | | | `GET /summary` — aggregated analytics |
 | Audit | `/v1/audit-logs` | `GET /` — list audit logs with pagination |
 | Presence | Socket.IO | `presence:update` — change user status |
+| | | `typing:start` — broadcast typing start |
+| | | `typing:stop` — broadcast typing stop |
+| | | `channel:join` — join channel room |
+| | | `channel:leave` — leave channel room |
 | | | `presence:user_status_changed` — broadcast to tenant |
 
 ## Middleware
@@ -52,12 +98,12 @@ Express + Socket.IO backend with multi-tenant foundations, powered by Prisma and
 
 | Key | Used by |
 |-----|---------|
-| `tenant.manage` | Tenant settings, webhooks, billing, audit logs |
+| `tenant.manage` | Tenant settings, webhooks, billing, audit logs, AI config, compliance exports |
 | `user.manage` | Team management, invitations, role changes |
-| `conversation.read` | List and view conversations and messages |
-| `conversation.write` | Send messages, assign, close, upload files, call |
-| `moderation.manage` | Moderation reports (scaffolded) |
-| `analytics.read` | Analytics summary, audit logs |
+| `conversation.read` | List and view conversations, messages, channels, call sessions, posts, AI summarization |
+| `conversation.write` | Send messages, assign, close, upload files, call, create channels/posts, chatbot, assistant |
+| `moderation.manage` | Moderation reports, AI content moderation, delete others' posts |
+| `analytics.read` | Analytics summary, audit logs, AI interaction history |
 | `featureflag.manage` | Feature flag management |
 
 ## Development

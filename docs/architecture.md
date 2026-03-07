@@ -35,11 +35,17 @@ Each domain is encapsulated in its own route module under `src/modules/`:
 | `tenants` | `/v1/tenants` | Tenant settings, branding, feature flags, routing config, webhooks, billing |
 | `users` | `/v1/users` | Team management, invitations, role assignment, assignable members |
 | `messaging` | `/v1` | Conversations, messages, reactions, read receipts, attachments, outbound calls |
+| `channels` | `/v1/channels` | Channel CRUD, membership, channel messaging, threading, reactions |
+| `calling` | `/v1/calls` | Call session management, participants, history, telemetry |
+| `feed` | `/v1/feed` | Posts, comments, reactions, privacy controls |
+| `moderation` | `/v1/moderation` | Content moderation reports with status workflow |
+| `compliance` | `/v1/compliance` | Data export requests with status tracking |
+| `ai` | `/v1/ai` | AI config, chatbot, summarization, moderation AI, assistant, voice bot |
 | `notifications` | `/v1/notifications` | In-app notifications, push device registration, test notifications |
 | `storage` | `/v1/storage` | S3 presigned uploads and local file uploads |
 | `analytics` | `/v1/analytics` | Event ingestion and summary aggregation |
 | `audit` | `/v1/audit-logs` | Audit log listing with pagination |
-| `presence` | Socket.IO | Real-time user presence (online/away/busy/offline) |
+| `presence` | Socket.IO | Real-time user presence (online/away/busy/offline), typing indicators, channel events |
 
 ### Library modules
 
@@ -68,10 +74,12 @@ Shared utilities live under `src/lib/`:
 - Tracks presence sessions in the database (`PresenceSession` model).
 - Broadcasts `presence:user_status_changed` events to all users in the same tenant.
 - Handles disconnection cleanup with `lastSeenAt` timestamps.
+- **Typing indicators** — `typing:start` and `typing:stop` events broadcast `typing:update` to conversation or channel rooms.
+- **Channel events** — `channel:join` and `channel:leave` for real-time channel room management.
 
 ## Data model
 
-The Prisma schema defines 28 models across these domains:
+The Prisma schema defines 40 models across these domains:
 
 ### Core entities
 - **Tenant** — multi-tenant root with slug, status, and timestamps
@@ -95,6 +103,22 @@ The Prisma schema defines 28 models across these domains:
 - **MessageReceipt** — delivery and read timestamps per user per message
 - **MessageAttachment** — file attachments with storage key, content type, size
 
+### Channels
+- **Channel** — public/private/direct channels with name, slug, description, topic, archive status
+- **ChannelMember** — channel membership with role (owner/admin/member)
+- **ChannelMessage** — channel messages with threading via parentMessageId
+- **ChannelMessageReaction** — emoji reactions on channel messages
+
+### Calling
+- **CallSession** — call sessions with voice/video type, status (ringing/answered/busy/failed/ended), LiveKit room name, duration, recording URL
+- **CallParticipant** — call participants with join/leave times, mute and hold state
+- **CallTelemetry** — call quality metrics and event tracking
+
+### Feed / Social
+- **Post** — team activity feed posts with text, media URLs, visibility (public/team/private), pinning
+- **PostComment** — threaded comments on posts with parent comment support
+- **PostReaction** — emoji reactions on posts
+
 ### Team management
 - **TenantInvitation** — email invitations with token, status (pending/accepted/revoked/expired), expiry
 - **PresenceSession** — real-time presence tracking with status and connection ID
@@ -113,9 +137,13 @@ The Prisma schema defines 28 models across these domains:
 - **AuditLog** — action, entity type/ID, metadata, IP address, user agent
 - **AnalyticsEvent** — event name, category, value, metadata, timestamp
 
-### Scaffolded
-- **AIConfig** — per-tenant AI provider configuration (Phase 6 — model exists, integration pending)
-- **ModerationReport** — content moderation reports (Phase 5 — model exists, handlers pending)
+### Moderation and compliance
+- **ModerationReport** — content moderation reports with status workflow (open/reviewing/resolved/dismissed)
+- **ComplianceExport** — data export requests with status tracking (pending/processing/completed/failed)
+
+### AI
+- **AIConfig** — per-tenant AI provider configuration with key, provider, config, and enabled flag
+- **AIInteraction** — AI interaction logs with type (chatbot/assistant/summarization/moderation/voice_bot), input/output, token usage, and duration
 
 ## Roadmap
 
@@ -124,11 +152,11 @@ Development follows a six-phase plan. See [roadmap.md](roadmap.md) for the full 
 | Phase | Focus | Status |
 |-------|-------|--------|
 | 1 | Foundations | ✅ Complete |
-| 2 | Core Messaging | ✅ Mostly complete |
-| 3 | Calling | ⬜ Scaffolded |
-| 4 | Feed / Social | ⬜ Planned |
-| 5 | Admin / Analytics / Security | ✅ Partially complete |
-| 6 | AI Layer | ⬜ Scaffolded |
+| 2 | Core Messaging | ✅ Complete |
+| 3 | Calling | ✅ Complete |
+| 4 | Feed / Social | ✅ Complete |
+| 5 | Admin / Analytics / Security | ✅ Complete |
+| 6 | AI Layer | ✅ Complete |
 
 ## Security
 
