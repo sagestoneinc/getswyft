@@ -53,14 +53,18 @@ function parseConnectionHost(connectionString) {
     const url = new URL(connectionString);
     return {
       host: url.hostname,
-      port: url.port ? Number(url.port) : undefined,
     };
   } catch {
     return {
       host: undefined,
-      port: undefined,
     };
   }
+}
+
+function replaceConnectionHost(connectionString, host) {
+  const url = new URL(connectionString);
+  url.hostname = host;
+  return url.toString();
 }
 
 function shouldRetryWithIpv4(error) {
@@ -133,11 +137,12 @@ export async function migrateSupabase({
   const migrations = await readMigrationFiles(migrationsDir);
   const forceIpv4 = process.env.SUPABASE_DB_FORCE_IPV4 !== "false";
   const ipv4OverrideUrl = process.env.SUPABASE_DB_URL_IPV4;
+  const primaryConnectionString = ipv4OverrideUrl || connectionString;
   const baseClientConfig = {
-    connectionString,
+    connectionString: primaryConnectionString,
     ...(forceIpv4 ? { lookup: ipv4OnlyLookup } : {}),
   };
-  let client = clientFactory ? clientFactory(connectionString) : new Client(baseClientConfig);
+  let client = clientFactory ? clientFactory(primaryConnectionString) : new Client(baseClientConfig);
 
   try {
     await client.connect();
@@ -146,9 +151,20 @@ export async function migrateSupabase({
       throw error;
     }
 
-    const retryConnectionString = ipv4OverrideUrl || connectionString;
-    const { host, port } = parseConnectionHost(retryConnectionString);
-    const ipv4Address = await resolveIpv4Address(host);
+    const retryConnectionString = primaryConnectionString;
+    const { host } = parseConnectionHost(retryConnectionString);
+    if (host && isIP(host) === 6 && !ipv4OverrideUrl) {
+      throw new Error(
+        "SUPABASE_DB_URL host is IPv6-only and unreachable from this runtime. Set SUPABASE_DB_URL_IPV4 to an IPv4-capable Supabase connection string.",
+      );
+    }
+
+    let ipv4Address;
+    try {
+      ipv4Address = await resolveIpv4Address(host);
+    } catch {
+      throw error;
+    }
 
     if (!ipv4Address) {
       throw error;
@@ -158,10 +174,9 @@ export async function migrateSupabase({
       `Initial Supabase migration DB connect failed with ${error.code}; retrying via IPv4 ${ipv4Address}.`,
     );
 
+    const rewrittenConnectionString = replaceConnectionHost(retryConnectionString, ipv4Address);
     client = new Client({
-      connectionString: retryConnectionString,
-      host: ipv4Address,
-      ...(port ? { port } : {}),
+      connectionString: rewrittenConnectionString,
       ...(forceIpv4 ? { lookup: ipv4OnlyLookup } : {}),
     });
 
