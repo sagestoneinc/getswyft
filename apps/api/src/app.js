@@ -13,6 +13,11 @@ import { storageRouter } from "./modules/storage/storage.routes.js";
 import { analyticsRouter } from "./modules/analytics/analytics.routes.js";
 import { auditRouter } from "./modules/audit/audit.routes.js";
 import { messagingRouter } from "./modules/messaging/messaging.routes.js";
+import { channelRouter } from "./modules/channels/channel.routes.js";
+import { callingRouter } from "./modules/calling/calling.routes.js";
+import { feedRouter } from "./modules/feed/feed.routes.js";
+import { moderationRouter } from "./modules/moderation/moderation.routes.js";
+import { complianceRouter } from "./modules/compliance/compliance.routes.js";
 import { aiRouter } from "./modules/ai/ai.routes.js";
 
 export function createApp() {
@@ -60,6 +65,11 @@ export function createApp() {
   app.use("/v1/analytics", analyticsRouter);
   app.use("/v1/audit-logs", auditRouter);
   app.use("/v1", messagingRouter);
+  app.use("/v1/channels", channelRouter);
+  app.use("/v1/calls", callingRouter);
+  app.use("/v1/feed", feedRouter);
+  app.use("/v1/moderation", moderationRouter);
+  app.use("/v1/compliance", complianceRouter);
   app.use("/v1/ai", aiRouter);
 
   app.use((error, req, res, _next) => {
