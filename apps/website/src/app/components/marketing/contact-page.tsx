@@ -122,7 +122,7 @@ export function ContactPage() {
                 <h3 className="text-primary mb-3" style={{ fontWeight: 600 }}>What to Expect</h3>
                 <ul className="space-y-2 text-sm text-muted-foreground">
                   <li className="flex gap-2"><CheckCircle className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" /> 30-minute personalized walkthrough</li>
-                  <li className="flex gap-2"><CheckCircle className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" /> See the widget live on a sample site</li>
+                  <li className="flex gap-2"><CheckCircle className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" /> Review real workflows mapped to your use case</li>
                   <li className="flex gap-2"><CheckCircle className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" /> Q&A with our product team</li>
                   <li className="flex gap-2"><CheckCircle className="w-4 h-4 text-accent flex-shrink-0 mt-0.5" /> Custom pricing for your team</li>
                 </ul>

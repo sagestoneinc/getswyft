@@ -1,7 +1,6 @@
 import type { RouteObject } from "react-router";
 import { AppLayout } from "../components/app/app-layout";
 import { LoginPage } from "../components/app/login-page";
-import { FeaturesPage } from "../components/app/features-page";
 import { InboxPage } from "../components/app/inbox-page";
 import { ConversationPage } from "../components/app/conversation-page";
 import { RoutingPage } from "../components/app/routing-page";
@@ -15,7 +14,6 @@ import { AiPage } from "../components/app/ai-page";
 import { ModerationPage } from "../components/app/moderation-page";
 import { AuditPage } from "../components/app/audit-page";
 import { CollaborationPage } from "../components/app/collaboration-page";
-import { WidgetDemo } from "../components/widget/widget-demo";
 
 export const privateRoutes: RouteObject[] = [
   {
@@ -26,7 +24,6 @@ export const privateRoutes: RouteObject[] = [
     path: "/app",
     Component: AppLayout,
     children: [
-      { path: "features", Component: FeaturesPage },
       { index: true, Component: InboxPage },
       { path: "inbox", Component: InboxPage },
       { path: "conversation/:id", Component: ConversationPage },
@@ -42,9 +39,5 @@ export const privateRoutes: RouteObject[] = [
       { path: "collaboration", Component: CollaborationPage },
       { path: "profile", Component: ProfilePage },
     ],
-  },
-  {
-    path: "/widget-demo",
-    Component: WidgetDemo,
   },
 ];

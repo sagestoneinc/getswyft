@@ -991,13 +991,13 @@ export const marketingPages: Record<string, MarketingPage> = {
       },
       {
         kind: "copy",
-        eyebrow: "Live product demo",
-        title: "See the SwyftUp chat experience on a real interactive preview",
+        eyebrow: "Product walkthrough",
+        title: "See SwyftUp in action with your own workflow and routing setup",
         paragraphs: [
-          "If you want to test the customer-side flow before your demo, open the live widget preview and walk through pre-chat, live chat, after-hours capture, and voice transitions.",
-          "When your production widget script is configured, the same entry point can run directly on the marketing site using your own SwyftUp workspace settings.",
+          "Every demo is tailored to your channels, routing model, and team structure so you can evaluate real operational fit instead of a generic sandbox.",
+          "You’ll see live chat, voice, AI receptionist handoff, and analytics in one guided flow aligned to how your business actually runs.",
         ],
-        action: { label: "Open Widget Preview", to: "/widget-demo", variant: "secondary" },
+        action: { label: "Book a Demo", to: "/contact", variant: "secondary" },
       },
       {
         kind: "copy",

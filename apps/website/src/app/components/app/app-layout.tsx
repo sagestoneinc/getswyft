@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, Navigate } from "react-router";
 import { useEffect, useState } from "react";
 import {
   Inbox, Settings, Webhook, BarChart3, Users,
-  CreditCard, User, Menu, X, LogOut, Loader2, AlertTriangle, BellRing, LayoutGrid, Bot, ShieldAlert, FileClock, MessagesSquare
+  CreditCard, User, Menu, X, LogOut, Loader2, AlertTriangle, BellRing, Bot, ShieldAlert, FileClock, MessagesSquare
 } from "lucide-react";
 import { registerPushNotifications, requestPushNotificationsAccess, type PushRegistrationStatus } from "../../lib/push";
 import { useAuth } from "../../providers/auth-provider";
@@ -12,7 +12,6 @@ import { usePageSeo } from "../../lib/seo";
 import { getAppSeo } from "../../lib/route-seo";
 
 const sidebarItems = [
-  { to: "/app/features", icon: LayoutGrid, label: "Features", requiredPermission: "conversation.read" },
   { to: "/app/inbox", icon: Inbox, label: "Inbox", requiredPermission: "conversation.read" },
   { to: "/app/routing", icon: Settings, label: "Routing", requiredPermission: "tenant.manage" },
   { to: "/app/webhooks", icon: Webhook, label: "Webhooks", requiredPermission: "tenant.manage" },

@@ -332,7 +332,7 @@ export function ProfilePage() {
           </div>
           <div>
             <p className="text-sm text-primary" style={{ fontWeight: 600 }}>{profile.displayName || email}</p>
-            <p className="text-xs text-muted-foreground">Avatar uploads are next on the roadmap.</p>
+            <p className="text-xs text-muted-foreground">Profile details are synced with your workspace account.</p>
           </div>
         </div>
         <div className="space-y-4">
@@ -424,14 +424,10 @@ export function ProfilePage() {
             <span>Change password</span>
             <ExternalLink className="w-4 h-4 text-muted-foreground" />
           </button>
-          <button className="w-full text-left p-3 bg-muted/50 rounded-lg hover:bg-muted transition-colors text-sm flex items-center justify-between" disabled>
-            <span>Two-factor authentication</span>
-            <span className="text-xs text-muted-foreground">Coming soon</span>
-          </button>
           <div className="text-xs text-muted-foreground">
             {supportsPasswordAuth
               ? "We’ll email you a secure password reset link."
-              : "Security settings are managed by your identity provider."}
+              : "Password and multi-factor settings are managed by your identity provider."}
           </div>
         </div>
       </div>
