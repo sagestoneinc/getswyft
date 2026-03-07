@@ -67,6 +67,82 @@ paths:
       responses:
         "202":
           description: Event accepted
+  /v1/conversations:
+    get:
+      summary: List tenant conversations with search and workflow filters
+      responses:
+        "200":
+          description: Conversation list
+  /v1/conversations/{id}:
+    get:
+      summary: Get a single tenant conversation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Conversation detail
+    patch:
+      summary: Update conversation assignment, notes, or workflow status
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Updated conversation detail
+  /v1/conversations/{id}/messages:
+    get:
+      summary: List messages for a conversation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Conversation message list
+    post:
+      summary: Send a message to a conversation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Message created
+  /v1/conversations/{id}/read:
+    post:
+      summary: Mark all visible messages in a conversation as read for the current user
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Read receipts updated
+  /v1/messages/{id}/reactions:
+    post:
+      summary: Toggle a reaction on a message for the current user
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reaction state updated
   /v1/audit-logs:
     get:
       summary: List tenant audit logs

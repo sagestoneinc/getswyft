@@ -51,6 +51,16 @@ class ApiClient {
       body: JSON.stringify(payload),
     });
   }
+
+  patch<T>(path: string, payload: unknown) {
+    return this.request<T>(path, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+  }
 }
 
 export const apiClient = new ApiClient();

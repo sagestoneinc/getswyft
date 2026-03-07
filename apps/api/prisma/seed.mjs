@@ -12,6 +12,110 @@ const permissionSeeds = [
   { key: "featureflag.manage", description: "Manage feature flags" },
 ];
 
+const seededConversations = [
+  {
+    id: "conv_seed_unassigned_1",
+    status: "OPEN",
+    assignedUserId: null,
+    afterHours: false,
+    leadName: "Robert Chen",
+    leadEmail: "robert.c@email.com",
+    leadPhone: "(555) 456-7890",
+    leadSource: "Website",
+    listingAddress: "789 Pine Rd, Austin TX",
+    listingPrice: "$340,000",
+    listingBeds: 2,
+    listingBaths: 2,
+    listingSqft: 1200,
+    listingMls: "MLS-78903",
+    lastMessagePreview: "What's the HOA fee?",
+    lastMessageAt: new Date("2026-03-02T09:15:00Z"),
+    notes: "",
+    messages: [
+      {
+        id: "msg_seed_unassigned_1",
+        senderType: "VISITOR",
+        body: "What's the HOA fee for 789 Pine Rd?",
+        createdAt: new Date("2026-03-02T09:15:00Z"),
+      },
+    ],
+  },
+  {
+    id: "conv_seed_mine_1",
+    status: "OPEN",
+    afterHours: false,
+    leadName: "James Wilson",
+    leadEmail: "james.w@email.com",
+    leadPhone: "(555) 234-5678",
+    leadSource: "Website",
+    leadUtm: "google_ads",
+    listingAddress: "123 Oak Street, Austin TX",
+    listingPrice: "$485,000",
+    listingBeds: 3,
+    listingBaths: 2,
+    listingSqft: 1850,
+    listingMls: "MLS-78901",
+    lastMessagePreview: "Yes, this Saturday works for the tour!",
+    lastMessageAt: new Date("2026-03-02T10:26:00Z"),
+    notes: "Very interested buyer. Pre-approved for $500k.",
+    messages: [
+      {
+        id: "msg_seed_mine_1",
+        senderType: "VISITOR",
+        body: "Hi, I'm interested in the listing at 123 Oak Street.",
+        createdAt: new Date("2026-03-02T10:23:00Z"),
+      },
+      {
+        id: "msg_seed_mine_2",
+        senderType: "AGENT",
+        body: "Great choice! That's a beautiful 3BR/2BA listed at $485,000. Would you like to schedule a tour?",
+        createdAt: new Date("2026-03-02T10:24:00Z"),
+        readByAdmin: true,
+      },
+      {
+        id: "msg_seed_mine_3",
+        senderType: "VISITOR",
+        body: "Yes, this Saturday works for the tour!",
+        createdAt: new Date("2026-03-02T10:26:00Z"),
+      },
+    ],
+  },
+  {
+    id: "conv_seed_closed_1",
+    status: "CLOSED",
+    afterHours: false,
+    leadName: "Patricia Moore",
+    leadEmail: "pat.m@email.com",
+    leadPhone: "(555) 789-0123",
+    leadSource: "Website",
+    listingAddress: "890 Birch Way, Austin TX",
+    listingPrice: "$420,000",
+    listingBeds: 3,
+    listingBaths: 2,
+    listingSqft: 1650,
+    listingMls: "MLS-78906",
+    lastMessagePreview: "Wonderful news! I'll prepare the offer paperwork right away. Congratulations!",
+    lastMessageAt: new Date("2026-03-01T18:10:00Z"),
+    notes: "Closed deal! Offer accepted at $415,000.",
+    messages: [
+      {
+        id: "msg_seed_closed_1",
+        senderType: "VISITOR",
+        body: "We've decided to go with this property. What's the next step?",
+        createdAt: new Date("2026-03-01T18:05:00Z"),
+        readByAdmin: true,
+      },
+      {
+        id: "msg_seed_closed_2",
+        senderType: "AGENT",
+        body: "Wonderful news! I'll prepare the offer paperwork right away. Congratulations!",
+        createdAt: new Date("2026-03-01T18:10:00Z"),
+        readByAdmin: true,
+      },
+    ],
+  },
+];
+
 async function seed() {
   const tenant = await prisma.tenant.upsert({
     where: { slug: "default" },
@@ -143,6 +247,95 @@ async function seed() {
       },
     },
   });
+
+  for (const conversationSeed of seededConversations) {
+    const conversation = await prisma.conversation.upsert({
+      where: { id: conversationSeed.id },
+      update: {
+        tenantId: tenant.id,
+        assignedUserId: conversationSeed.status === "OPEN" && conversationSeed.id === "conv_seed_unassigned_1" ? null : adminUser.id,
+        status: conversationSeed.status,
+        leadName: conversationSeed.leadName,
+        leadEmail: conversationSeed.leadEmail,
+        leadPhone: conversationSeed.leadPhone,
+        leadSource: conversationSeed.leadSource,
+        leadUtm: conversationSeed.leadUtm || null,
+        listingAddress: conversationSeed.listingAddress,
+        listingPrice: conversationSeed.listingPrice,
+        listingBeds: conversationSeed.listingBeds,
+        listingBaths: conversationSeed.listingBaths,
+        listingSqft: conversationSeed.listingSqft,
+        listingMls: conversationSeed.listingMls,
+        lastMessagePreview: conversationSeed.lastMessagePreview,
+        lastMessageAt: conversationSeed.lastMessageAt,
+        afterHours: conversationSeed.afterHours,
+        notes: conversationSeed.notes,
+      },
+      create: {
+        id: conversationSeed.id,
+        tenantId: tenant.id,
+        assignedUserId: conversationSeed.status === "OPEN" && conversationSeed.id === "conv_seed_unassigned_1" ? null : adminUser.id,
+        status: conversationSeed.status,
+        leadName: conversationSeed.leadName,
+        leadEmail: conversationSeed.leadEmail,
+        leadPhone: conversationSeed.leadPhone,
+        leadSource: conversationSeed.leadSource,
+        leadUtm: conversationSeed.leadUtm || null,
+        listingAddress: conversationSeed.listingAddress,
+        listingPrice: conversationSeed.listingPrice,
+        listingBeds: conversationSeed.listingBeds,
+        listingBaths: conversationSeed.listingBaths,
+        listingSqft: conversationSeed.listingSqft,
+        listingMls: conversationSeed.listingMls,
+        lastMessagePreview: conversationSeed.lastMessagePreview,
+        lastMessageAt: conversationSeed.lastMessageAt,
+        afterHours: conversationSeed.afterHours,
+        notes: conversationSeed.notes,
+      },
+    });
+
+    for (const messageSeed of conversationSeed.messages) {
+      const message = await prisma.conversationMessage.upsert({
+        where: { id: messageSeed.id },
+        update: {
+          conversationId: conversation.id,
+          senderType: messageSeed.senderType,
+          senderUserId: messageSeed.senderType === "AGENT" ? adminUser.id : null,
+          body: messageSeed.body,
+          createdAt: messageSeed.createdAt,
+        },
+        create: {
+          id: messageSeed.id,
+          conversationId: conversation.id,
+          senderType: messageSeed.senderType,
+          senderUserId: messageSeed.senderType === "AGENT" ? adminUser.id : null,
+          body: messageSeed.body,
+          createdAt: messageSeed.createdAt,
+        },
+      });
+
+      if (messageSeed.readByAdmin) {
+        await prisma.messageReceipt.upsert({
+          where: {
+            messageId_userId: {
+              messageId: message.id,
+              userId: adminUser.id,
+            },
+          },
+          update: {
+            deliveredAt: messageSeed.createdAt,
+            readAt: messageSeed.createdAt,
+          },
+          create: {
+            messageId: message.id,
+            userId: adminUser.id,
+            deliveredAt: messageSeed.createdAt,
+            readAt: messageSeed.createdAt,
+          },
+        });
+      }
+    }
+  }
 
   await prisma.notification.create({
     data: {

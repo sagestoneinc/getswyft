@@ -1,11 +1,8 @@
-import crypto from "node:crypto";
 import { env } from "../../config/env.js";
 import { loadAccessContextFromClaims } from "../../lib/access-context.js";
 import { verifyAccessToken } from "../../lib/auth-tokens.js";
 import { getPrismaClient } from "../../lib/db.js";
 import { logger } from "../../lib/logger.js";
-
-const messageHistoryByConversation = new Map();
 
 function safeAck(callback, payload) {
   if (typeof callback === "function") {
@@ -21,19 +18,19 @@ function normalizePresenceStatus(status) {
   return "ONLINE";
 }
 
-function buildMessage({ conversationId, sender, body, tenantId }) {
+function serializeSocketMessage(message) {
   return {
-    id: crypto.randomUUID(),
-    conversationId,
-    tenantId,
-    sender: sender || "visitor",
-    body,
-    createdAt: new Date().toISOString(),
+    id: message.id,
+    conversationId: message.conversationId,
+    tenantId: message.conversation?.tenantId,
+    sender: message.senderType === "AGENT" ? "agent" : message.senderType === "SYSTEM" ? "system" : "visitor",
+    body: message.body,
+    createdAt: message.createdAt instanceof Date ? message.createdAt.toISOString() : message.createdAt,
   };
 }
 
-function getConversationKey(tenantId, conversationId) {
-  return `${tenantId}:${conversationId}`;
+function hasSocketPermission(auth, permission) {
+  return auth?.tenant?.permissions?.includes(permission);
 }
 
 function getTokenFromSocket(socket) {
@@ -203,20 +200,60 @@ export function registerPresenceSocket(io) {
       safeAck(callback, { ok: true, ...event });
     });
 
-    socket.on("conversation:join", ({ conversationId }, callback) => {
+    socket.on("conversation:join", async ({ conversationId }, callback) => {
+      if (!hasSocketPermission(auth, "conversation.read")) {
+        safeAck(callback, { ok: false, error: "Missing permission: conversation.read" });
+        return;
+      }
+
       if (!conversationId || typeof conversationId !== "string") {
         safeAck(callback, { ok: false, error: "conversationId is required" });
         return;
       }
 
+      const conversation = await prisma.conversation.findFirst({
+        where: {
+          id: conversationId,
+          tenantId: auth.tenant.tenantId,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!conversation) {
+        safeAck(callback, { ok: false, error: "Conversation not found" });
+        return;
+      }
+
       const room = `tenant:${auth.tenant.tenantId}:conversation:${conversationId}`;
       socket.join(room);
-      const history = messageHistoryByConversation.get(getConversationKey(auth.tenant.tenantId, conversationId)) || [];
+
+      const history = await prisma.conversationMessage.findMany({
+        where: {
+          conversationId,
+          conversation: {
+            tenantId: auth.tenant.tenantId,
+          },
+        },
+        include: {
+          conversation: {
+            select: {
+              tenantId: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+        take: 100,
+      });
+
       safeAck(callback, {
         ok: true,
         tenantId: auth.tenant.tenantId,
         conversationId,
-        history,
+        history: history.map(serializeSocketMessage),
       });
     });
 
@@ -231,23 +268,52 @@ export function registerPresenceSocket(io) {
       safeAck(callback, { ok: true, conversationId });
     });
 
-    socket.on("conversation:history", ({ conversationId }, callback) => {
+    socket.on("conversation:history", async ({ conversationId }, callback) => {
+      if (!hasSocketPermission(auth, "conversation.read")) {
+        safeAck(callback, { ok: false, error: "Missing permission: conversation.read" });
+        return;
+      }
+
       if (!conversationId || typeof conversationId !== "string") {
         safeAck(callback, { ok: false, error: "conversationId is required" });
         return;
       }
 
+      const history = await prisma.conversationMessage.findMany({
+        where: {
+          conversationId,
+          conversation: {
+            tenantId: auth.tenant.tenantId,
+          },
+        },
+        include: {
+          conversation: {
+            select: {
+              tenantId: true,
+            },
+          },
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+        take: 100,
+      });
+
       safeAck(callback, {
         ok: true,
         conversationId,
-        history: messageHistoryByConversation.get(getConversationKey(auth.tenant.tenantId, conversationId)) || [],
+        history: history.map(serializeSocketMessage),
       });
     });
 
-    socket.on("message:send", (payload, callback) => {
+    socket.on("message:send", async (payload, callback) => {
+      if (!hasSocketPermission(auth, "conversation.write")) {
+        safeAck(callback, { ok: false, error: "Missing permission: conversation.write" });
+        return;
+      }
+
       const conversationId = payload?.conversationId;
       const body = payload?.body?.toString()?.trim();
-      const sender = payload?.sender || auth.user.displayName || auth.user.email || "user";
 
       if (!conversationId || typeof conversationId !== "string") {
         safeAck(callback, { ok: false, error: "conversationId is required" });
@@ -259,18 +325,64 @@ export function registerPresenceSocket(io) {
         return;
       }
 
-      const room = `tenant:${auth.tenant.tenantId}:conversation:${conversationId}`;
-      const key = getConversationKey(auth.tenant.tenantId, conversationId);
-      const message = buildMessage({
-        conversationId,
-        sender,
-        body,
-        tenantId: auth.tenant.tenantId,
+      const conversation = await prisma.conversation.findFirst({
+        where: {
+          id: conversationId,
+          tenantId: auth.tenant.tenantId,
+        },
+        select: {
+          id: true,
+        },
       });
 
-      const history = messageHistoryByConversation.get(key) || [];
-      history.push(message);
-      messageHistoryByConversation.set(key, history.slice(-100));
+      if (!conversation) {
+        safeAck(callback, { ok: false, error: "Conversation not found" });
+        return;
+      }
+
+      const createdMessage = await prisma.$transaction(async (tx) => {
+        const message = await tx.conversationMessage.create({
+          data: {
+            conversationId,
+            senderType: "AGENT",
+            senderUserId: auth.user.id,
+            body,
+          },
+          include: {
+            conversation: {
+              select: {
+                tenantId: true,
+              },
+            },
+          },
+        });
+
+        await tx.messageReceipt.create({
+          data: {
+            messageId: message.id,
+            userId: auth.user.id,
+            deliveredAt: new Date(),
+            readAt: new Date(),
+          },
+        });
+
+        await tx.conversation.update({
+          where: {
+            id: conversationId,
+          },
+          data: {
+            status: "OPEN",
+            assignedUserId: auth.user.id,
+            lastMessagePreview: body,
+            lastMessageAt: message.createdAt,
+          },
+        });
+
+        return message;
+      });
+
+      const room = `tenant:${auth.tenant.tenantId}:conversation:${conversationId}`;
+      const message = serializeSocketMessage(createdMessage);
 
       io.to(room).emit("message:new", message);
       safeAck(callback, { ok: true, message });

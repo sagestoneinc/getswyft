@@ -27,13 +27,24 @@ enum ModerationStatus {
   DISMISSED
 }
 
+enum ConversationStatus {
+  OPEN
+  CLOSED
+}
+
+enum MessageSenderType {
+  VISITOR
+  AGENT
+  SYSTEM
+}
+
 model Tenant {
-  id                String              @id @default(cuid())
-  slug              String              @unique
-  name              String
-  status            TenantStatus        @default(ACTIVE)
-  createdAt         DateTime            @default(now())
-  updatedAt         DateTime            @updatedAt
+  id        String       @id @default(cuid())
+  slug      String       @unique
+  name      String
+  status    TenantStatus @default(ACTIVE)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
 
   domains           TenantDomain[]
   branding          TenantBranding?
@@ -45,6 +56,7 @@ model Tenant {
   analyticsEvents   AnalyticsEvent[]
   aiConfigs         AIConfig[]
   moderationReports ModerationReport[]
+  conversations     Conversation[]
 }
 
 model TenantDomain {
@@ -87,22 +99,26 @@ model TenantFeatureFlag {
 }
 
 model User {
-  id             String            @id @default(cuid())
-  externalAuthId String            @unique
+  id             String   @id @default(cuid())
+  externalAuthId String   @unique
   email          String
   displayName    String?
   avatarUrl      String?
-  isActive       Boolean           @default(true)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  isActive       Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  profile              Profile?
-  userRoles            UserRole[]
-  notifications        Notification[]
-  presenceSessions     PresenceSession[]
-  auditLogs            AuditLog[]          @relation("ActorAuditLogs")
-  analyticsEvents      AnalyticsEvent[]
-  moderationReports    ModerationReport[]  @relation("ReporterModerationReports")
+  profile               Profile?
+  userRoles             UserRole[]
+  notifications         Notification[]
+  presenceSessions      PresenceSession[]
+  auditLogs             AuditLog[]            @relation("ActorAuditLogs")
+  analyticsEvents       AnalyticsEvent[]
+  moderationReports     ModerationReport[]    @relation("ReporterModerationReports")
+  assignedConversations Conversation[]        @relation("AssignedConversations")
+  conversationMessages  ConversationMessage[] @relation("MessageSender")
+  messageReactions      MessageReaction[]
+  messageReceipts       MessageReceipt[]
 }
 
 model Profile {
@@ -119,22 +135,22 @@ model Profile {
 }
 
 model Role {
-  id          String           @id @default(cuid())
-  key         String           @unique
-  name        String
-  isSystem    Boolean          @default(false)
-  createdAt   DateTime         @default(now())
-  updatedAt   DateTime         @updatedAt
+  id        String   @id @default(cuid())
+  key       String   @unique
+  name      String
+  isSystem  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   permissions RolePermission[]
   userRoles   UserRole[]
 }
 
 model Permission {
-  id              String           @id @default(cuid())
-  key             String           @unique
-  description     String?
-  createdAt       DateTime         @default(now())
+  id          String   @id @default(cuid())
+  key         String   @unique
+  description String?
+  createdAt   DateTime @default(now())
 
   rolePermissions RolePermission[]
 }
@@ -142,7 +158,7 @@ model Permission {
 model RolePermission {
   roleId       String
   permissionId String
-  createdAt    DateTime   @default(now())
+  createdAt    DateTime @default(now())
 
   role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
@@ -185,8 +201,106 @@ model PresenceSession {
   @@index([tenantId, lastSeenAt])
 }
 
-model Notification {
+model Conversation {
+  id                 String             @id @default(cuid())
+  tenantId           String
+  assignedUserId     String?
+  status             ConversationStatus @default(OPEN)
+  leadName           String
+  leadEmail          String?
+  leadPhone          String?
+  leadSource         String?
+  leadUtm            String?
+  listingAddress     String
+  listingPrice       String
+  listingBeds        Int?
+  listingBaths       Int?
+  listingSqft        Int?
+  listingMls         String?
+  lastMessagePreview String?
+  lastMessageAt      DateTime?
+  afterHours         Boolean            @default(false)
+  notes              String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  assignedUser User?                 @relation("AssignedConversations", fields: [assignedUserId], references: [id], onDelete: SetNull)
+  messages     ConversationMessage[]
+
+  @@index([tenantId, lastMessageAt])
+  @@index([tenantId, status, assignedUserId])
+}
+
+model ConversationMessage {
+  id              String            @id @default(cuid())
+  conversationId  String
+  senderType      MessageSenderType @default(AGENT)
+  senderUserId    String?
+  parentMessageId String?
+  body            String
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  conversation  Conversation          @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderUser    User?                 @relation("MessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  parentMessage ConversationMessage?  @relation("MessageThread", fields: [parentMessageId], references: [id], onDelete: SetNull)
+  replies       ConversationMessage[] @relation("MessageThread")
+  reactions     MessageReaction[]
+  receipts      MessageReceipt[]
+  attachments   MessageAttachment[]
+
+  @@index([conversationId, createdAt])
+  @@index([senderUserId, createdAt])
+  @@index([parentMessageId, createdAt])
+}
+
+model MessageReaction {
   id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message ConversationMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+  @@index([userId, createdAt])
+}
+
+model MessageReceipt {
+  id          String    @id @default(cuid())
+  messageId   String
+  userId      String
+  deliveredAt DateTime?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  message ConversationMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId])
+  @@index([userId, readAt, createdAt])
+}
+
+model MessageAttachment {
+  id          String   @id @default(cuid())
+  messageId   String
+  storageKey  String
+  filename    String
+  contentType String?
+  sizeBytes   Int?
+  createdAt   DateTime @default(now())
+
+  message ConversationMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+
+  @@index([messageId, createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
   tenantId  String
   userId    String
   type      String
@@ -194,7 +308,7 @@ model Notification {
   body      String?
   payload   Json?
   readAt    DateTime?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
