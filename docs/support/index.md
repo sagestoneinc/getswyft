@@ -11,7 +11,7 @@ Welcome to the Getswyft support documentation. Getswyft is a multi-tenant SaaS c
 Start here if you manage your organization's Getswyft account — team setup, routing rules, billing, webhooks, analytics, and compliance.
 
 - [Platform Overview](platform-overview.md)
-- [Authentication & Login](authentication.md)
+- [Authentication & Login](features/authentication-and-login.md)
 - [Routing Configuration](routing.md)
 - [Team Management](team-management.md)
 - [Webhooks](webhooks.md)
@@ -27,8 +27,8 @@ Start here if you manage your organization's Getswyft account — team setup, ro
 Start here if you handle conversations, messaging, and calls with visitors and leads.
 
 - [Platform Overview](platform-overview.md)
-- [Authentication & Login](authentication.md)
-- [Inbox & Conversations](inbox-conversations.md)
+- [Authentication & Login](features/authentication-and-login.md)
+- [Inbox & Conversations](features/inbox-and-conversations.md)
 - [Channels](channels.md)
 - [Calling](calling.md)
 - [Feed](feed.md)
@@ -54,13 +54,13 @@ Start here if you are troubleshooting issues or helping users with the platform.
 | Topic | Description |
 |-------|-------------|
 | [Platform Overview](platform-overview.md) | What Getswyft is, who uses it, and how the components connect |
-| [Authentication & Login](authentication.md) | Email/password, Google, and Azure sign-in options |
+| [Authentication & Login](features/authentication-and-login.md) | Email/password, Google, and Azure sign-in options |
 
 ### Communication Features
 
 | Topic | Description |
 |-------|-------------|
-| [Inbox & Conversations](inbox-conversations.md) | Conversation list, tabs (Unassigned, Mine, Closed), search, message threads |
+| [Inbox & Conversations](features/inbox-and-conversations.md) | Conversation list, tabs (Unassigned, Mine, Closed), search, message threads |
 | [Channels](channels.md) | Creating and managing communication channels |
 | [Calling](calling.md) | Voice calls within conversations |
 | [Feed](feed.md) | Social-style activity feed |
