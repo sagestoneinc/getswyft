@@ -67,6 +67,7 @@ fields in the Railway dashboard.
 | Variable | Description |
 |----------|-------------|
 | `DATABASE_URL` | PostgreSQL connection string (Railway provides this when you add a Postgres plugin) |
+| `SUPABASE_DB_URL` | Supabase Postgres connection string (required for `db:sync` and Supabase SQL migrations) |
 | `JWT_SECRET` | Secret used to sign auth tokens |
 | `CORS_ORIGINS` | Comma-separated allowed origins (e.g. `https://agent.example.com,https://widget.example.com`) |
 | `PORT` | *(set automatically by Railway)* |
@@ -116,6 +117,18 @@ After the first successful API deployment, seed the database:
 # In Railway's service shell or via `railway run`:
 npm run seed:api
 ```
+
+Before/after each release, verify both data stores are aligned:
+
+```bash
+# Strict check: fails if Railway Prisma or Supabase SQL migrations are out of date
+pnpm run db:sync:status
+
+# Apply pending migrations to both databases
+pnpm run db:sync
+```
+
+`db:sync` requires both `DATABASE_URL` (Railway Postgres) and `SUPABASE_DB_URL` (Supabase Postgres) in the API service environment.
 
 ---
 

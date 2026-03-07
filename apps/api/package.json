@@ -10,6 +10,8 @@
     "prisma:generate": "prisma generate",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:seed": "prisma db seed",
+    "db:sync": "node scripts/db-sync.mjs",
+    "db:sync:status": "node scripts/db-sync.mjs --status",
     "supabase:migrate": "node scripts/supabase-migrate.mjs",
     "supabase:migrate:status": "node scripts/supabase-migrate.mjs --status"
   },

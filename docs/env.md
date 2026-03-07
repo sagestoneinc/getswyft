@@ -27,6 +27,9 @@
 | `AUTH_AUDIENCE` | — | Expected JWT audience claim |
 | `AUTH_JWKS_URI` | — | JWKS endpoint URL (auto-derived from issuer when omitted) |
 | `SUPABASE_URL` | — | Supabase project URL (when `AUTH_PROVIDER=supabase`) |
+| `SUPABASE_DB_URL` | — | Supabase Postgres connection string used by `db:sync` and `supabase:migrate` |
+| `SUPABASE_DB_FORCE_IPV4` | `true` | Force IPv4 DNS lookup for Supabase migration connectivity |
+| `SUPABASE_DB_URL_IPV4` | — | Optional IPv4-safe Supabase Postgres URL override |
 | `DEV_AUTH_BYPASS` | `false` | Enable header-based auth bypass for local development |
 | `DEV_DEFAULT_TENANT_SLUG` | `default` | Tenant slug used during dev auth bypass |
 | `APP_BASE_URL` | `http://localhost:5173` | Base URL used in invitation emails and links |

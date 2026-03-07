@@ -152,6 +152,8 @@ Prisma manages the PostgreSQL schema. Key commands:
 pnpm -C apps/api prisma:generate        # regenerate client after schema changes
 pnpm -C apps/api prisma:migrate:deploy  # apply pending migrations
 pnpm -C apps/api prisma:seed            # seed development data
+pnpm -C apps/api db:sync                # apply Prisma + Supabase migrations together
+pnpm -C apps/api db:sync:status         # strict status check for both databases
 pnpm -C apps/api supabase:migrate       # apply Supabase SQL migrations
 pnpm -C apps/api supabase:migrate:status
 ```
@@ -162,6 +164,8 @@ Or use root convenience scripts:
 pnpm run db:prisma:generate
 pnpm run db:prisma:migrate:deploy
 pnpm run db:prisma:seed
+pnpm run db:sync
+pnpm run db:sync:status
 pnpm run db:supabase:migrate
 pnpm run db:supabase:migrate:status
 ```

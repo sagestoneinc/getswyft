@@ -104,6 +104,7 @@ cp apps/website/.env.example apps/website/.env
 pnpm -C apps/api prisma:generate
 pnpm -C apps/api prisma:migrate:deploy
 pnpm -C apps/api prisma:seed
+pnpm -C apps/api db:sync:status
 
 # Start the API (http://localhost:8080)
 pnpm dev:api
@@ -121,6 +122,12 @@ curl http://localhost:8080/health
 ## Testing
 
 ```bash
+# Check both Railway Prisma + Supabase SQL migration status
+pnpm run db:sync:status
+
+# Apply pending migrations to both databases
+pnpm run db:sync
+
 # API tests
 pnpm -C apps/api test
 
