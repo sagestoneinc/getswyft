@@ -153,6 +153,11 @@ const appRouteMetadata = [
     description: "Manage webhook endpoints, integrations, and delivery logs for SwyftUp events.",
   },
   {
+    match: (pathname: string) => pathname === "/app/integrations",
+    title: "Integrations | SwyftUp",
+    description: "Configure tenant widget embeds, environment settings, and integration endpoints for client websites.",
+  },
+  {
     match: (pathname: string) => pathname === "/app/analytics",
     title: "Analytics | SwyftUp",
     description: "Track response time, conversation volume, and workflow performance in SwyftUp.",

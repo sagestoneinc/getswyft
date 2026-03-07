@@ -5,6 +5,7 @@ import { InboxPage } from "../components/app/inbox-page";
 import { ConversationPage } from "../components/app/conversation-page";
 import { RoutingPage } from "../components/app/routing-page";
 import { WebhooksPage } from "../components/app/webhooks-page";
+import { IntegrationsPage } from "../components/app/integrations-page";
 import { AnalyticsPage } from "../components/app/analytics-page";
 import { TeamPage } from "../components/app/team-page";
 import { BillingPage } from "../components/app/billing-page";
@@ -30,6 +31,7 @@ export const privateRoutes: RouteObject[] = [
       { path: "conversation/:id", Component: ConversationPage },
       { path: "routing", Component: RoutingPage },
       { path: "webhooks", Component: WebhooksPage },
+      { path: "integrations", Component: IntegrationsPage },
       { path: "analytics", Component: AnalyticsPage },
       { path: "team", Component: TeamPage },
       { path: "billing", Component: BillingPage },
@@ -43,4 +45,3 @@ export const privateRoutes: RouteObject[] = [
     ],
   },
 ];
-
