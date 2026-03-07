@@ -88,8 +88,8 @@ The table below maps every platform feature and API endpoint to the permission r
 |---|---|---|---|
 | List channels | `/v1/channels` | GET | `conversation.read` |
 | Create channel | `/v1/channels` | POST | `conversation.write` |
-| Get channel | `/v1/channels/:id` | GET | `conversation.read` |
-| Update channel | `/v1/channels/:id` | PATCH | `conversation.write` |
+| Get channel | `/v1/channels/:channelId` | GET | `conversation.read` |
+| Update channel | `/v1/channels/:channelId` | PATCH | `conversation.write` |
 | Add channel member | `/v1/channels/:channelId/members` | POST | `conversation.write` |
 | Remove channel member | `/v1/channels/:channelId/members/:userId` | DELETE | `conversation.write` |
 | List channel messages | `/v1/channels/:channelId/messages` | GET | `conversation.read` |

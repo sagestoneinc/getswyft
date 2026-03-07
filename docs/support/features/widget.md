@@ -15,9 +15,9 @@ The widget is currently a runtime shell with full API and WebSocket bootstrappin
 
 The visitor widget provides an end-to-end communication channel between listing-page visitors and support agents:
 
-- **Session creation** — when a visitor opens the widget and submits their information, a session is created. The API returns a `visitorJwt`, a `conversationId`, and an `afterHours` flag indicating whether the request falls outside office hours. **Note:** The widget session creation endpoint (`POST /v1/widget/session`) is not yet implemented in the API server. The widget currently bootstraps sessions through the existing authentication and conversation creation endpoints.
-- **Real-time messaging** — the widget connects to the server over Socket.IO using the `visitorJwt`. Messages are delivered in real time through the `message.created` socket event, and conversation history is loaded via the `conversation.history` event.
-- **Message sending** — outbound messages are sent via `POST /v1/conversations/:id/messages` with the visitor's JWT as a Bearer token. The widget uses optimistic delivery with client-side UUIDs so messages appear instantly in the chat view.
+- **Session creation** — when a visitor opens the widget and submits their information, the widget is designed to create a session and receive a `visitorJwt`, a `conversationId`, and an `afterHours` flag indicating whether the request falls outside office hours. **Note:** The widget session creation endpoint (`POST /v1/widget/session`) is not yet implemented in the API server, and no `/v1/widget/*` routes currently exist. Visitor session bootstrapping and visitor-scoped token issuance are not yet supported.
+- **Real-time messaging** — once session creation is implemented, the widget will connect to the server over Socket.IO using the visitor token. Messages will be delivered in real time through the `message.created` socket event, and conversation history will be loaded via the `conversation.history` event.
+- **Message sending** — outbound messages will be sent via `POST /v1/conversations/:id/messages` with the visitor's token as a Bearer token. The widget uses optimistic delivery with client-side UUIDs so messages appear instantly in the chat view.
 - **After-hours detection** — when the session is created outside configured office hours, the widget displays an after-hours form instead of the live chat view.
 - **File attachments** — visitors can attach files to messages through the file attachment button in the chat interface.
 - **Theme support** — the widget supports light and dark themes.
@@ -40,7 +40,7 @@ Internally, the `useChat` hook manages the full lifecycle: session initializatio
 1. **Land on a listing page** — navigate to a real estate listing page where the Getswyft widget is embedded.
 2. **Open the widget** — click the chat button in the corner of the page. The widget expands from its closed state.
 3. **Fill out the pre-chat form** — enter your name, email address, and optionally a phone number, then submit the form.
-4. **Session is created** — behind the scenes, the widget creates a session through the existing authentication and conversation creation endpoints and receives a `visitorJwt`, `conversationId`, and `afterHours` flag. (The dedicated `POST /v1/widget/session` endpoint is not yet implemented.)
+4. **Session is created** — once the widget session endpoint is implemented, the widget will create a session and receive a visitor token, `conversationId`, and `afterHours` flag. (The dedicated `POST /v1/widget/session` endpoint and visitor token issuance are not yet implemented.)
    - If `afterHours` is `true`, the widget displays the after-hours form instead of live chat. You can leave a message that agents will see when they return.
    - If `afterHours` is `false`, the widget opens the live chat view.
 5. **Chat with an agent** — type messages in the composer and press Send. Messages appear immediately via optimistic delivery. Agent replies arrive in real time through the WebSocket connection.
@@ -49,7 +49,7 @@ Internally, the `useChat` hook manages the full lifecycle: session initializatio
 
 ## System Behavior / What Users Should Expect
 
-- The widget establishes a Socket.IO connection using the `visitorJwt` returned during session creation.
+- Once session creation is implemented, the widget will establish a Socket.IO connection using the visitor token returned during session creation.
 - Conversation history is loaded automatically when the chat view opens (via the `conversation.history` socket event).
 - New messages from agents appear in real time without requiring a page refresh (via the `message.created` socket event).
 - Messages sent by the visitor are displayed immediately using optimistic delivery. If a send fails, the message is marked accordingly.
@@ -59,7 +59,7 @@ Internally, the `useChat` hook manages the full lifecycle: session initializatio
 
 ## Permissions Required
 
-No authentication is required for visitors. The widget session endpoint is publicly accessible. Once a session is created, the returned `visitorJwt` grants scoped access to that specific conversation.
+No authentication is required for visitors to open the widget. Visitor session bootstrapping — including session creation and visitor-scoped token issuance — is not yet supported by the API server. There are currently no `/v1/widget/*` routes. Once the widget session endpoint is implemented, the returned token will grant scoped access to a specific conversation.
 
 ## Common Issues
 
@@ -67,7 +67,7 @@ No authentication is required for visitors. The widget session endpoint is publi
 |---|---|---|
 | Widget does not appear on the page | The widget embed script is missing or misconfigured. | Verify the embed snippet is present on the page. If you deployed the widget, confirm that `VITE_API_BASE_URL` and `VITE_WS_BASE_URL` were set correctly at build time. |
 | "Connection error" state displayed | The WebSocket connection could not be established. | Contact the widget deployment team to verify that the WebSocket server is reachable and that `VITE_SOCKET_TOKEN` is valid. |
-| Messages not sending | The visitor JWT may have expired or the API is unreachable. | Refresh the page to create a new session. If the problem persists, verify the API server is running. |
+| Messages not sending | The visitor token may have expired or the API is unreachable. | Refresh the page to create a new session. If the problem persists, verify the API server is running. |
 | After-hours form shown unexpectedly | Office hours may be misconfigured in routing settings. | Ask an administrator to review the office hours configuration in the agent console routing settings. |
 | File attachment fails | The file may exceed the 25 MB size limit or the storage service is unavailable. | Try a smaller file. If the problem continues, check the storage service configuration. |
 
