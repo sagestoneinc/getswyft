@@ -98,6 +98,7 @@ export async function updateConversation(
   conversationId: string,
   payload: {
     assignToMe?: boolean;
+    assignedUserId?: string | null;
     status?: "open" | "closed";
     notes?: string;
   },
@@ -114,6 +115,12 @@ export async function sendConversationMessage(
   payload: {
     body: string;
     parentMessageId?: string | null;
+    attachments?: Array<{
+      storageKey: string;
+      filename: string;
+      contentType?: string | null;
+      sizeBytes?: number | null;
+    }>;
   },
 ) {
   return apiClient.post<ConversationMessageResponse>(`/v1/conversations/${conversationId}/messages`, payload);

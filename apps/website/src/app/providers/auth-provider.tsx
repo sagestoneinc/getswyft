@@ -12,6 +12,9 @@ type AuthContextValue = {
   isLoading: boolean;
   isAuthenticated: boolean;
   user: AuthUser | null;
+  roles: string[];
+  permissions: string[];
+  can: (permission: string) => boolean;
   login: (targetPath?: string) => Promise<void>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
@@ -41,10 +44,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<AuthUser | null>(null);
+  const [roles, setRoles] = useState<string[]>([]);
+  const [permissions, setPermissions] = useState<string[]>([]);
   const keycloakRef = useRef<Keycloak | null>(null);
 
   useEffect(() => {
     let mounted = true;
+
+    async function loadAccessContext() {
+      try {
+        const response = await apiClient.get<{
+          ok: boolean;
+          user: {
+            externalAuthId: string;
+            email: string;
+            displayName: string | null;
+          };
+          roles: string[];
+          permissions: string[];
+        }>("/v1/auth/me");
+
+        if (!mounted) {
+          return;
+        }
+
+        setRoles(response.roles || []);
+        setPermissions(response.permissions || []);
+        setUser((currentUser) => ({
+          sub: currentUser?.sub || response.user.externalAuthId,
+          email: response.user.email,
+          name: response.user.displayName || currentUser?.name || response.user.email,
+        }));
+      } catch (error) {
+        if (!mounted) {
+          return;
+        }
+
+        setRoles([]);
+        setPermissions([]);
+        console.warn("Failed to load auth access context", error);
+      }
+    }
 
     async function init() {
       if (authProvider !== "keycloak") {
@@ -64,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email: "admin@getswyft.local",
             name: "Local Admin",
           });
+          await loadAccessContext();
           setIsLoading(false);
           return;
         }
@@ -101,10 +142,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return keycloak.token || null;
       });
 
+      if (authenticated || devBypass) {
+        await loadAccessContext();
+      } else {
+        setRoles([]);
+        setPermissions([]);
+      }
+
       setIsLoading(false);
     }
 
-    init().catch((error) => {
+    init().catch(async (error) => {
       if (!mounted) {
         return;
       }
@@ -117,6 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: "admin@getswyft.local",
           name: "Local Admin",
         });
+        await loadAccessContext();
       }
 
       setIsLoading(false);
@@ -135,6 +184,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isLoading,
       isAuthenticated,
       user,
+      roles,
+      permissions,
+      can: (permission: string) => permissions.includes(permission),
       login: async (targetPath = "/app") => {
         const keycloak = keycloakRef.current;
 
@@ -156,6 +208,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (!keycloak) {
           setIsAuthenticated(false);
           setUser(null);
+          setRoles([]);
+          setPermissions([]);
           return;
         }
 
@@ -174,7 +228,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return keycloak.token || null;
       },
     };
-  }, [isAuthenticated, isLoading, user]);
+  }, [isAuthenticated, isLoading, permissions, roles, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

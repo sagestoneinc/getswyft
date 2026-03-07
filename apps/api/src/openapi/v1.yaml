@@ -20,12 +20,81 @@ paths:
       responses:
         "200":
           description: Tenant details
+  /v1/tenants/current/settings:
+    get:
+      summary: Get tenant routing settings and fallback candidates
+      responses:
+        "200":
+          description: Tenant routing settings
+    patch:
+      summary: Update tenant routing settings
+      responses:
+        "200":
+          description: Updated routing settings
+  /v1/tenants/current/webhooks:
+    get:
+      summary: List tenant webhook endpoints and recent delivery logs
+      responses:
+        "200":
+          description: Webhook workspace
+    post:
+      summary: Create a tenant webhook endpoint
+      responses:
+        "201":
+          description: Webhook endpoint created
+  /v1/tenants/current/webhooks/{webhookId}:
+    patch:
+      summary: Update a tenant webhook endpoint
+      parameters:
+        - in: path
+          name: webhookId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Webhook endpoint updated
+    delete:
+      summary: Delete a tenant webhook endpoint
+      parameters:
+        - in: path
+          name: webhookId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Webhook endpoint deleted
+  /v1/tenants/current/webhooks/{webhookId}/test:
+    post:
+      summary: Send a test webhook delivery to a tenant endpoint
+      parameters:
+        - in: path
+          name: webhookId
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Test webhook dispatched
+  /v1/tenants/current/billing:
+    get:
+      summary: Get tenant billing summary and invoices
+      responses:
+        "200":
+          description: Billing workspace
   /v1/users/me/roles:
     get:
       summary: Get current user's roles and permissions in tenant
       responses:
         "200":
           description: Role and permission details
+  /v1/users/team/assignable:
+    get:
+      summary: List assignable tenant teammates for conversation routing and transfer
+      responses:
+        "200":
+          description: Assignable team members
   /v1/notifications:
     get:
       summary: List notifications for current user
@@ -86,7 +155,7 @@ paths:
         "200":
           description: Conversation detail
     patch:
-      summary: Update conversation assignment, notes, or workflow status
+      summary: Update conversation assignment, transfer, notes, or workflow status
       parameters:
         - in: path
           name: id

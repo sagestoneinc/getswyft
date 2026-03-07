@@ -5,6 +5,7 @@ import { recordAnalyticsEvent } from "../../lib/analytics.js";
 import { writeAuditLog } from "../../lib/audit.js";
 import { getPrismaClient } from "../../lib/db.js";
 import { sendTeamInviteEmail } from "../../lib/email.js";
+import { dispatchTenantWebhookEvent } from "../../lib/webhooks.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { requireTenant } from "../../middleware/tenant.js";
@@ -91,6 +92,60 @@ userRouter.get("/me/roles", requireAuth, requireTenant, (req, res) => {
     roles: req.auth.activeTenant?.roleKeys || [],
     permissions: req.auth.activeTenant?.permissions || [],
   });
+});
+
+userRouter.get("/team/assignable", requireAuth, requireTenant, requirePermission("conversation.write"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const members = await prisma.user.findMany({
+      where: {
+        userRoles: {
+          some: {
+            tenantId: req.tenant.id,
+            role: {
+              key: {
+                in: MANAGED_ROLE_KEYS,
+              },
+            },
+          },
+        },
+      },
+      include: {
+        userRoles: {
+          where: {
+            tenantId: req.tenant.id,
+            role: {
+              key: {
+                in: MANAGED_ROLE_KEYS,
+              },
+            },
+          },
+          include: {
+            role: true,
+          },
+        },
+        presenceSessions: {
+          where: {
+            tenantId: req.tenant.id,
+          },
+          orderBy: {
+            lastSeenAt: "desc",
+          },
+          take: 1,
+        },
+      },
+      orderBy: {
+        createdAt: "asc",
+      },
+    });
+
+    return res.json({
+      ok: true,
+      members: members.map((member) => serializeMember(member, new Map())),
+    });
+  } catch (error) {
+    return next(error);
+  }
 });
 
 userRouter.get("/team", requireAuth, requireTenant, requirePermission("user.manage"), async (req, res, next) => {
@@ -308,6 +363,18 @@ userRouter.post("/team/invitations", requireAuth, requireTenant, requirePermissi
           emailDomain: email.split("@")[1] || null,
           role: requestedRole,
         },
+      }),
+      dispatchTenantWebhookEvent({
+        tenantId: req.tenant.id,
+        tenantSlug: req.tenant.slug,
+        tenantName: req.tenant.name,
+        eventType: "team.invite_sent",
+        payload: {
+          invitationId: updatedInvitation.id,
+          email,
+          role: requestedRole,
+        },
+        requestId: req.context?.requestId,
       }),
     ]);
 

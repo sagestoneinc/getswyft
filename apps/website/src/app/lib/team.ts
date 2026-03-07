@@ -43,6 +43,13 @@ export async function updateTeamMemberRole(memberId: string, payload: { role: "a
   return apiClient.patch<{ ok: boolean; member: TeamMember }>(`/v1/users/team/members/${memberId}/role`, payload);
 }
 
+export async function getAssignableMembers() {
+  return apiClient.get<{
+    ok: boolean;
+    members: TeamMember[];
+  }>("/v1/users/team/assignable");
+}
+
 export function formatInvitationTimestamp(value: string | null) {
   if (!value) {
     return "Pending";

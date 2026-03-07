@@ -2,11 +2,13 @@ import { Router } from "express";
 import { getPrismaClient } from "../../lib/db.js";
 import { recordAnalyticsEvent } from "../../lib/analytics.js";
 import { writeAuditLog } from "../../lib/audit.js";
+import { dispatchTenantWebhookEvent } from "../../lib/webhooks.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { requireTenant } from "../../middleware/tenant.js";
 
 export const messagingRouter = Router();
+const MANAGED_ROLE_KEYS = ["tenant_admin", "agent"];
 
 function toConversationBucket(conversation, currentUserId) {
   if (conversation.status === "CLOSED") {
@@ -204,6 +206,27 @@ function serializeConversation(conversation, currentUserId, unreadCount = 0) {
   };
 }
 
+function normalizeMessageAttachments(value) {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((attachment) => ({
+      storageKey: String(attachment?.storageKey || "").trim(),
+      filename: String(attachment?.filename || "").trim(),
+      contentType: attachment?.contentType ? String(attachment.contentType).trim() : null,
+      sizeBytes:
+        attachment?.sizeBytes === undefined || attachment?.sizeBytes === null
+          ? null
+          : Number.isFinite(Number(attachment.sizeBytes))
+            ? Number(attachment.sizeBytes)
+            : null,
+    }))
+    .filter((attachment) => attachment.storageKey && attachment.filename)
+    .slice(0, 5);
+}
+
 async function loadConversationOr404(prisma, tenantId, conversationId) {
   return prisma.conversation.findFirst({
     where: {
@@ -338,12 +361,47 @@ messagingRouter.patch(
     }
 
     const data = {};
+    const previousAssignedUserId = existingConversation.assignedUserId;
+    const previousStatus = existingConversation.status;
 
     if (req.body?.assignToMe === true) {
       data.assignedUserId = req.auth.user.id;
       data.status = "OPEN";
     } else if (req.body?.assignToMe === false) {
       data.assignedUserId = null;
+    }
+
+    if (req.body?.assignedUserId !== undefined) {
+      const assignedUserId = req.body.assignedUserId ? String(req.body.assignedUserId).trim() : null;
+
+      if (assignedUserId) {
+        const assignableMember = await prisma.userRole.findFirst({
+          where: {
+            tenantId: req.tenant.id,
+            userId: assignedUserId,
+            role: {
+              key: {
+                in: MANAGED_ROLE_KEYS,
+              },
+            },
+          },
+          select: {
+            id: true,
+          },
+        });
+
+        if (!assignableMember) {
+          return res.status(400).json({
+            ok: false,
+            error: "assignedUserId must belong to an agent or admin in this tenant",
+          });
+        }
+      }
+
+      data.assignedUserId = assignedUserId;
+      if (assignedUserId) {
+        data.status = "OPEN";
+      }
     }
 
     if (typeof req.body?.status === "string") {
@@ -380,6 +438,39 @@ messagingRouter.patch(
       entityId: conversation.id,
       metadata: data,
     });
+
+    const webhookEvents = [];
+    if (previousStatus !== conversation.status) {
+      webhookEvents.push(
+        conversation.status === "CLOSED" ? "conversation.closed" : "conversation.reopened",
+      );
+    }
+
+    if (previousAssignedUserId !== conversation.assignedUserId && conversation.assignedUserId) {
+      webhookEvents.push(
+        previousAssignedUserId && previousAssignedUserId !== conversation.assignedUserId
+          ? "conversation.transferred"
+          : "conversation.assigned",
+      );
+    }
+
+    await Promise.all(
+      webhookEvents.map((eventType) =>
+        dispatchTenantWebhookEvent({
+          tenantId: req.tenant.id,
+          tenantSlug: req.tenant.slug,
+          tenantName: req.tenant.name,
+          eventType,
+          payload: {
+            conversationId: conversation.id,
+            assignedUserId: conversation.assignedUserId,
+            previousAssignedUserId,
+            status: conversation.status,
+          },
+          requestId: req.context?.requestId,
+        }),
+      ),
+    );
 
     const unreadMap = await getUnreadMap(prisma, req.tenant.id, req.auth.user.id, [conversation.id]);
 
@@ -451,10 +542,12 @@ messagingRouter.post(
     }
 
     const body = String(req.body?.body || "").trim();
-    if (!body) {
+    const attachments = normalizeMessageAttachments(req.body?.attachments);
+
+    if (!body && attachments.length === 0) {
       return res.status(400).json({
         ok: false,
-        error: "Message body is required",
+        error: "Message body or attachments are required",
       });
     }
 
@@ -483,7 +576,14 @@ messagingRouter.post(
           senderType: "AGENT",
           senderUserId: req.auth.user.id,
           parentMessageId,
-          body,
+          body: body || "Shared attachments",
+          ...(attachments.length
+            ? {
+                attachments: {
+                  create: attachments,
+                },
+              }
+            : {}),
         },
         include: {
           senderUser: true,
@@ -506,7 +606,7 @@ messagingRouter.post(
         where: { id: conversation.id },
         data: {
           status: "OPEN",
-          lastMessagePreview: body,
+          lastMessagePreview: body || `Shared ${attachments.length} attachment${attachments.length === 1 ? "" : "s"}`,
           lastMessageAt: created.createdAt,
           assignedUserId: conversation.assignedUserId || req.auth.user.id,
         },
@@ -540,7 +640,21 @@ messagingRouter.post(
           conversationId: conversation.id,
           senderType: "agent",
           parentMessageId,
+          attachmentCount: attachments.length,
         },
+      }),
+      dispatchTenantWebhookEvent({
+        tenantId: req.tenant.id,
+        tenantSlug: req.tenant.slug,
+        tenantName: req.tenant.name,
+        eventType: "message.sent",
+        payload: {
+          conversationId: conversation.id,
+          messageId: message.id,
+          senderUserId: req.auth.user.id,
+          attachmentCount: attachments.length,
+        },
+        requestId: req.context?.requestId,
       }),
     ]);
 

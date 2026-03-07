@@ -1,4 +1,6 @@
-import { Router } from "express";
+import express, { Router } from "express";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { env } from "../../config/env.js";
@@ -8,6 +10,7 @@ import { requirePermission } from "../../middleware/rbac.js";
 import { requireTenant } from "../../middleware/tenant.js";
 
 export const storageRouter = Router();
+const LOCAL_UPLOAD_ROOT = path.join(process.cwd(), ".uploads");
 
 function sanitizeFileName(filename) {
   return filename.replace(/[^a-zA-Z0-9._-]/g, "_");
@@ -58,7 +61,7 @@ storageRouter.post(
       }
 
       if (!uploadUrl) {
-        uploadUrl = `/uploads/${key}`;
+        uploadUrl = `/v1/storage/upload?key=${encodeURIComponent(key)}`;
       }
 
       await writeAuditLog(req, {
@@ -82,4 +85,50 @@ storageRouter.post(
       return next(error);
     }
   }
+);
+
+storageRouter.put(
+  "/upload",
+  requireAuth,
+  requireTenant,
+  requirePermission("conversation.write"),
+  express.raw({ type: "*/*", limit: "25mb" }),
+  async (req, res, next) => {
+    try {
+      const key = String(req.query.key || "").trim();
+
+      if (!key) {
+        return res.status(400).json({
+          ok: false,
+          error: "key is required",
+        });
+      }
+
+      if (!key.startsWith(`${req.tenant.slug}/`)) {
+        return res.status(403).json({
+          ok: false,
+          error: "Upload key does not belong to this tenant",
+        });
+      }
+
+      const uploadRoot = path.resolve(LOCAL_UPLOAD_ROOT);
+      const destination = path.resolve(uploadRoot, key);
+      if (!destination.startsWith(uploadRoot)) {
+        return res.status(400).json({
+          ok: false,
+          error: "Invalid upload key",
+        });
+      }
+
+      await mkdir(path.dirname(destination), { recursive: true });
+      await writeFile(destination, req.body);
+
+      return res.status(201).json({
+        ok: true,
+        key,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
 );

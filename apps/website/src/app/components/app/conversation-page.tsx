@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from "react";
 import { useParams, Link } from "react-router";
 import {
   ArrowLeft,
@@ -23,6 +23,8 @@ import {
   AlertTriangle,
   SmilePlus,
   Save,
+  Upload,
+  Check,
 } from "lucide-react";
 import {
   formatMessageTimestamp,
@@ -35,11 +37,22 @@ import {
   type ConversationSummary,
   updateConversation,
 } from "../../lib/conversations";
+import { createUploadTarget } from "../../lib/storage";
+import { getAssignableMembers, type TeamMember } from "../../lib/team";
+import { useAuth } from "../../providers/auth-provider";
 
 const quickReactions = ["👍", "❤️", "👀"];
 
+type PendingAttachment = {
+  storageKey: string;
+  filename: string;
+  contentType: string | null;
+  sizeBytes: number | null;
+};
+
 export function ConversationPage() {
   const { id } = useParams();
+  const { getAccessToken } = useAuth();
   const [conversation, setConversation] = useState<ConversationSummary | null>(null);
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<ConversationMessage[]>([]);
@@ -52,6 +65,11 @@ export function ConversationPage() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isUpdatingConversation, setIsUpdatingConversation] = useState(false);
   const [notesDraft, setNotesDraft] = useState("");
+  const [assignableMembers, setAssignableMembers] = useState<TeamMember[]>([]);
+  const [transferUserId, setTransferUserId] = useState("");
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([]);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -76,7 +94,18 @@ export function ConversationPage() {
 
         setConversation(conversationResponse.conversation);
         setNotesDraft(conversationResponse.conversation.notes || "");
+        setTransferUserId(conversationResponse.conversation.assignedUserId || "");
         setMessages(messagesResponse.messages);
+
+        getAssignableMembers()
+          .then((response) => {
+            if (!mounted) {
+              return;
+            }
+
+            setAssignableMembers(response.members);
+          })
+          .catch(() => null);
 
         await markConversationRead(id).catch(() => null);
         if (mounted) {
@@ -136,6 +165,7 @@ export function ConversationPage() {
       const response = await updateConversation(id, payload);
       setConversation(response.conversation);
       setNotesDraft(response.conversation.notes || "");
+      setTransferUserId(response.conversation.assignedUserId || "");
       setShowActions(false);
     } catch (updateError) {
       setError(updateError instanceof Error ? updateError.message : "Failed to update conversation");
@@ -145,7 +175,7 @@ export function ConversationPage() {
   }
 
   async function handleSend() {
-    if (!id || !message.trim()) {
+    if (!id || (!message.trim() && pendingAttachments.length === 0)) {
       return;
     }
 
@@ -153,11 +183,13 @@ export function ConversationPage() {
 
     try {
       const response = await sendConversationMessage(id, {
-        body: message.trim(),
+        body: message.trim() || "Shared attachments",
+        attachments: pendingAttachments,
       });
 
       setMessages((currentMessages) => [...currentMessages, response.message]);
       setMessage("");
+      setPendingAttachments([]);
       await refreshConversationState();
     } catch (sendError) {
       setError(sendError instanceof Error ? sendError.message : "Failed to send message");
@@ -194,6 +226,66 @@ export function ConversationPage() {
       setError(saveError instanceof Error ? saveError.message : "Failed to save notes");
     } finally {
       setIsSavingNotes(false);
+    }
+  }
+
+  async function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []);
+    if (!files.length) {
+      return;
+    }
+
+    setIsUploadingAttachment(true);
+    setError(null);
+
+    try {
+      const uploadedAttachments: PendingAttachment[] = [];
+
+      for (const file of files.slice(0, 5)) {
+        const presigned = await createUploadTarget({
+          filename: file.name,
+          contentType: file.type || "application/octet-stream",
+        });
+        const uploadUrl = presigned.uploadUrl.startsWith("/")
+          ? `${import.meta.env.VITE_API_BASE_URL || "http://localhost:8080"}${presigned.uploadUrl}`
+          : presigned.uploadUrl;
+        const token = await getAccessToken();
+        const uploadHeaders = new Headers({
+          "Content-Type": file.type || "application/octet-stream",
+        });
+
+        if (token) {
+          uploadHeaders.set("Authorization", `Bearer ${token}`);
+        } else if ((import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined) !== "false") {
+          uploadHeaders.set("x-dev-user-id", (import.meta.env.VITE_DEV_USER_ID as string | undefined) || "local-user");
+          uploadHeaders.set("x-dev-user-email", (import.meta.env.VITE_DEV_USER_EMAIL as string | undefined) || "admin@getswyft.local");
+          uploadHeaders.set("x-tenant-slug", (import.meta.env.VITE_DEV_TENANT_SLUG as string | undefined) || "default");
+        }
+
+        const uploadResponse = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: uploadHeaders,
+          body: file,
+        });
+
+        if (!uploadResponse.ok) {
+          throw new Error(`Failed to upload ${file.name}`);
+        }
+
+        uploadedAttachments.push({
+          storageKey: presigned.key,
+          filename: file.name,
+          contentType: file.type || null,
+          sizeBytes: file.size,
+        });
+      }
+
+      setPendingAttachments((currentAttachments) => [...currentAttachments, ...uploadedAttachments].slice(0, 5));
+      event.target.value = "";
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload attachment");
+    } finally {
+      setIsUploadingAttachment(false);
     }
   }
 
@@ -298,13 +390,34 @@ export function ConversationPage() {
                   >
                     <UserPlus className="w-4 h-4" /> Assign to me
                   </button>
-                  <button
-                    type="button"
-                    disabled
-                    className="flex items-center gap-2 w-full px-4 py-2 text-sm text-left text-muted-foreground/60 cursor-not-allowed"
-                  >
-                    <ArrowRightLeft className="w-4 h-4" /> Transfer (next slice)
-                  </button>
+                  <div className="px-4 py-2 border-t border-border/60 mt-1">
+                    <label className="text-[11px] uppercase tracking-wide text-muted-foreground" style={{ fontWeight: 600 }}>
+                      Transfer to teammate
+                    </label>
+                    <div className="mt-2 flex items-center gap-2">
+                      <select
+                        value={transferUserId}
+                        onChange={(event) => setTransferUserId(event.target.value)}
+                        className="flex-1 px-2.5 py-2 rounded-lg border border-border bg-input-background text-sm focus:outline-none focus:ring-2 focus:ring-accent/50"
+                      >
+                        <option value="">Unassigned</option>
+                        {assignableMembers.map((member) => (
+                          <option key={member.id} value={member.id}>
+                            {member.name}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={() => handleConversationUpdate({ assignedUserId: transferUserId || null })}
+                        disabled={isUpdatingConversation}
+                        className="p-2 rounded-lg bg-muted hover:bg-muted/80 text-primary disabled:opacity-50"
+                        title="Transfer conversation"
+                      >
+                        <ArrowRightLeft className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                   <button
                     onClick={() => handleConversationUpdate({ status: "closed" })}
                     disabled={isUpdatingConversation}
@@ -387,6 +500,17 @@ export function ConversationPage() {
                 >
                   {currentMessage.body}
                 </div>
+                {currentMessage.attachments.length > 0 && (
+                  <div className={`mt-2 space-y-2 ${currentMessage.sender === "agent" ? "text-right" : ""}`}>
+                    {currentMessage.attachments.map((attachment) => (
+                      <div key={attachment.id} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-white text-xs text-primary">
+                        <Paperclip className="w-3 h-3 text-accent" />
+                        <span>{attachment.filename}</span>
+                        {attachment.sizeBytes ? <span className="text-muted-foreground">({Math.round(attachment.sizeBytes / 1024)} KB)</span> : null}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className={`mt-1 flex flex-wrap gap-1 ${currentMessage.sender === "agent" ? "justify-end" : ""}`}>
                   {currentMessage.reactions.map((reaction) => (
                     <button
@@ -428,15 +552,34 @@ export function ConversationPage() {
         </div>
 
         <div className="bg-white border-t border-border p-3 flex-shrink-0">
+          {pendingAttachments.length > 0 && (
+            <div className="mb-3 flex flex-wrap gap-2">
+              {pendingAttachments.map((attachment) => (
+                <div key={attachment.storageKey} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-border bg-muted/40 text-xs text-primary">
+                  <Check className="w-3 h-3 text-green-600" />
+                  <span>{attachment.filename}</span>
+                  <button
+                    type="button"
+                    onClick={() => setPendingAttachments((currentAttachments) => currentAttachments.filter((currentAttachment) => currentAttachment.storageKey !== attachment.storageKey))}
+                    className="text-muted-foreground hover:text-primary"
+                  >
+                    <XCircle className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
           <div className="flex items-end gap-2">
             <button
               type="button"
-              disabled
-              className="p-2 text-muted-foreground/50 rounded-lg cursor-not-allowed"
-              title="Attachment uploads are the next slice after persistent messaging."
+              onClick={() => fileInputRef.current?.click()}
+              disabled={isUploadingAttachment}
+              className="p-2 text-muted-foreground rounded-lg hover:bg-muted disabled:opacity-50"
+              title="Upload attachment"
             >
-              <Paperclip className="w-5 h-5" />
+              {isUploadingAttachment ? <Upload className="w-5 h-5 animate-pulse" /> : <Paperclip className="w-5 h-5" />}
             </button>
+            <input ref={fileInputRef} type="file" multiple className="hidden" onChange={(event) => void handleFileSelection(event)} />
             <div className="flex-1">
               <textarea
                 value={message}
@@ -454,7 +597,7 @@ export function ConversationPage() {
             </div>
             <button
               onClick={() => void handleSend()}
-              disabled={isSending || !message.trim()}
+              disabled={isSending || (!message.trim() && pendingAttachments.length === 0)}
               className="p-2.5 bg-accent text-white rounded-lg hover:bg-accent/90 disabled:opacity-60"
             >
               {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}

@@ -137,6 +137,23 @@ const seededTeamMembers = [
   },
 ];
 
+const seededWebhookEndpoints = [
+  {
+    id: "wh_seed_crm",
+    url: "https://example-crm.invalid/getswyft",
+    description: "CRM sync",
+    status: "ACTIVE",
+    eventTypes: ["message.sent", "conversation.closed", "conversation.assigned"],
+  },
+  {
+    id: "wh_seed_marketing",
+    url: "https://example-marketing.invalid/leads",
+    description: "Marketing enrichment",
+    status: "DISABLED",
+    eventTypes: ["team.invite_sent"],
+  },
+];
+
 async function seed() {
   const tenant = await prisma.tenant.upsert({
     where: { slug: "default" },
@@ -253,6 +270,7 @@ async function seed() {
     tenant_admin: adminRole,
     agent: agentRole,
   };
+  const teamUsersByExternalAuthId = new Map();
 
   for (const teamMember of seededTeamMembers) {
     const user = await prisma.user.upsert({
@@ -285,6 +303,8 @@ async function seed() {
         roleId: roleByKey[teamMember.roleKey].id,
       },
     });
+
+    teamUsersByExternalAuthId.set(teamMember.externalAuthId, user);
   }
 
   await prisma.tenantInvitation.upsert({
@@ -334,6 +354,194 @@ async function seed() {
       },
     },
   });
+
+  const fallbackUser = teamUsersByExternalAuthId.get("seed|marcus-johnson") || adminUser;
+  await prisma.tenantRoutingSettings.upsert({
+    where: {
+      tenantId: tenant.id,
+    },
+    update: {
+      routingMode: "ROUND_ROBIN",
+      officeHoursEnabled: true,
+      timezone: "America/Chicago",
+      officeHoursStart: "09:00",
+      officeHoursEnd: "18:00",
+      fallbackUserId: fallbackUser.id,
+      afterHoursMessage: "Thanks for reaching out after hours. Your inquiry will be queued for the next available agent at 9:00 AM Central.",
+    },
+    create: {
+      tenantId: tenant.id,
+      routingMode: "ROUND_ROBIN",
+      officeHoursEnabled: true,
+      timezone: "America/Chicago",
+      officeHoursStart: "09:00",
+      officeHoursEnd: "18:00",
+      fallbackUserId: fallbackUser.id,
+      afterHoursMessage: "Thanks for reaching out after hours. Your inquiry will be queued for the next available agent at 9:00 AM Central.",
+    },
+  });
+
+  for (const endpointSeed of seededWebhookEndpoints) {
+    await prisma.webhookEndpoint.upsert({
+      where: {
+        id: endpointSeed.id,
+      },
+      update: {
+        tenantId: tenant.id,
+        url: endpointSeed.url,
+        description: endpointSeed.description,
+        status: endpointSeed.status,
+        eventTypes: endpointSeed.eventTypes,
+        signingSecret: "seed-signing-secret",
+      },
+      create: {
+        id: endpointSeed.id,
+        tenantId: tenant.id,
+        url: endpointSeed.url,
+        description: endpointSeed.description,
+        status: endpointSeed.status,
+        eventTypes: endpointSeed.eventTypes,
+        signingSecret: "seed-signing-secret",
+      },
+    });
+  }
+
+  const subscription = await prisma.billingSubscription.upsert({
+    where: {
+      tenantId: tenant.id,
+    },
+    update: {
+      provider: "manual",
+      planKey: "professional",
+      planName: "Professional",
+      interval: "MONTHLY",
+      status: "ACTIVE",
+      seatPriceCents: 4900,
+      currency: "USD",
+      activeSeats: 4,
+      nextBillingAt: new Date("2026-04-01T00:00:00Z"),
+    },
+    create: {
+      tenantId: tenant.id,
+      provider: "manual",
+      planKey: "professional",
+      planName: "Professional",
+      interval: "MONTHLY",
+      status: "ACTIVE",
+      seatPriceCents: 4900,
+      currency: "USD",
+      activeSeats: 4,
+      nextBillingAt: new Date("2026-04-01T00:00:00Z"),
+    },
+  });
+
+  for (const invoiceSeed of [
+    {
+      invoiceNumber: "INV-2026-03",
+      amountCents: 19600,
+      issuedAt: new Date("2026-03-01T00:00:00Z"),
+      periodStart: new Date("2026-03-01T00:00:00Z"),
+      periodEnd: new Date("2026-03-31T23:59:59Z"),
+      paidAt: new Date("2026-03-01T01:15:00Z"),
+    },
+    {
+      invoiceNumber: "INV-2026-02",
+      amountCents: 19600,
+      issuedAt: new Date("2026-02-01T00:00:00Z"),
+      periodStart: new Date("2026-02-01T00:00:00Z"),
+      periodEnd: new Date("2026-02-28T23:59:59Z"),
+      paidAt: new Date("2026-02-01T01:05:00Z"),
+    },
+  ]) {
+    await prisma.billingInvoice.upsert({
+      where: {
+        invoiceNumber: invoiceSeed.invoiceNumber,
+      },
+      update: {
+        tenantId: tenant.id,
+        subscriptionId: subscription.id,
+        status: "PAID",
+        amountCents: invoiceSeed.amountCents,
+        currency: "USD",
+        issuedAt: invoiceSeed.issuedAt,
+        periodStart: invoiceSeed.periodStart,
+        periodEnd: invoiceSeed.periodEnd,
+        paidAt: invoiceSeed.paidAt,
+      },
+      create: {
+        tenantId: tenant.id,
+        subscriptionId: subscription.id,
+        invoiceNumber: invoiceSeed.invoiceNumber,
+        status: "PAID",
+        amountCents: invoiceSeed.amountCents,
+        currency: "USD",
+        issuedAt: invoiceSeed.issuedAt,
+        periodStart: invoiceSeed.periodStart,
+        periodEnd: invoiceSeed.periodEnd,
+        paidAt: invoiceSeed.paidAt,
+      },
+    });
+  }
+
+  const seededEndpoint = await prisma.webhookEndpoint.findUnique({
+    where: {
+      id: "wh_seed_crm",
+    },
+  });
+
+  if (seededEndpoint) {
+    for (const deliverySeed of [
+      {
+        id: "wd_seed_message_sent",
+        eventType: "message.sent",
+        status: "SUCCESS",
+        statusCode: 200,
+        requestId: "seed-request-message",
+        responseBody: "ok",
+        durationMs: 128,
+        attemptedAt: new Date("2026-03-02T10:24:01Z"),
+      },
+      {
+        id: "wd_seed_conversation_closed",
+        eventType: "conversation.closed",
+        status: "FAILED",
+        statusCode: 503,
+        requestId: "seed-request-close",
+        responseBody: "upstream unavailable",
+        durationMs: 910,
+        attemptedAt: new Date("2026-03-01T16:45:00Z"),
+      },
+    ]) {
+      await prisma.webhookDelivery.upsert({
+        where: {
+          id: deliverySeed.id,
+        },
+        update: {
+          tenantId: tenant.id,
+          endpointId: seededEndpoint.id,
+          eventType: deliverySeed.eventType,
+          status: deliverySeed.status,
+          statusCode: deliverySeed.statusCode,
+          requestId: deliverySeed.requestId,
+          responseBody: deliverySeed.responseBody,
+          durationMs: deliverySeed.durationMs,
+          attemptedAt: deliverySeed.attemptedAt,
+        },
+        create: {
+          id: deliverySeed.id,
+          tenantId: tenant.id,
+          endpointId: seededEndpoint.id,
+          eventType: deliverySeed.eventType,
+          status: deliverySeed.status,
+          statusCode: deliverySeed.statusCode,
+          requestId: deliverySeed.requestId,
+          responseBody: deliverySeed.responseBody,
+          durationMs: deliverySeed.durationMs,
+          attemptedAt: deliverySeed.attemptedAt,
+        },
+      });
+    }
+  }
 
   for (const conversationSeed of seededConversations) {
     const conversation = await prisma.conversation.upsert({

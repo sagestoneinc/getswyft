@@ -11,12 +11,12 @@ import { usePageSeo } from "../../lib/seo";
 import { getAppSeo } from "../../lib/route-seo";
 
 const sidebarItems = [
-  { to: "/app/inbox", icon: Inbox, label: "Inbox" },
-  { to: "/app/routing", icon: Settings, label: "Routing", adminOnly: true },
-  { to: "/app/webhooks", icon: Webhook, label: "Webhooks", adminOnly: true },
-  { to: "/app/analytics", icon: BarChart3, label: "Analytics" },
-  { to: "/app/team", icon: Users, label: "Team", adminOnly: true },
-  { to: "/app/billing", icon: CreditCard, label: "Billing" },
+  { to: "/app/inbox", icon: Inbox, label: "Inbox", requiredPermission: "conversation.read" },
+  { to: "/app/routing", icon: Settings, label: "Routing", requiredPermission: "tenant.manage" },
+  { to: "/app/webhooks", icon: Webhook, label: "Webhooks", requiredPermission: "tenant.manage" },
+  { to: "/app/analytics", icon: BarChart3, label: "Analytics", requiredPermission: "analytics.read" },
+  { to: "/app/team", icon: Users, label: "Team", requiredPermission: "user.manage" },
+  { to: "/app/billing", icon: CreditCard, label: "Billing", requiredPermission: "tenant.manage" },
   { to: "/app/profile", icon: User, label: "Profile" },
 ];
 
@@ -36,7 +36,7 @@ function initials(name: string | undefined | null) {
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
-  const { isLoading: authLoading, isAuthenticated, user, logout } = useAuth();
+  const { isLoading: authLoading, isAuthenticated, user, roles, can, logout } = useAuth();
   const { tenant, isLoading: tenantLoading, error: tenantError, refresh } = useTenant();
   const seo = getAppSeo(location.pathname);
 
@@ -75,8 +75,35 @@ export function AppLayout() {
     );
   }
 
+  const visibleSidebarItems = sidebarItems.filter((item) => !item.requiredPermission || can(item.requiredPermission));
+  const activeItem = sidebarItems.find((item) => location.pathname === item.to || location.pathname.startsWith(`${item.to}/`));
+  const routePermission =
+    location.pathname === "/app" || location.pathname.startsWith("/app/conversation/")
+      ? "conversation.read"
+      : activeItem?.requiredPermission;
+  const hasRouteAccess = !routePermission || can(routePermission);
+
+  if (!hasRouteAccess) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-muted/30 p-4 font-[Inter,sans-serif]">
+        <div className="bg-white rounded-xl border border-border p-6 w-full max-w-md text-center">
+          <AlertTriangle className="w-10 h-10 text-warning mx-auto mb-3" />
+          <h2 className="text-primary mb-2" style={{ fontWeight: 600 }}>Access unavailable</h2>
+          <p className="text-sm text-muted-foreground mb-4">Your current role does not include permission to view this workspace section.</p>
+          <Link to="/app/inbox" className="bg-accent text-white px-4 py-2 rounded-lg text-sm inline-flex">
+            Return to Inbox
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   const displayName = user?.name || user?.email || "User";
-  const displayRole = "Tenant User";
+  const displayRole = roles.includes("tenant_admin")
+    ? "Tenant Admin"
+    : roles.includes("agent")
+      ? "Agent"
+      : "Tenant User";
 
   return (
     <div className="h-screen flex font-[Inter,sans-serif] overflow-hidden">
@@ -98,7 +125,7 @@ export function AppLayout() {
         </div>
 
         <nav className="flex-1 p-3 space-y-1">
-          {sidebarItems.map((item) => {
+          {visibleSidebarItems.map((item) => {
             const isActive = location.pathname === item.to || (item.to === "/app/inbox" && location.pathname === "/app");
             return (
               <Link
@@ -114,7 +141,7 @@ export function AppLayout() {
               >
                 <item.icon className="w-5 h-5" />
                 {item.label}
-                {item.adminOnly && (
+                {item.requiredPermission && item.requiredPermission !== "conversation.read" && (
                   <span className="ml-auto text-[10px] bg-sidebar-primary/20 text-sidebar-primary px-1.5 py-0.5 rounded">Admin</span>
                 )}
               </Link>

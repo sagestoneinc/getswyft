@@ -61,6 +61,12 @@ class ApiClient {
       body: JSON.stringify(payload),
     });
   }
+
+  delete<T>(path: string) {
+    return this.request<T>(path, {
+      method: "DELETE",
+    });
+  }
 }
 
 export const apiClient = new ApiClient();
