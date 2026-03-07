@@ -59,7 +59,7 @@ Internally, the `useChat` hook manages the full lifecycle: session initializatio
 
 ## Permissions Required
 
-No authentication is required for visitors to open the widget. The dedicated `POST /v1/widget/session` endpoint is not yet implemented; sessions are currently bootstrapped through the existing authentication and conversation creation endpoints. Once a session is created, the returned `visitorJwt` grants scoped access to that specific conversation.
+No authentication is required for visitors to open the widget. Visitor session bootstrapping — including session creation and visitor-scoped token issuance — is not yet supported by the API server. There are currently no `/v1/widget/*` routes. Once the widget session endpoint is implemented, the returned token will grant scoped access to a specific conversation.
 
 ## Common Issues
 
