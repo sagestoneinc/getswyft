@@ -12,10 +12,11 @@ const rawEnvSchema = z.object({
   DATABASE_URL: z.string().optional(),
   REDIS_URL: z.string().optional(),
 
-  AUTH_PROVIDER: z.enum(["auth0", "clerk", "keycloak"]).default("keycloak"),
+  AUTH_PROVIDER: z.enum(["auth0", "clerk", "keycloak", "supabase"]).default("keycloak"),
   AUTH_ISSUER_URL: z.string().optional(),
   AUTH_AUDIENCE: z.string().optional(),
   AUTH_JWKS_URI: z.string().optional(),
+  SUPABASE_URL: z.string().optional(),
   DEV_AUTH_BYPASS: z.string().default("false"),
   DEV_DEFAULT_TENANT_SLUG: z.string().default("default"),
 
@@ -35,6 +36,17 @@ const rawEnvSchema = z.object({
   LIVEKIT_URL: z.string().optional(),
   LIVEKIT_API_KEY: z.string().optional(),
   LIVEKIT_API_SECRET: z.string().optional(),
+
+  PUSH_PROVIDER: z.enum(["log", "fcm"]).default("log"),
+  FCM_PROJECT_ID: z.string().optional(),
+  FCM_CLIENT_EMAIL: z.string().optional(),
+  FCM_PRIVATE_KEY: z.string().optional(),
+
+  TELEPHONY_PROVIDER: z.enum(["log", "telnyx"]).default("log"),
+  TELNYX_API_KEY: z.string().optional(),
+  TELNYX_CONNECTION_ID: z.string().optional(),
+  TELNYX_MESSAGING_PROFILE_ID: z.string().optional(),
+  TELNYX_FROM_NUMBER: z.string().optional(),
 });
 
 const parsed = rawEnvSchema.parse(process.env);

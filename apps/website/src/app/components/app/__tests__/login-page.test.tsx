@@ -4,11 +4,17 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../providers/auth-provider", () => ({
   useAuth: () => ({
+    provider: "supabase",
+    supportsPasswordAuth: true,
     isAuthenticated: false,
     isLoading: false,
     login: vi.fn(),
     logout: vi.fn(),
+    requestPasswordReset: vi.fn(),
     getAccessToken: vi.fn(),
+    roles: [],
+    permissions: [],
+    can: vi.fn(() => false),
     user: null,
   }),
 }));

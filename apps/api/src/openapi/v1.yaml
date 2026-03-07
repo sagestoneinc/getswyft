@@ -113,6 +113,23 @@ paths:
       responses:
         "200":
           description: Notification marked as read
+  /v1/notifications/devices:
+    post:
+      summary: Register the current browser or device for push notifications
+      responses:
+        "201":
+          description: Notification device registered
+    delete:
+      summary: Disable a previously registered push notification device token
+      responses:
+        "200":
+          description: Notification device disabled
+  /v1/notifications/test:
+    post:
+      summary: Create and fan out a test push notification to the current user
+      responses:
+        "201":
+          description: Test notification created
   /v1/storage/presign-upload:
     post:
       summary: Create upload URL for attachment storage
@@ -188,6 +205,18 @@ paths:
       responses:
         "201":
           description: Message created
+  /v1/conversations/{id}/call:
+    post:
+      summary: Start an outbound call for the conversation lead using the configured telephony provider
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Outbound call initiated
   /v1/conversations/{id}/read:
     post:
       summary: Mark all visible messages in a conversation as read for the current user

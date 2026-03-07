@@ -81,6 +81,14 @@ enum BillingInvoiceStatus {
   VOID
 }
 
+enum NotificationDeviceProvider {
+  FCM
+}
+
+enum NotificationDevicePlatform {
+  WEB
+}
+
 model Tenant {
   id        String       @id @default(cuid())
   slug      String       @unique
@@ -106,6 +114,7 @@ model Tenant {
   webhookDeliveries WebhookDelivery[]
   billingSubscription BillingSubscription?
   billingInvoices   BillingInvoice[]
+  notificationDevices NotificationDevice[]
 }
 
 model TenantDomain {
@@ -188,6 +197,7 @@ model User {
   sentInvitations       TenantInvitation[]    @relation("SentInvitations")
   acceptedInvitations   TenantInvitation[]    @relation("AcceptedInvitations")
   routingFallbackTenants TenantRoutingSettings[] @relation("RoutingFallbackUser")
+  notificationDevices   NotificationDevice[]
 }
 
 model Profile {
@@ -491,6 +501,27 @@ model Notification {
 
   @@index([tenantId, createdAt])
   @@index([tenantId, userId, readAt, createdAt])
+}
+
+model NotificationDevice {
+  id          String                     @id @default(cuid())
+  tenantId    String
+  userId      String
+  provider    NotificationDeviceProvider @default(FCM)
+  platform    NotificationDevicePlatform @default(WEB)
+  token       String                     @unique
+  deviceLabel String?
+  userAgent   String?
+  lastSeenAt  DateTime                   @default(now())
+  disabledAt  DateTime?
+  createdAt   DateTime                   @default(now())
+  updatedAt   DateTime                   @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, userId, disabledAt])
+  @@index([tenantId, provider, platform])
 }
 
 model AuditLog {

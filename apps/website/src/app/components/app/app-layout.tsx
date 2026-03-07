@@ -1,9 +1,10 @@
 import { Outlet, Link, useLocation, Navigate } from "react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Inbox, Settings, Webhook, BarChart3, Users,
-  CreditCard, User, Zap, Menu, X, LogOut, Loader2, AlertTriangle
+  CreditCard, User, Zap, Menu, X, LogOut, Loader2, AlertTriangle, BellRing
 } from "lucide-react";
+import { registerPushNotifications, requestPushNotificationsAccess, type PushRegistrationStatus } from "../../lib/push";
 import { useAuth } from "../../providers/auth-provider";
 import { useTenant } from "../../providers/tenant-provider";
 
@@ -32,9 +33,34 @@ function initials(name: string | undefined | null) {
 
 export function AppLayout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [pushStatus, setPushStatus] = useState<PushRegistrationStatus>("unsupported");
+  const [isEnablingPush, setIsEnablingPush] = useState(false);
   const location = useLocation();
   const { isLoading: authLoading, isAuthenticated, user, roles, can, logout } = useAuth();
   const { tenant, isLoading: tenantLoading, error: tenantError, refresh } = useTenant();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    let cancelled = false;
+    registerPushNotifications()
+      .then((status) => {
+        if (!cancelled) {
+          setPushStatus(status);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setPushStatus("unsupported");
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isAuthenticated]);
 
   if (authLoading || (isAuthenticated && tenantLoading)) {
     return (
@@ -95,6 +121,15 @@ export function AppLayout() {
     : roles.includes("agent")
       ? "Agent"
       : "Tenant User";
+
+  async function handleEnablePush() {
+    setIsEnablingPush(true);
+    try {
+      setPushStatus(await requestPushNotificationsAccess());
+    } finally {
+      setIsEnablingPush(false);
+    }
+  }
 
   return (
     <div className="h-screen flex font-[Inter,sans-serif] overflow-hidden">
@@ -167,6 +202,18 @@ export function AppLayout() {
           </button>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            {pushStatus === "prompt" && (
+              <button
+                type="button"
+                onClick={() => void handleEnablePush()}
+                disabled={isEnablingPush}
+                className="hidden sm:inline-flex items-center gap-1.5 rounded-full border border-border bg-white px-3 py-1.5 text-xs text-primary hover:bg-muted disabled:opacity-60"
+                style={{ fontWeight: 600 }}
+              >
+                {isEnablingPush ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BellRing className="w-3.5 h-3.5 text-accent" />}
+                Enable Alerts
+              </button>
+            )}
             <span className="inline-flex items-center gap-1.5 text-sm">
               <span className="w-2 h-2 bg-green-500 rounded-full"></span>
               <span className="text-muted-foreground hidden sm:inline">{tenant.slug}</span>
