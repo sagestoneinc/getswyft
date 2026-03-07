@@ -3,6 +3,7 @@ import cors from "cors";
 import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { requestContextMiddleware } from "./lib/request-context.js";
+import { requestMonitor, requestMonitorMiddleware } from "./lib/request-monitor.js";
 import { authenticateRequest } from "./middleware/auth.js";
 import { resolveTenant } from "./middleware/tenant.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -31,6 +32,7 @@ export function createApp() {
   );
   app.use(express.json({ limit: "2mb" }));
   app.use(requestContextMiddleware);
+  app.use(requestMonitorMiddleware);
 
   app.use((req, res, next) => {
     res.setHeader("x-request-id", req.context.requestId);
@@ -50,10 +52,38 @@ export function createApp() {
   });
 
   app.get("/health", (_req, res) => {
+    const snapshot = requestMonitor.snapshot();
     res.json({
       ok: true,
       uptimeSeconds: Math.floor(process.uptime()),
       timestamp: new Date().toISOString(),
+      monitor: {
+        ready: snapshot.ready,
+        totalRequests: snapshot.totalRequests,
+        serverErrors: snapshot.serverErrors,
+        clientErrors: snapshot.clientErrors,
+        errorRate: snapshot.errorRate,
+        windowMs: snapshot.windowMs,
+      },
+    });
+  });
+
+  app.get("/health/alerts", (_req, res) => {
+    const snapshot = requestMonitor.snapshot();
+    res.json({
+      ok: true,
+      alerts: snapshot,
+    });
+  });
+
+  app.get("/health/ready", (_req, res) => {
+    const snapshot = requestMonitor.snapshot();
+    const statusCode = snapshot.ready ? 200 : 503;
+
+    res.status(statusCode).json({
+      ok: snapshot.ready,
+      status: snapshot.ready ? "ready" : "degraded",
+      alerts: snapshot,
     });
   });
 

@@ -41,6 +41,7 @@ import {
 import { createUploadTarget } from "../../lib/storage";
 import { getAssignableMembers, type TeamMember } from "../../lib/team";
 import { useAuth } from "../../providers/auth-provider";
+import { applyDevAuthHeaders } from "../../lib/dev-bypass";
 
 const quickReactions = ["👍", "❤️", "👀"];
 
@@ -282,10 +283,8 @@ export function ConversationPage() {
 
         if (token) {
           uploadHeaders.set("Authorization", `Bearer ${token}`);
-        } else if ((import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined)?.toLowerCase() === "true") {
-          uploadHeaders.set("x-dev-user-id", (import.meta.env.VITE_DEV_USER_ID as string | undefined) || "local-user");
-          uploadHeaders.set("x-dev-user-email", (import.meta.env.VITE_DEV_USER_EMAIL as string | undefined) || "admin@getswyft.local");
-          uploadHeaders.set("x-tenant-slug", (import.meta.env.VITE_DEV_TENANT_SLUG as string | undefined) || "default");
+        } else {
+          applyDevAuthHeaders(uploadHeaders);
         }
 
         const uploadResponse = await fetch(uploadUrl, {

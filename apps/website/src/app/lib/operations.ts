@@ -109,6 +109,31 @@ export type ComplianceExportItem = {
   updatedAt: string;
 };
 
+export type TenantMembershipItem = {
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  roleKeys: string[];
+  permissions: string[];
+};
+
+export type RequestAlertsSnapshot = {
+  ready: boolean;
+  windowMs: number;
+  totalRequests: number;
+  serverErrors: number;
+  clientErrors: number;
+  errorRate: number;
+  generatedAt: string;
+  topFailingEndpoints: Array<{
+    method: string;
+    path: string;
+    count: number;
+    lastStatusCode: number;
+    lastSeenAt: string;
+  }>;
+};
+
 export async function listNotifications(limit = 50) {
   return apiClient.get<{
     ok: boolean;
@@ -253,4 +278,19 @@ export async function requestComplianceExport(exportType: "full_data" | "convers
   }>("/v1/compliance/exports", {
     exportType,
   });
+}
+
+export async function getAuthMemberships() {
+  return apiClient.get<{
+    ok: boolean;
+    activeTenant: TenantMembershipItem | null;
+    memberships: TenantMembershipItem[];
+  }>("/v1/auth/memberships");
+}
+
+export async function getSystemAlerts() {
+  return apiClient.get<{
+    ok: boolean;
+    alerts: RequestAlertsSnapshot;
+  }>("/health/alerts");
 }

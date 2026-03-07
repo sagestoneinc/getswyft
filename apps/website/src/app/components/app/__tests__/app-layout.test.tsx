@@ -29,9 +29,12 @@ vi.mock("../../../providers/auth-provider", () => ({
 vi.mock("../../../providers/tenant-provider", () => ({
   useTenant: () => ({
     tenant: null,
+    availableTenants: [],
+    activeTenantSlug: null,
     isLoading: false,
     error: null,
     refresh: vi.fn(),
+    switchTenant: vi.fn(),
     featureFlags: {},
   }),
 }));

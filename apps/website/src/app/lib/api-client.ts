@@ -1,28 +1,35 @@
+import { applyDevAuthHeaders } from "./dev-bypass";
+
 const DEFAULT_API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
-const DEV_AUTH_BYPASS = (import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined)?.toLowerCase() === "true";
-const DEV_USER_ID = (import.meta.env.VITE_DEV_USER_ID as string | undefined) || "local-user";
-const DEV_USER_EMAIL = (import.meta.env.VITE_DEV_USER_EMAIL as string | undefined) || "admin@getswyft.local";
-const DEV_TENANT_SLUG = (import.meta.env.VITE_DEV_TENANT_SLUG as string | undefined) || "default";
 
 type AccessTokenProvider = () => Promise<string | null>;
+type TenantSlugProvider = () => string | null;
 
 class ApiClient {
   private accessTokenProvider: AccessTokenProvider = async () => null;
+  private tenantSlugProvider: TenantSlugProvider = () => null;
 
   setAccessTokenProvider(provider: AccessTokenProvider) {
     this.accessTokenProvider = provider;
   }
 
+  setTenantSlugProvider(provider: TenantSlugProvider) {
+    this.tenantSlugProvider = provider;
+  }
+
   private async request<T>(path: string, init: RequestInit = {}): Promise<T> {
     const headers = new Headers(init.headers || {});
     const token = await this.accessTokenProvider();
+    const tenantSlug = this.tenantSlugProvider();
+
+    if (tenantSlug) {
+      headers.set("x-tenant-slug", tenantSlug);
+    }
 
     if (token) {
       headers.set("Authorization", `Bearer ${token}`);
-    } else if (DEV_AUTH_BYPASS) {
-      headers.set("x-dev-user-id", DEV_USER_ID);
-      headers.set("x-dev-user-email", DEV_USER_EMAIL);
-      headers.set("x-tenant-slug", DEV_TENANT_SLUG);
+    } else {
+      applyDevAuthHeaders(headers);
     }
 
     const response = await fetch(`${DEFAULT_API_BASE_URL}${path}`, {

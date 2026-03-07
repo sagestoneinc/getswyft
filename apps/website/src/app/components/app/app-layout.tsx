@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, Navigate } from "react-router";
 import { useEffect, useState } from "react";
 import {
   Inbox, Settings, Webhook, BarChart3, Users,
-  CreditCard, User, Menu, X, LogOut, Loader2, AlertTriangle, BellRing, Bot, ShieldAlert, FileClock, MessagesSquare
+  CreditCard, User, Menu, X, LogOut, Loader2, AlertTriangle, BellRing, Bot, ShieldAlert, FileClock, MessagesSquare, Shield
 } from "lucide-react";
 import { registerPushNotifications, requestPushNotificationsAccess, type PushRegistrationStatus } from "../../lib/push";
 import { useAuth } from "../../providers/auth-provider";
@@ -23,6 +23,7 @@ const sidebarItems = [
   { to: "/app/moderation", icon: ShieldAlert, label: "Moderation", requiredPermission: "moderation.manage" },
   { to: "/app/audit", icon: FileClock, label: "Audit", requiredPermission: "analytics.read" },
   { to: "/app/collaboration", icon: MessagesSquare, label: "Collaboration", requiredPermission: "conversation.read" },
+  { to: "/app/admin", icon: Shield, label: "Admin", requiredPermission: "tenant.manage" },
   { to: "/app/profile", icon: User, label: "Profile" },
 ];
 
@@ -45,7 +46,15 @@ export function AppLayout() {
   const [isEnablingPush, setIsEnablingPush] = useState(false);
   const location = useLocation();
   const { isLoading: authLoading, isAuthenticated, user, roles, can, logout } = useAuth();
-  const { tenant, isLoading: tenantLoading, error: tenantError, refresh } = useTenant();
+  const {
+    tenant,
+    availableTenants,
+    activeTenantSlug,
+    isLoading: tenantLoading,
+    error: tenantError,
+    refresh,
+    switchTenant,
+  } = useTenant();
   const seo = getAppSeo(location.pathname);
 
   usePageSeo({
@@ -216,6 +225,22 @@ export function AppLayout() {
           </Link>
           <div className="flex-1" />
           <div className="flex items-center gap-3">
+            {availableTenants.length > 1 && (
+              <select
+                value={activeTenantSlug || tenant.slug}
+                onChange={(event) => {
+                  void switchTenant(event.target.value);
+                }}
+                className="hidden md:block rounded-lg border border-border bg-white px-2 py-1.5 text-xs text-muted-foreground"
+                aria-label="Switch active tenant"
+              >
+                {availableTenants.map((membership) => (
+                  <option key={membership.tenantId} value={membership.tenantSlug}>
+                    {membership.tenantName}
+                  </option>
+                ))}
+              </select>
+            )}
             {pushStatus === "prompt" && (
               <button
                 type="button"

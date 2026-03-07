@@ -38,6 +38,28 @@ authRouter.get("/me", requireAuth, requireTenant, (req, res) => {
   });
 });
 
+authRouter.get("/memberships", requireAuth, (req, res) => {
+  return res.json({
+    ok: true,
+    activeTenant: req.auth.activeTenant
+      ? {
+          tenantId: req.auth.activeTenant.tenantId,
+          tenantSlug: req.auth.activeTenant.tenantSlug,
+          tenantName: req.auth.activeTenant.tenantName,
+          roleKeys: req.auth.activeTenant.roleKeys,
+          permissions: req.auth.activeTenant.permissions,
+        }
+      : null,
+    memberships: (req.auth.memberships || []).map((membership) => ({
+      tenantId: membership.tenantId,
+      tenantSlug: membership.tenantSlug,
+      tenantName: membership.tenantName,
+      roleKeys: membership.roleKeys,
+      permissions: membership.permissions,
+    })),
+  });
+});
+
 authRouter.get("/profile", requireAuth, async (req, res, next) => {
   try {
     const prisma = getPrismaClient();
