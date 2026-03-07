@@ -4,4 +4,4 @@ Disallow: /app/
 Disallow: /login
 Disallow: /widget-demo
 
-Sitemap: https://swyftup.com/sitemap.xml
+Sitemap: https://www.getswyftup.com/sitemap.xml

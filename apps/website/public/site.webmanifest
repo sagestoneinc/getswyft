@@ -1,7 +1,7 @@
 {
   "name": "SwyftUp",
   "short_name": "SwyftUp",
-  "description": "Embedded chat and voice for real estate websites.",
+  "description": "A flexible customer communication platform with chat, voice, and AI automation built for any business.",
   "theme_color": "#0f2744",
   "background_color": "#0f2744",
   "display": "standalone",
