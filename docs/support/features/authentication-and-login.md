@@ -17,7 +17,7 @@ There are three distinct authentication flows:
 
 1. **Website login page** — The primary login for dashboard users. Supports email/password, Google SSO, and Azure/Microsoft SSO.
 2. **Agent console login** — A separate login page specifically for agents, supporting email and password authentication.
-3. **Widget visitor sessions** — When a visitor interacts with the chat widget on a property listing, a session is created automatically via `POST /v1/widget/session`. No manual login is required.
+3. **Widget visitor sessions** — When a visitor interacts with the chat widget on a property listing, a session is created automatically. No manual login is required. **Note:** The dedicated `POST /v1/widget/session` endpoint is not yet implemented; the widget currently bootstraps sessions through the existing authentication and conversation creation endpoints.
 
 ## Key Functions / Actions Available
 
@@ -29,7 +29,7 @@ There are three distinct authentication flows:
 - Enable "Remember me" to persist the session
 - View current user info, tenant, roles, and permissions via `GET /v1/auth/me`
 - View and update user profile via `GET /v1/auth/profile` and `PATCH /v1/auth/profile`
-- Create a visitor session through the widget (`POST /v1/widget/session`)
+- Create a visitor session through the widget (session endpoint not yet implemented; see [Widget](widget.md))
 
 ## Step-by-Step How to Use It
 
@@ -99,7 +99,7 @@ There are three distinct authentication flows:
 - **Dev Auth Bypass (`DEV_AUTH_BYPASS=true`)**: This is a development-only feature that allows developers to skip authentication during local development. It must **never** be enabled in production or any customer-facing environment. If a user reports that authentication appears to be disabled, verify that this flag is not set in the environment configuration.
 - If a user is authenticated but cannot access certain features, check the response from `GET /v1/auth/me` to confirm their roles and permissions are correctly assigned.
 - For SSO issues, verify the identity provider configuration (Keycloak, Supabase, or Firebase) and ensure the JWKS endpoint is reachable.
-- If the widget is not creating visitor sessions, confirm that the widget is correctly embedded and that the `POST /v1/widget/session` endpoint is accessible from the hosting domain.
+- If the widget is not creating visitor sessions, confirm that the widget is correctly embedded and that the underlying authentication and conversation creation endpoints are accessible from the hosting domain.
 
 ## Related Pages
 

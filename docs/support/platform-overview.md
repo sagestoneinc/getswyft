@@ -70,7 +70,7 @@ An embeddable React + Vite application that property websites include on their l
 
 ### API Backend
 
-An Express + Socket.IO server that powers all platform functionality. It connects to PostgreSQL (via Prisma ORM) for persistent data and Redis for caching and real-time pub/sub. The API is organized into 15 modules:
+A JavaScript (ES modules) Express + Socket.IO server that powers all platform functionality. It connects to PostgreSQL (via Prisma ORM) for persistent data and Redis for caching and real-time pub/sub. The API is organized into 15 modules:
 
 | Module | Purpose |
 |--------|---------|

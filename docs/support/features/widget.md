@@ -15,7 +15,7 @@ The widget is currently a runtime shell with full API and WebSocket bootstrappin
 
 The visitor widget provides an end-to-end communication channel between listing-page visitors and support agents:
 
-- **Session creation** — when a visitor opens the widget and submits their information, a session is created via `POST /v1/widget/session`. The API returns a `visitorJwt`, a `conversationId`, and an `afterHours` flag indicating whether the request falls outside office hours.
+- **Session creation** — when a visitor opens the widget and submits their information, a session is created. The API returns a `visitorJwt`, a `conversationId`, and an `afterHours` flag indicating whether the request falls outside office hours. **Note:** The widget session creation endpoint (`POST /v1/widget/session`) is not yet implemented in the API server. The widget currently bootstraps sessions through the existing authentication and conversation creation endpoints.
 - **Real-time messaging** — the widget connects to the server over Socket.IO using the `visitorJwt`. Messages are delivered in real time through the `message.created` socket event, and conversation history is loaded via the `conversation.history` event.
 - **Message sending** — outbound messages are sent via `POST /v1/conversations/:id/messages` with the visitor's JWT as a Bearer token. The widget uses optimistic delivery with client-side UUIDs so messages appear instantly in the chat view.
 - **After-hours detection** — when the session is created outside configured office hours, the widget displays an after-hours form instead of the live chat view.
@@ -40,7 +40,7 @@ Internally, the `useChat` hook manages the full lifecycle: session initializatio
 1. **Land on a listing page** — navigate to a real estate listing page where the Getswyft widget is embedded.
 2. **Open the widget** — click the chat button in the corner of the page. The widget expands from its closed state.
 3. **Fill out the pre-chat form** — enter your name, email address, and optionally a phone number, then submit the form.
-4. **Session is created** — behind the scenes, the widget calls `POST /v1/widget/session` and receives a `visitorJwt`, `conversationId`, and `afterHours` flag.
+4. **Session is created** — behind the scenes, the widget creates a session through the existing authentication and conversation creation endpoints and receives a `visitorJwt`, `conversationId`, and `afterHours` flag. (The dedicated `POST /v1/widget/session` endpoint is not yet implemented.)
    - If `afterHours` is `true`, the widget displays the after-hours form instead of live chat. You can leave a message that agents will see when they return.
    - If `afterHours` is `false`, the widget opens the live chat view.
 5. **Chat with an agent** — type messages in the composer and press Send. Messages appear immediately via optimistic delivery. Agent replies arrive in real time through the WebSocket connection.

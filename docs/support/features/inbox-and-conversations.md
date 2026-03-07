@@ -110,16 +110,18 @@ Each conversation includes the following fields:
 
 | Field | Description |
 | --- | --- |
-| `leadName` | Name of the visitor or lead |
-| `leadEmail` | Email address of the lead |
-| `leadPhone` | Phone number of the lead |
-| `address` | Listing street address |
-| `price` | Listing price |
-| `beds` | Number of bedrooms |
-| `baths` | Number of bathrooms |
-| `sqft` | Square footage of the listing |
-| `MLS` | MLS listing number |
-| `assignedAgentId` | ID of the agent assigned to the conversation |
+| `lead.name` | Name of the visitor or lead |
+| `lead.email` | Email address of the lead |
+| `lead.phone` | Phone number of the lead |
+| `lead.source` | Lead source identifier |
+| `lead.utm` | UTM tracking parameters |
+| `listing.address` | Listing street address |
+| `listing.price` | Listing price |
+| `listing.beds` | Number of bedrooms |
+| `listing.baths` | Number of bathrooms |
+| `listing.sqft` | Square footage of the listing |
+| `listing.mls` | MLS listing number |
+| `assignedUserId` | ID of the agent assigned to the conversation |
 | `status` | Conversation status: `OPEN` or `CLOSED` |
 | `notes` | Free-text notes attached to the conversation (editable) |
 | `afterHours` | Boolean flag indicating the conversation was started outside business hours |
@@ -133,7 +135,7 @@ Each conversation includes the following fields:
 | View inbox and conversation list | `conversation.read` | Required to access `/app/inbox` |
 | View conversation details | `conversation.read` | Required to open a conversation |
 | Update conversation (assign, close, edit notes) | `conversation.write` | Required to modify any conversation field |
-| Mark messages as read | `conversation.write` | Required to call the mark-as-read endpoint |
+| Mark messages as read | `conversation.read` | Required to call the mark-as-read endpoint |
 
 ## Common Issues
 

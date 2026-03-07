@@ -36,7 +36,7 @@ The Conversation Detail page centralizes all communication and context for a sin
 | Mark as read | Automatically mark all messages in the conversation as read |
 | Assign conversation | Assign the conversation to a specific team member |
 | Transfer conversation | Transfer the conversation to a different team member |
-| Update status | Change the conversation status (e.g., open, closed, pending) |
+| Update status | Change the conversation status (e.g., open or closed) |
 | Add/edit notes | Write or update internal notes on the conversation |
 | Initiate a call | Start an outbound call to the customer via Telnyx |
 | Mute/unmute mic | Toggle microphone during an active call |
@@ -118,7 +118,7 @@ Each message in the thread is labeled with one of three sender types:
 
 ### Read Receipts
 
-- When you open a conversation, all messages are automatically marked as read via `POST /conversations/:id/read`.
+- When you open a conversation, all messages are automatically marked as read via `POST /v1/conversations/:id/read`.
 - Read status is tracked per message using the `MessageReceipt` model, which records both `deliveredAt` and `readAt` timestamps.
 - Other participants can see when their messages have been read.
 
