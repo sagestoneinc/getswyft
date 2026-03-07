@@ -12,8 +12,9 @@ Start here if you manage your organization's Getswyft account — team setup, ro
 
 - [Platform Overview](platform-overview.md)
 - [Authentication & Login](features/authentication-and-login.md)
-- [Routing Configuration](routing.md)
-- [Team Management](team-management.md)
+- [Routing Configuration](features/routing-settings.md)
+- [Team Management](features/team-management-and-roles.md)
+- [Invitations](features/invitations.md)
 - [Webhooks](features/webhooks.md)
 - [Analytics Dashboard](features/analytics.md)
 - [Billing & Subscriptions](features/billing.md)
@@ -29,11 +30,14 @@ Start here if you handle conversations, messaging, and calls with visitors and l
 - [Platform Overview](platform-overview.md)
 - [Authentication & Login](features/authentication-and-login.md)
 - [Inbox & Conversations](features/inbox-and-conversations.md)
+- [Conversation Details & Messaging](features/conversation-details-and-messaging.md)
 - [Channels](features/channels.md)
 - [Calling](features/calling.md)
 - [Feed](features/feed-and-posts.md)
 - [Notifications](features/notifications.md)
 - [Profile Settings](features/profile-and-user-settings.md)
+- [Real-Time Presence](features/real-time-presence.md)
+- [Agent Console](features/agent-console.md)
 - [Agent Guide](agent-guide.md)
 
 ### Support Staff
@@ -41,7 +45,7 @@ Start here if you handle conversations, messaging, and calls with visitors and l
 Start here if you are troubleshooting issues or helping users with the platform.
 
 - [Platform Overview](platform-overview.md)
-- [Permissions Matrix](permissions.md)
+- [Permissions Matrix](permissions-matrix.md)
 - [Troubleshooting](troubleshooting.md)
 - [FAQ](faq.md)
 
@@ -61,6 +65,7 @@ Start here if you are troubleshooting issues or helping users with the platform.
 | Topic | Description |
 |-------|-------------|
 | [Inbox & Conversations](features/inbox-and-conversations.md) | Conversation list, tabs (Unassigned, Mine, Closed), search, message threads |
+| [Conversation Details & Messaging](features/conversation-details-and-messaging.md) | Detailed conversation view, messaging, reactions, and attachments |
 | [Channels](features/channels.md) | Creating and managing communication channels |
 | [Calling](features/calling.md) | Voice calls within conversations |
 | [Feed](features/feed-and-posts.md) | Social-style activity feed |
@@ -70,8 +75,9 @@ Start here if you are troubleshooting issues or helping users with the platform.
 
 | Topic | Description |
 |-------|-------------|
-| [Routing Configuration](routing.md) | Routing mode, office hours, timezone, fallback agent |
-| [Team Management](team-management.md) | Member list, invitations, role assignment |
+| [Routing Configuration](features/routing-settings.md) | Routing mode, office hours, timezone, fallback agent |
+| [Team Management](features/team-management-and-roles.md) | Member list, invitations, role assignment |
+| [Invitations](features/invitations.md) | Invite new team members and manage pending invitations |
 | [Webhooks](features/webhooks.md) | Webhook CRUD, event types, test delivery, delivery logs |
 | [Analytics Dashboard](features/analytics.md) | KPI cards, conversation volume, response time, lead source charts |
 | [Billing & Subscriptions](features/billing.md) | Subscription management, invoices, seat pricing |
@@ -88,10 +94,11 @@ Start here if you are troubleshooting issues or helping users with the platform.
 
 | Topic | Description |
 |-------|-------------|
-| [Real-Time Presence](presence.md) | Online/offline status via Socket.IO |
+| [Real-Time Presence](features/real-time-presence.md) | Online/offline status via Socket.IO |
+| [Agent Console](features/agent-console.md) | The agent application for managing conversations and customer interactions |
 | [File Uploads](features/file-uploads-and-storage.md) | Attachment handling and storage |
 | [Notifications](features/notifications.md) | In-app and push notification delivery |
-| [Permissions Matrix](permissions.md) | Full list of permission keys, values, and what each controls |
+| [Permissions Matrix](permissions-matrix.md) | Full list of permission keys, values, and what each controls |
 
 ### Reference
 
