@@ -93,6 +93,12 @@ export type CreatedTenant = {
   }>;
 };
 
+export type DeletedTenant = {
+  id: string;
+  slug: string;
+  name: string;
+};
+
 export async function createTenant(payload: {
   name: string;
   slug?: string;
@@ -103,6 +109,15 @@ export async function createTenant(payload: {
     ok: boolean;
     tenant: CreatedTenant;
   }>("/v1/tenants", payload);
+}
+
+export async function deleteTenant(tenantId: string) {
+  return apiClient.delete<{
+    ok: boolean;
+    tenant: DeletedTenant;
+    deletedByUserId: string;
+    nextActiveTenantSlug: string | null;
+  }>(`/v1/tenants/${tenantId}`);
 }
 
 export async function getTenantSettings() {

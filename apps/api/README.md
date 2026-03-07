@@ -8,6 +8,7 @@ Express + Socket.IO backend with multi-tenant foundations, powered by Prisma and
 |--------|------------|--------|
 | Auth | `/v1/auth` | `GET /me` — current user context |
 | Tenants | `/v1/tenants` | `GET /current` — tenant info and feature flags |
+| | | `DELETE /:tenantId` — permanently delete tenant workspace (requires `tenant.manage` and another remaining membership) |
 | | | `GET /current/settings` — routing settings and fallback candidates |
 | | | `PATCH /current/settings` — update routing mode, office hours, timezone |
 | | | `GET /current/webhooks` — list webhook endpoints and delivery logs |

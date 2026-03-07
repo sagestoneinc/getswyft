@@ -20,6 +20,18 @@ paths:
       responses:
         "200":
           description: Tenant details
+  /v1/tenants/{tenantId}:
+    delete:
+      summary: Permanently delete a tenant workspace (requires tenant.manage and another remaining tenant)
+      parameters:
+        - in: path
+          name: tenantId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Tenant deleted
   /v1/tenants/current/settings:
     get:
       summary: Get tenant routing settings and fallback candidates

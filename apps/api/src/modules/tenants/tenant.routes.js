@@ -414,6 +414,96 @@ tenantRouter.post("/", requireAuth, async (req, res, next) => {
   }
 });
 
+tenantRouter.delete("/:tenantId", requireAuth, async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const tenantId = String(req.params?.tenantId || "").trim();
+
+    if (!tenantId) {
+      return res.status(400).json({
+        ok: false,
+        error: "tenantId is required",
+      });
+    }
+
+    const memberships = req.auth.memberships || [];
+    const targetMembership = memberships.find((membership) => membership.tenantId === tenantId);
+    if (!targetMembership) {
+      return res.status(403).json({
+        ok: false,
+        error: "You are not assigned to this tenant",
+      });
+    }
+
+    if (!targetMembership.permissions?.includes("tenant.manage")) {
+      return res.status(403).json({
+        ok: false,
+        error: "tenant.manage permission is required to delete this tenant",
+      });
+    }
+
+    const remainingMemberships = memberships.filter((membership) => membership.tenantId !== tenantId);
+    if (!remainingMemberships.length) {
+      return res.status(400).json({
+        ok: false,
+        error: "Create or join another tenant before deleting your only workspace",
+      });
+    }
+
+    const directRoleAssignments = await prisma.userRole.count({
+      where: {
+        tenantId,
+        userId: req.auth.user.id,
+      },
+    });
+
+    if (!directRoleAssignments) {
+      return res.status(403).json({
+        ok: false,
+        error: "No active role assignment found for this tenant",
+      });
+    }
+
+    const tenant = await prisma.tenant.findUnique({
+      where: {
+        id: tenantId,
+      },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+      },
+    });
+
+    if (!tenant) {
+      return res.status(404).json({
+        ok: false,
+        error: "Tenant not found",
+      });
+    }
+
+    await prisma.tenant.delete({
+      where: {
+        id: tenant.id,
+      },
+    });
+
+    const preferredNextMembership =
+      remainingMemberships.find((membership) => membership.permissions?.includes("tenant.manage")) ||
+      remainingMemberships[0] ||
+      null;
+
+    return res.json({
+      ok: true,
+      tenant,
+      deletedByUserId: req.auth.user.id,
+      nextActiveTenantSlug: preferredNextMembership?.tenantSlug || null,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 tenantRouter.get("/current", requireAuth, requireTenant, async (req, res, next) => {
   try {
     const prisma = getPrismaClient();

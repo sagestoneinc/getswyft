@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Shield, Plus, Save, UserMinus } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Loader2, RefreshCw, Shield, Plus, Save, UserMinus, Trash2 } from "lucide-react";
 import { getTeamState, removeTeamMember, updateTeamMemberRole, type TeamMember } from "../../lib/team";
-import { createTenant, getBillingWorkspace, getTenantSettings, getWebhookWorkspace } from "../../lib/tenant-admin";
+import { createTenant, deleteTenant, getBillingWorkspace, getTenantSettings, getWebhookWorkspace } from "../../lib/tenant-admin";
 import { getAuthMemberships, getSystemAlerts, type RequestAlertsSnapshot, type TenantMembershipItem } from "../../lib/operations";
+import { useTenant } from "../../providers/tenant-provider";
 
 type AdminSnapshot = {
   memberships: TenantMembershipItem[];
@@ -23,6 +24,7 @@ function formatPercent(value: number) {
 }
 
 export function AdminPage() {
+  const { switchTenant, refresh: refreshTenantContext } = useTenant();
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -32,6 +34,7 @@ export function AdminPage() {
   const [tenantSlugDraft, setTenantSlugDraft] = useState("");
   const [tenantActionMessage, setTenantActionMessage] = useState<string | null>(null);
   const [isCreatingTenant, setIsCreatingTenant] = useState(false);
+  const [isDeletingTenantId, setIsDeletingTenantId] = useState<string | null>(null);
   const [isUpdatingMemberId, setIsUpdatingMemberId] = useState<string | null>(null);
   const [memberRoleDrafts, setMemberRoleDrafts] = useState<Record<string, "admin" | "agent">>({});
 
@@ -180,6 +183,50 @@ export function AdminPage() {
       setError(createError instanceof Error ? createError.message : "Unable to create tenant");
     } finally {
       setIsCreatingTenant(false);
+    }
+  }
+
+  async function handleDeleteTenantWorkspace(membership: TenantMembershipItem) {
+    if (!snapshot) {
+      return;
+    }
+
+    if (snapshot.memberships.length <= 1) {
+      setError("Create or join another tenant before deleting your only workspace.");
+      return;
+    }
+
+    const shouldContinue = window.confirm(
+      `Delete tenant "${membership.tenantName}" (${membership.tenantSlug})?\n\nThis permanently removes its conversations, webhooks, billing records, and team data.`,
+    );
+
+    if (!shouldContinue) {
+      return;
+    }
+
+    setIsDeletingTenantId(membership.tenantId);
+    setError(null);
+    setTenantActionMessage(null);
+
+    try {
+      const response = await deleteTenant(membership.tenantId);
+      const deletedActiveTenant = membership.tenantSlug === snapshot.activeTenantSlug;
+      const nextTenantSlug =
+        response.nextActiveTenantSlug ||
+        snapshot.memberships.find((entry) => entry.tenantId !== membership.tenantId)?.tenantSlug ||
+        null;
+
+      if (deletedActiveTenant && nextTenantSlug) {
+        await switchTenant(nextTenantSlug);
+        await refreshTenantContext();
+      }
+
+      setTenantActionMessage(`Tenant "${response.tenant.name}" deleted.`);
+      await loadSnapshot();
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Unable to delete tenant");
+    } finally {
+      setIsDeletingTenantId(null);
     }
   }
 
@@ -401,6 +448,48 @@ export function AdminPage() {
         {tenantActionMessage && (
           <p className="text-xs text-green-700 bg-green-50 border border-green-100 rounded-lg px-3 py-2">{tenantActionMessage}</p>
         )}
+
+        <div className="pt-2 border-t border-border">
+          <p className="text-sm text-primary mb-2" style={{ fontWeight: 600 }}>Manage Tenant Workspaces</p>
+          <p className="text-xs text-muted-foreground mb-3">
+            Deleting a tenant is permanent. Keep at least one tenant membership to retain workspace access.
+          </p>
+
+          <div className="space-y-2">
+            {snapshot.memberships.map((membership) => {
+              const deletingThisTenant = isDeletingTenantId === membership.tenantId;
+              const deletingDisabled = snapshot.memberships.length <= 1 || deletingThisTenant;
+
+              return (
+                <div
+                  key={membership.tenantId}
+                  className="rounded-lg border border-border px-3 py-2 flex flex-wrap items-center justify-between gap-2"
+                >
+                  <div>
+                    <p className="text-sm text-primary" style={{ fontWeight: 600 }}>
+                      {membership.tenantName}
+                      {membership.tenantSlug === snapshot.activeTenantSlug ? (
+                        <span className="ml-2 rounded-full bg-accent/10 px-2 py-0.5 text-[10px] text-accent">Active</span>
+                      ) : null}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {membership.tenantSlug} · {membership.roleKeys.join(", ")}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleDeleteTenantWorkspace(membership)}
+                    disabled={deletingDisabled}
+                    className="rounded-lg border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed inline-flex items-center gap-1"
+                  >
+                    {deletingThisTenant ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Trash2 className="w-3.5 h-3.5" />}
+                    Delete tenant
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </div>
       </section>
 
       <section className="bg-white border border-border rounded-xl p-4">
