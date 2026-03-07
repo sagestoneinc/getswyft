@@ -114,8 +114,21 @@ The Prisma schema defines 28 models across these domains:
 - **AnalyticsEvent** — event name, category, value, metadata, timestamp
 
 ### Scaffolded
-- **AIConfig** — per-tenant AI provider configuration (model exists, integration pending)
-- **ModerationReport** — content moderation reports (model exists, handlers pending)
+- **AIConfig** — per-tenant AI provider configuration (Phase 6 — model exists, integration pending)
+- **ModerationReport** — content moderation reports (Phase 5 — model exists, handlers pending)
+
+## Roadmap
+
+Development follows a six-phase plan. See [roadmap.md](roadmap.md) for the full breakdown with per-feature implementation status.
+
+| Phase | Focus | Status |
+|-------|-------|--------|
+| 1 | Foundations | ✅ Complete |
+| 2 | Core Messaging | ✅ Mostly complete |
+| 3 | Calling | ⬜ Scaffolded |
+| 4 | Feed / Social | ⬜ Planned |
+| 5 | Admin / Analytics / Security | ✅ Partially complete |
+| 6 | AI Layer | ⬜ Scaffolded |
 
 ## Security
 

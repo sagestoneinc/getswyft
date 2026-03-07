@@ -13,6 +13,19 @@ Multi-tenant communications platform for real estate professionals. Agents can t
 | `packages/shared` | Shared TypeScript contracts and permission constants |
 | `docs/` | Architecture, environment variables, and deployment guides |
 
+## Roadmap
+
+Development is organized into six phases. See [docs/roadmap.md](docs/roadmap.md) for the full breakdown with implementation status.
+
+| Phase | Focus | Status |
+|-------|-------|--------|
+| 1 | Foundations — tenant model, RBAC, presence, notifications, storage, audit | ✅ Complete |
+| 2 | Core Messaging — conversations, messages, reactions, receipts, search, attachments | ✅ Mostly complete (groups/channels and typing indicators planned) |
+| 3 | Calling — voice/video signaling, call state, UI controls, history | ⬜ Scaffolded (Telnyx outbound calls, LiveKit env vars) |
+| 4 | Feed / Social — posts, comments, reactions, privacy controls | ⬜ Planned |
+| 5 | Admin / Analytics / Security — dashboard, moderation, compliance | ✅ Partially complete (analytics, feature flags, webhooks, billing done) |
+| 6 | AI Layer — chatbot, assistant, summarization, moderation AI | ⬜ Scaffolded (AIConfig model exists) |
+
 ## What's implemented
 
 ### Backend (apps/api)
@@ -130,5 +143,6 @@ See [docs/RAILWAY_SETUP.md](docs/RAILWAY_SETUP.md) for detailed deployment instr
 ## Documentation
 
 - [Architecture overview](docs/architecture.md)
+- [Roadmap](docs/roadmap.md)
 - [Environment variables](docs/env.md)
 - [Railway deployment](docs/RAILWAY_SETUP.md)
