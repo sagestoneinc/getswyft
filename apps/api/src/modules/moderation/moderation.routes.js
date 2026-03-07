@@ -181,7 +181,7 @@ moderationRouter.patch(
       if (!VALID_STATUSES.includes(status)) {
         return res.status(400).json({
           ok: false,
-          error: `status must be one of: ${VALID_STATUSES.join(", ").toLowerCase()}`,
+          error: `status must be one of: ${VALID_STATUSES.map((s) => s.toLowerCase()).join(", ")}`,
         });
       }
 
