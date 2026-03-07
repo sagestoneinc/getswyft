@@ -3,12 +3,12 @@ import { env } from "../config/env.js";
 
 let jwks;
 
-function normalizeIssuer(issuer) {
+export function normalizeIssuer(issuer) {
   if (!issuer) {
     return null;
   }
 
-  return issuer.endsWith("/") ? issuer : `${issuer}/`;
+  return issuer.endsWith("/") ? issuer.slice(0, -1) : issuer;
 }
 
 export async function verifyAccessToken(token) {
@@ -18,7 +18,7 @@ export async function verifyAccessToken(token) {
   }
 
   if (!jwks) {
-    const jwksUrl = env.AUTH_JWKS_URI || `${issuer}.well-known/jwks.json`;
+    const jwksUrl = env.AUTH_JWKS_URI || new URL(".well-known/jwks.json", `${issuer}/`).toString();
     jwks = createRemoteJWKSet(new URL(jwksUrl));
   }
 
