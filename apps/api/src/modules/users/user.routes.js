@@ -324,7 +324,7 @@ userRouter.post("/team/invitations", requireAuth, requireTenant, requirePermissi
       },
     });
 
-    const inviteUrl = `${env.APP_BASE_URL.replace(/\/$/, "")}/login?invite=${token}&tenant=${req.tenant.slug}`;
+    const inviteUrl = `${env.APP_BASE_URL.replace(/\/$/, "")}/login?invite=${token}&tenant=${req.tenant.slug}&email=${encodeURIComponent(email)}`;
     await sendTeamInviteEmail({
       email,
       tenantName: req.tenant.name,

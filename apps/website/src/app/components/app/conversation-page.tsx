@@ -32,6 +32,7 @@ import {
   getConversationMessages,
   markConversationRead,
   sendConversationMessage,
+  startConversationCall,
   toggleMessageReaction,
   type ConversationMessage,
   type ConversationSummary,
@@ -229,6 +230,31 @@ export function ConversationPage() {
     }
   }
 
+  async function handleCallAction() {
+    if (!id || !conversation) {
+      return;
+    }
+
+    if (callState === "idle") {
+      setError(null);
+
+      try {
+        await startConversationCall(id);
+        setCallState("ringing");
+      } catch (callError) {
+        setError(callError instanceof Error ? callError.message : "Failed to start outbound call");
+      }
+      return;
+    }
+
+    if (callState === "ringing") {
+      setCallState("connected");
+      return;
+    }
+
+    setCallState("idle");
+  }
+
   async function handleFileSelection(event: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files || []);
     if (!files.length) {
@@ -359,15 +385,7 @@ export function ConversationPage() {
               </span>
             )}
             <button
-              onClick={() => {
-                if (callState === "idle") {
-                  setCallState("ringing");
-                } else if (callState === "ringing") {
-                  setCallState("connected");
-                } else {
-                  setCallState("idle");
-                }
-              }}
+              onClick={() => void handleCallAction()}
               className={`p-2 rounded-lg transition-colors ${
                 callState !== "idle" ? "bg-green-500 text-white" : "hover:bg-muted text-muted-foreground"
               }`}

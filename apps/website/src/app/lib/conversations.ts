@@ -79,6 +79,15 @@ type ConversationMessageResponse = {
   message: ConversationMessage;
 };
 
+type ConversationCallResponse = {
+  ok: boolean;
+  call: {
+    provider: string;
+    to: string;
+    externalCallId: string | null;
+  };
+};
+
 export async function listConversations(params: { status: ConversationTab; q?: string }) {
   const search = new URLSearchParams();
   search.set("status", params.status);
@@ -108,6 +117,10 @@ export async function updateConversation(
 
 export async function getConversationMessages(conversationId: string) {
   return apiClient.get<ConversationMessagesResponse>(`/v1/conversations/${conversationId}/messages`);
+}
+
+export async function startConversationCall(conversationId: string) {
+  return apiClient.post<ConversationCallResponse>(`/v1/conversations/${conversationId}/call`, {});
 }
 
 export async function sendConversationMessage(

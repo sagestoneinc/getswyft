@@ -1,7 +1,10 @@
 import { Router } from "express";
+import { env } from "../../config/env.js";
 import { getPrismaClient } from "../../lib/db.js";
 import { recordAnalyticsEvent } from "../../lib/analytics.js";
 import { writeAuditLog } from "../../lib/audit.js";
+import { createUserNotification } from "../../lib/push.js";
+import { startOutboundCall } from "../../lib/telephony.js";
 import { dispatchTenantWebhookEvent } from "../../lib/webhooks.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
@@ -472,6 +475,30 @@ messagingRouter.patch(
       ),
     );
 
+    if (
+      previousAssignedUserId !== conversation.assignedUserId &&
+      conversation.assignedUserId &&
+      conversation.assignedUserId !== req.auth.user.id
+    ) {
+      await createUserNotification({
+        tenantId: req.tenant.id,
+        userId: conversation.assignedUserId,
+        type:
+          previousAssignedUserId && previousAssignedUserId !== conversation.assignedUserId
+            ? "conversation.transferred"
+            : "conversation.assigned",
+        title:
+          previousAssignedUserId && previousAssignedUserId !== conversation.assignedUserId
+            ? "Conversation transferred to you"
+            : "Conversation assigned to you",
+        body: `${existingConversation.leadName} at ${existingConversation.listingAddress} is now in your queue.`,
+        payload: {
+          conversationId: conversation.id,
+        },
+        link: `${req.header("origin") || env.APP_BASE_URL.replace(/\/$/, "")}/app/conversation/${conversation.id}`,
+      });
+    }
+
     const unreadMap = await getUnreadMap(prisma, req.tenant.id, req.auth.user.id, [conversation.id]);
 
     return res.json({
@@ -523,6 +550,68 @@ messagingRouter.get(
     return next(error);
   }
 });
+
+messagingRouter.post(
+  "/conversations/:id/call",
+  requireAuth,
+  requireTenant,
+  requirePermission("conversation.write"),
+  async (req, res, next) => {
+    try {
+      const prisma = getPrismaClient();
+      const conversation = await loadConversationOr404(prisma, req.tenant.id, req.params.id);
+
+      if (!conversation) {
+        return res.status(404).json({
+          ok: false,
+          error: "Conversation not found",
+        });
+      }
+
+      if (!conversation.leadPhone) {
+        return res.status(400).json({
+          ok: false,
+          error: "Lead phone is not available for this conversation",
+        });
+      }
+
+      const call = await startOutboundCall({
+        to: conversation.leadPhone,
+      });
+
+      await Promise.all([
+        writeAuditLog(req, {
+          action: "conversation.call_started",
+          entityType: "conversation",
+          entityId: conversation.id,
+          metadata: {
+            provider: env.TELEPHONY_PROVIDER,
+            to: conversation.leadPhone,
+          },
+        }),
+        recordAnalyticsEvent(req, {
+          eventName: "conversation.call_started",
+          eventCategory: "call",
+          metadata: {
+            conversationId: conversation.id,
+            provider: env.TELEPHONY_PROVIDER,
+          },
+        }),
+      ]);
+
+      return res.status(201).json({
+        ok: true,
+        call: {
+          provider: env.TELEPHONY_PROVIDER,
+          to: conversation.leadPhone,
+          externalCallId: call?.data?.call_control_id || call?.data?.call_leg_id || null,
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
 
 messagingRouter.post(
   "/conversations/:id/messages",
@@ -657,6 +746,21 @@ messagingRouter.post(
         requestId: req.context?.requestId,
       }),
     ]);
+
+    if (conversation.assignedUserId && conversation.assignedUserId !== req.auth.user.id) {
+      await createUserNotification({
+        tenantId: req.tenant.id,
+        userId: conversation.assignedUserId,
+        type: "conversation.message_sent",
+        title: "New activity in an assigned conversation",
+        body: `${req.auth.user.displayName || req.auth.user.email} sent an update to ${conversation.leadName}.`,
+        payload: {
+          conversationId: conversation.id,
+          messageId: message.id,
+        },
+        link: `${req.header("origin") || env.APP_BASE_URL.replace(/\/$/, "")}/app/conversation/${conversation.id}`,
+      });
+    }
 
     return res.status(201).json({
       ok: true,
