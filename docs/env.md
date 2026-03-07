@@ -101,6 +101,10 @@
 | `VITE_DEV_USER_ID` | — | Simulated user ID during dev bypass |
 | `VITE_DEV_USER_EMAIL` | — | Simulated user email during dev bypass |
 | `VITE_DEV_TENANT_SLUG` | — | Simulated tenant slug during dev bypass |
+| `VITE_SWYFT_WIDGET_SCRIPT_URL` | — | Optional production widget script URL for embedding SwyftUp chat on marketing pages |
+| `VITE_SWYFT_WIDGET_WORKSPACE_ID` | — | Workspace identifier passed to the embedded widget script |
+| `VITE_SWYFT_WIDGET_LAUNCHER` | — | Optional launcher mode/config key for widget behavior |
+| `VITE_SWYFT_WIDGET_ENV` | — | Optional environment hint (`staging`, `production`, etc.) for widget initialization |
 
 ## Agent / Widget (`apps/agent`, `apps/widget`)
 

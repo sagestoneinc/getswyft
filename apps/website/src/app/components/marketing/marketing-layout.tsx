@@ -1,10 +1,51 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, Outlet, useLocation } from "react-router";
 import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
 import { BrandLogo } from "../brand/logo";
 import { usePageSeo } from "../../lib/seo";
 import { getMarketingSeo } from "../../lib/route-seo";
 import { footerGroups, marketingNavGroups, type NavGroup } from "../../content/marketing-content";
+
+function useSwyftWidgetEmbed() {
+  const scriptUrl = import.meta.env.VITE_SWYFT_WIDGET_SCRIPT_URL as string | undefined;
+  const workspaceId = import.meta.env.VITE_SWYFT_WIDGET_WORKSPACE_ID as string | undefined;
+  const launcher = import.meta.env.VITE_SWYFT_WIDGET_LAUNCHER as string | undefined;
+  const environment = import.meta.env.VITE_SWYFT_WIDGET_ENV as string | undefined;
+
+  useEffect(() => {
+    if (!scriptUrl || !workspaceId) {
+      return;
+    }
+
+    const existingScript = document.querySelector<HTMLScriptElement>(
+      'script[data-swyft-widget-script="true"]',
+    );
+
+    if (existingScript) {
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = scriptUrl;
+    script.async = true;
+    script.dataset.swyftWidgetScript = "true";
+    script.dataset.workspaceId = workspaceId;
+
+    if (launcher) {
+      script.dataset.launcher = launcher;
+    }
+
+    if (environment) {
+      script.dataset.environment = environment;
+    }
+
+    document.body.appendChild(script);
+
+    return () => {
+      script.remove();
+    };
+  }, [environment, launcher, scriptUrl, workspaceId]);
+}
 
 function isGroupActive(group: NavGroup, pathname: string) {
   if (group.href && (pathname === group.href || pathname.startsWith(`${group.href}/`))) {
@@ -149,6 +190,7 @@ export function MarketingLayout() {
   const [openMobileGroup, setOpenMobileGroup] = useState<string | null>(null);
   const location = useLocation();
   const seo = getMarketingSeo(location.pathname);
+  useSwyftWidgetEmbed();
 
   usePageSeo({
     ...seo,

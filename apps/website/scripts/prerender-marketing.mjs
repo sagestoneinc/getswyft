@@ -38,6 +38,24 @@ ${seoHead}
 `;
 }
 
+function buildSitemapXml(paths, siteUrl) {
+  const lastmod = new Date().toISOString().slice(0, 10);
+  const entries = paths
+    .map((routePath) => {
+      const location =
+        routePath === "/" ? `${siteUrl}/` : `${siteUrl}${routePath.startsWith("/") ? routePath : `/${routePath}`}`;
+
+      return `  <url>\n    <loc>${location}</loc>\n    <lastmod>${lastmod}</lastmod>\n  </url>`;
+    })
+    .join("\n");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${entries}\n</urlset>\n`;
+}
+
+function buildRobotsTxt(siteUrl) {
+  return `User-agent: *\nAllow: /\nDisallow: /app/\nDisallow: /login\nDisallow: /widget-demo\n\nSitemap: ${siteUrl}/sitemap.xml\n`;
+}
+
 async function main() {
   const template = await fs.readFile(path.join(distRoot, "index.html"), "utf8");
   const assetTags = extractAssetTags(template);
@@ -55,7 +73,7 @@ async function main() {
   });
 
   try {
-    const [{ publicSitePaths }, { getMarketingSeo }, { renderSeoHead }, { renderMarketingRoute }] =
+    const [{ publicSitePaths, siteConfig }, { getMarketingSeo }, { renderSeoHead }, { renderMarketingRoute }] =
       await Promise.all([
         viteServer.ssrLoadModule("/src/app/lib/site.ts"),
         viteServer.ssrLoadModule("/src/app/lib/route-seo.ts"),
@@ -76,6 +94,12 @@ async function main() {
       await fs.mkdir(outputDir, { recursive: true });
       await fs.writeFile(path.join(outputDir, "index.html"), outputHtml, "utf8");
     }
+
+    const sitemapXml = buildSitemapXml(publicSitePaths, siteConfig.url);
+    const robotsTxt = buildRobotsTxt(siteConfig.url);
+
+    await fs.writeFile(path.join(distRoot, "sitemap.xml"), sitemapXml, "utf8");
+    await fs.writeFile(path.join(distRoot, "robots.txt"), robotsTxt, "utf8");
   } finally {
     await viteServer.close();
   }

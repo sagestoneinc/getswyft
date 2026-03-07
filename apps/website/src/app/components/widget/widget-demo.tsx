@@ -34,7 +34,7 @@ export function WidgetDemo() {
 
   usePageSeo({
     title: "Widget Demo | SwyftUp",
-    description: "Interactive demo of the SwyftUp chat and voice widget for real estate websites.",
+    description: "Interactive demo of the SwyftUp chat and voice widget for business websites.",
     path: "/widget-demo",
     noIndex: true,
   });

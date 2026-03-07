@@ -121,6 +121,15 @@ export type MarketingTestimonial = {
   role: string;
 };
 
+export type MarketingVisualSlide = {
+  title: string;
+  description: string;
+  caption: string;
+  items?: string[];
+  imageSrc?: string;
+  imageAlt?: string;
+};
+
 export type MarketingPageSection =
   | {
       kind: "copy";
@@ -151,6 +160,14 @@ export type MarketingPageSection =
       intro?: string;
       items: MarketingCardItem[];
       columns?: 2 | 3 | 4;
+    }
+  | {
+      kind: "visualGallery";
+      eyebrow?: string;
+      title: string;
+      intro?: string;
+      slides: MarketingVisualSlide[];
+      action?: MarketingAction;
     }
   | {
       kind: "pricing";
@@ -271,46 +288,36 @@ const helpAction: MarketingAction = {
   variant: "ghost",
 };
 
-const socialLogos = [
-  "Northfield Group",
-  "Canvas Commerce",
-  "Summit Advisory",
-  "Cedar Lane Health",
-  "Harbor Education",
-  "Block & Beam Realty",
-];
-
-const sharedTestimonials: MarketingTestimonial[] = [
-  {
-    quote:
-      "SwyftUp gave us one place to manage chat, calls, and follow-up. We stopped losing context the moment a conversation changed hands.",
-    name: "Maya Singh",
-    role: "VP of Operations, Northfield Group",
-  },
-  {
-    quote:
-      "The AI receptionist captured after-hours inquiries with enough detail that our team could pick up the next morning without starting from zero.",
-    name: "Jordan Lee",
-    role: "Director of Growth, Canvas Commerce",
-  },
-  {
-    quote:
-      "Routing, notes, and analytics made the whole operation calmer. We respond faster now, but the bigger win is consistency.",
-    name: "Avery Cruz",
-    role: "GM, Summit Advisory",
-  },
-];
-
-const sharedSocialProof: MarketingPageSection = {
-  kind: "socialProof",
-  eyebrow: "Social proof",
-  title: "Trusted by growing teams that need faster responses and cleaner handoffs",
+const sharedOperationalProofSection: MarketingPageSection = {
+  kind: "cards",
+  eyebrow: "Operational proof",
+  title: "Proof you can evaluate directly in the product workflow",
   intro:
-    "SwyftUp is built for businesses that want customer communication to feel more deliberate, more visible, and easier to manage across teams.",
-  logosText:
-    "Trusted by growing teams that need faster responses, cleaner handoffs, and more visible customer operations.",
-  logos: socialLogos,
-  testimonials: sharedTestimonials,
+    "SwyftUp focuses on product-proof and process-proof instead of unverified quotes. You can validate these outcomes in your own demo.",
+  items: [
+    {
+      title: "Every handoff stays visible",
+      description:
+        "Conversation history, assignments, notes, and statuses remain connected so teams can move quickly without losing context.",
+      icon: "workflow",
+      to: "/product/features",
+    },
+    {
+      title: "After-hours coverage stays accountable",
+      description:
+        "The AI receptionist captures intent, qualifies requests, and creates summaries for the next available owner.",
+      icon: "sparkles",
+      to: "/product/features",
+    },
+    {
+      title: "Routing behavior is measurable",
+      description:
+        "Response time, ownership patterns, and conversation volume help teams improve staffing and response consistency over time.",
+      icon: "analytics",
+      to: "/product/features",
+    },
+  ],
+  columns: 3,
 };
 
 const sharedFeatureCards: MarketingCardItem[] = [
@@ -380,7 +387,7 @@ const sharedProductLinks: MarketingLinkItem[] = [
   {
     label: "Read developer docs",
     to: "/product/developers",
-    description: "Use APIs, webhooks, and SDK scaffolds to extend the platform.",
+    description: "Use APIs, webhooks, and SDK starter kits to extend the platform.",
     icon: "code",
   },
   {
@@ -394,6 +401,125 @@ const sharedProductLinks: MarketingLinkItem[] = [
     to: "/contact",
     description: "See the platform mapped to your own workflow.",
     icon: "calendar",
+  },
+];
+
+const sharedProductVisualSlides: MarketingVisualSlide[] = [
+  {
+    title: "Shared inbox timeline",
+    description:
+      "Agents can manage chat, voice events, notes, attachments, and ownership updates in a single timeline built for collaboration.",
+    caption:
+      "Inbox view with conversation history, assignment controls, and AI-assisted notes in one workspace.",
+    items: [
+      "Conversation history and attachments remain attached to each record.",
+      "Ownership changes are visible to everyone who touches the workflow.",
+      "AI summaries shorten handoff time when a thread moves between teammates.",
+    ],
+  },
+  {
+    title: "Routing and office-hours control",
+    description:
+      "Teams can combine first available, round robin, manual assignment, and fallback rules without losing operational visibility.",
+    caption:
+      "Routing board showing queue logic, office-hour coverage, and fallback owner settings.",
+    items: [
+      "Route by queue, specialty, office, or availability.",
+      "Set coverage windows so after-hours demand is still captured.",
+      "Use fallback owners to reduce dropped requests during busy periods.",
+    ],
+  },
+  {
+    title: "AI receptionist workflows",
+    description:
+      "The AI receptionist captures after-hours demand, asks qualifying questions, and writes clean summaries for the next human response.",
+    caption:
+      "AI intake flow with qualification prompts, summary output, and handoff status tracking.",
+    items: [
+      "Capture lead details and urgency when no agent is live.",
+      "Generate concise summaries before the next touchpoint.",
+      "Route summarized requests to the correct team queue automatically.",
+    ],
+  },
+  {
+    title: "Analytics for response quality",
+    description:
+      "Leaders can review response time, volume, ownership, and conversion-oriented signals to improve routing and staffing decisions.",
+    caption:
+      "Analytics dashboard with response benchmarks, queue trends, and conversion signal snapshots.",
+    items: [
+      "Track first response and follow-up trends by channel.",
+      "Identify queue bottlenecks before they affect customer experience.",
+      "Compare team or location performance using consistent workflow metrics.",
+    ],
+  },
+  {
+    title: "Website widget and live handoff",
+    description:
+      "Visitors start in a branded widget, then continue in chat or voice while your team keeps full context and next-step visibility.",
+    caption:
+      "Website widget experience moving from first message to routed ownership and live team response.",
+    items: [
+      "Launch branded chat and voice entry points on your website.",
+      "Capture lead context before handing off to a teammate.",
+      "Keep status, tags, and follow-up steps visible throughout the thread.",
+    ],
+  },
+];
+
+const sharedProductVisualSection: MarketingPageSection = {
+  kind: "visualGallery",
+  eyebrow: "See the product in action",
+  title: "Workflow previews across inbox, routing, AI, and analytics",
+  intro:
+    "These product previews reflect the live workflow design. You can validate each flow during a guided demo tailored to your team.",
+  slides: sharedProductVisualSlides,
+  action: { label: "Book a Live Walkthrough", to: "/contact", variant: "secondary" },
+};
+
+const homePricingPreviewPlans: MarketingPricingPlan[] = [
+  {
+    name: "Starter",
+    price: "$99",
+    period: "/month",
+    description: "For teams launching shared inbox and website messaging workflows.",
+    bestFor: "Early-stage rollout",
+    ctaLabel: "Get Started",
+    included: [
+      "2 seats",
+      "Website widget and shared inbox",
+      "Conversation history, notes, and tags",
+      "Basic routing and analytics",
+    ],
+  },
+  {
+    name: "Growth",
+    price: "$349",
+    period: "/month",
+    description: "For teams adding AI receptionist, voice, and stronger routing controls.",
+    bestFor: "Operational scaling",
+    ctaLabel: "Book a Demo",
+    highlight: "Most popular",
+    included: [
+      "5 seats",
+      "Everything in Starter",
+      "Browser-based voice",
+      "AI receptionist and office-hours routing",
+    ],
+  },
+  {
+    name: "Scale",
+    price: "$899",
+    period: "/month",
+    description: "For multi-team operations needing deeper analytics, governance, and API access.",
+    bestFor: "Advanced operations",
+    ctaLabel: "Talk to Sales",
+    included: [
+      "15 seats",
+      "Everything in Growth",
+      "Advanced analytics and audit logs",
+      "API and webhook access",
+    ],
   },
 ];
 
@@ -494,6 +620,26 @@ const homeStructuredData: StructuredData = [
   buildFaqSchema(homeFaqs),
 ];
 
+const productStructuredData: StructuredData = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: `${siteConfig.name} Product`,
+  applicationCategory: "BusinessApplication",
+  operatingSystem: "Web",
+  description:
+    "Unified customer communication platform with chat, voice, AI receptionist workflows, routing, analytics, and integration tooling.",
+  url: `${siteConfig.url}/product`,
+  featureList: [
+    "Website messaging widget",
+    "Shared team inbox",
+    "In-app voice calling",
+    "AI receptionist for intake and summaries",
+    "Routing and assignment workflows",
+    "Response and conversion analytics",
+    "Webhooks and integration connectors",
+  ],
+};
+
 const pricingStructuredData: StructuredData = buildFaqSchema(pricingFaqs);
 
 function createSolutionPage({
@@ -545,7 +691,7 @@ function createSolutionPage({
         eyebrow: "Workflow preview",
         title: visualTitle,
         items: visualItems,
-        footer: "Suggested screenshot: a routed conversation showing AI capture, assignment, notes, and response status.",
+        footer: "Routed conversation view showing AI intake, assignment updates, team notes, and response status.",
       },
     },
     sections: [
@@ -615,7 +761,7 @@ function createSolutionPage({
         ],
         action: { label: "Review security", to: "/product/security", variant: "ghost" },
       },
-      sharedSocialProof,
+      sharedOperationalProofSection,
       {
         kind: "faqs",
         eyebrow: "FAQs",
@@ -630,7 +776,7 @@ function createSolutionPage({
         items: [
           ...sharedProductLinks.slice(0, 4),
           {
-            label: "Read customer stories",
+            label: "Read case study examples",
             to: "/resources/case-studies",
             description: "See how different teams improve speed, ownership, and follow-up.",
             icon: "files",
@@ -727,9 +873,9 @@ export const marketingPages: Record<string, MarketingPage> = {
     ],
     hero: {
       eyebrow: "A flexible customer communication platform for any business",
-      title: "Turn every customer conversation into a clear next step",
+      title: "Customer communication platform for chat, voice, and AI automation",
       subtitle:
-        "SwyftUp brings chat, voice, AI automation, routing, workflows, and analytics into one shared system so your team can respond faster without losing control of the work.",
+        "SwyftUp combines a shared inbox, website widget, in-app voice, AI receptionist, routing, workflows, and analytics so your team can respond faster with less operational drift.",
       actions: [demoAction, productAction, pricingAction],
       stats: [
         { value: "Chat + voice", label: "Customer channels" },
@@ -738,7 +884,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         { value: "Analytics", label: "Operational visibility" },
       ],
       visual: {
-        eyebrow: "Above-the-fold screenshot",
+        eyebrow: "Above-the-fold preview",
         title: "Unified inbox with AI summaries and live routing",
         items: [
           "Website chat and browser-based calls live in one timeline.",
@@ -746,7 +892,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Assignments, notes, tags, and SLA status stay visible to the whole team.",
         ],
         footer:
-          "Suggested screenshot: a shared inbox showing live chat, browser-based calling, AI summaries, routing status, and next-step workflows in one view.",
+          "Shared inbox view with live chat, browser-based calling, AI summaries, routing status, and next-step workflows in one timeline.",
       },
     },
     sections: [
@@ -832,6 +978,27 @@ export const marketingPages: Record<string, MarketingPage> = {
         items: sharedFeatureCards,
         columns: 3,
       },
+      sharedProductVisualSection,
+      {
+        kind: "pricing",
+        eyebrow: "Pricing preview",
+        title: "Compare plans before you book time with sales",
+        intro:
+          "Use this quick snapshot to size your rollout, then visit the full pricing page for matrix-level detail and plan FAQs.",
+        plans: homePricingPreviewPlans,
+        footnote:
+          "Need enterprise terms, custom rollout support, or multi-workspace pricing? Use Talk to Sales and we’ll scope it together.",
+      },
+      {
+        kind: "copy",
+        eyebrow: "Live product demo",
+        title: "See the SwyftUp chat experience on a real interactive preview",
+        paragraphs: [
+          "If you want to test the customer-side flow before your demo, open the live widget preview and walk through pre-chat, live chat, after-hours capture, and voice transitions.",
+          "When your production widget script is configured, the same entry point can run directly on the marketing site using your own SwyftUp workspace settings.",
+        ],
+        action: { label: "Open Widget Preview", to: "/widget-demo", variant: "secondary" },
+      },
       {
         kind: "copy",
         eyebrow: "Integrations",
@@ -852,7 +1019,17 @@ export const marketingPages: Record<string, MarketingPage> = {
         ],
         action: { label: "Review security", to: "/product/security", variant: "ghost" },
       },
-      sharedSocialProof,
+      sharedOperationalProofSection,
+      {
+        kind: "copy",
+        eyebrow: "Real customer proof",
+        title: "Verified case studies are published only after customer approval",
+        paragraphs: [
+          "SwyftUp does not publish anonymous or unverified testimonials. Case studies are added when customers approve public attribution and quote usage.",
+          "Until then, evaluation should rely on product walkthroughs, implementation guides, workflow previews, and references shared during the sales process.",
+        ],
+        action: { label: "Browse Case Study Patterns", to: "/resources/case-studies", variant: "ghost" },
+      },
       {
         kind: "faqs",
         eyebrow: "FAQs",
@@ -874,7 +1051,7 @@ export const marketingPages: Record<string, MarketingPage> = {
             icon: "book",
           },
           {
-            label: "See customer stories",
+            label: "See case study examples",
             to: "/resources/case-studies",
             description: "See how teams across industries improve response and handoff quality.",
             icon: "files",
@@ -921,7 +1098,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Reporting shows what is improving and where handoffs still need attention.",
         ],
         footer:
-          "Suggested screenshot: product overview showing inbox activity, AI handoff cards, routing logic, and live team status.",
+          "Product overview with inbox activity, AI handoff cards, routing logic, and live team status indicators.",
       },
     },
     sections: [
@@ -997,6 +1174,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           },
         ],
       },
+      sharedProductVisualSection,
       {
         kind: "copy",
         eyebrow: "Integrations",
@@ -1017,7 +1195,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         ],
         action: { label: "Review security", to: "/product/security", variant: "ghost" },
       },
-      sharedSocialProof,
+      sharedOperationalProofSection,
       {
         kind: "faqs",
         eyebrow: "FAQs",
@@ -1066,6 +1244,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         actions: [demoAction, salesAction],
       },
     ],
+    structuredData: productStructuredData,
   },
   "/product/features": {
     slug: "/product/features",
@@ -1095,7 +1274,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Teams can start narrow and still grow into a fuller operating model.",
         ],
         footer:
-          "Suggested screenshot: feature view highlighting chat widget, live voice controls, AI summaries, routing rules, and analytics widgets.",
+          "Feature workspace highlighting chat widget controls, live voice actions, AI summaries, routing rules, and analytics widgets.",
       },
     },
     sections: [
@@ -1137,6 +1316,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         ],
         columns: 3,
       },
+      sharedProductVisualSection,
       {
         kind: "steps",
         eyebrow: "Workflow design",
@@ -1260,7 +1440,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Keep downstream workflows aligned without duplicate data entry.",
         ],
         footer:
-          "Suggested screenshot: integration view showing CRM sync, webhook events, and ownership updates flowing from the SwyftUp inbox.",
+          "Integration view showing CRM sync, webhook events, and ownership updates flowing from the SwyftUp inbox.",
       },
     },
     sections: [
@@ -1278,7 +1458,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         eyebrow: "Connector examples",
         title: "Integration patterns teams usually care about first",
         intro:
-          "These cards are intentionally positioned as realistic connector placeholders and common launch patterns, not an exhaustive guarantee of every integration.",
+          "These cards show common connector launch patterns and are not an exhaustive list of every integration path.",
         items: [
           {
             title: "CRM sync",
@@ -1312,7 +1492,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           },
           {
             title: "Custom extensions",
-            description: "Build custom tools around SwyftUp using APIs, webhooks, and SDK scaffolds as your platform matures.",
+            description: "Build custom tools around SwyftUp using APIs, webhooks, and SDK starter kits as your platform matures.",
             icon: "code",
             to: "/product/developers",
             meta: "Developer path",
@@ -1443,7 +1623,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Audit visibility and retention settings support clearer governance.",
         ],
         footer:
-          "Suggested screenshot: security overview showing permissions, audit history, encryption status, and retention settings.",
+          "Security overview with permissions, audit history, encryption status, and retention settings.",
       },
     },
     sections: [
@@ -1545,7 +1725,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             label: "Read the DPA",
             to: "/dpa",
-            description: "Review the legal scaffold for vendor and privacy review.",
+            description: "Review the legal documentation path for vendor and privacy review.",
             icon: "files",
           },
           {
@@ -1577,7 +1757,7 @@ export const marketingPages: Record<string, MarketingPage> = {
     slug: "/product/developers",
     metaTitle: "Developers | SwyftUp API and Webhooks",
     metaDescription:
-      "Build on SwyftUp with APIs, webhooks, and SDK scaffolds for conversations, routing, and customer workflows.",
+      "Build on SwyftUp with APIs, webhooks, and SDK starter kits for conversations, routing, and customer workflows.",
     keywords: [
       "customer communication API",
       "messaging API",
@@ -1598,14 +1778,14 @@ export const marketingPages: Record<string, MarketingPage> = {
       ],
       visual: {
         eyebrow: "Developer hub",
-        title: "Quickstart, APIs, webhooks, and SDK scaffolds",
+        title: "Quickstart, APIs, webhooks, and SDK starter kits",
         items: [
           "Start with credentials and authentication.",
           "Work with contacts, conversations, assignments, and calls.",
           "Subscribe to webhook events and extend the platform where your business needs it.",
         ],
         footer:
-          "Suggested screenshot: developer hub with quickstart steps, API concepts, webhook events, and SDK placeholders.",
+          "Developer hub with quickstart steps, API concepts, webhook events, and SDK starter kits.",
       },
     },
     sections: [
@@ -1684,7 +1864,7 @@ export const marketingPages: Record<string, MarketingPage> = {
             title: "SDKs",
             description: "Placeholder support for JavaScript, Node, Python, and PHP quickstarts with auth and webhook helpers.",
             icon: "code",
-            meta: "SDK scaffold",
+            meta: "SDK starter kit",
           },
         ],
         columns: 3,
@@ -1725,7 +1905,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             question: "Will there be SDKs?",
             answer:
-              "Yes. The developer hub is structured to launch with SDK placeholders and expand with language-specific helpers over time.",
+              "Yes. The developer hub launches with SDK starter kits and expands with language-specific helpers over time.",
           },
           {
             question: "Can we test before going live?",
@@ -1804,7 +1984,7 @@ export const marketingPages: Record<string, MarketingPage> = {
       "showing request messaging",
     ],
     eyebrow: "Solutions for real estate",
-    title: "Respond to every inquiry before interest goes cold",
+    title: "Real estate customer communication software for faster inquiry response",
     subtitle:
       "Capture listing and rental inquiries, qualify interest after hours, route by office or agent availability, and keep every follow-up visible in one place.",
     visualTitle: "Listing inquiry capture, AI qualification, and office routing",
@@ -1886,7 +2066,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         "post-purchase support chat",
       ],
       eyebrow: "Solutions for ecommerce",
-      title: "Help shoppers faster before and after checkout",
+      title: "Ecommerce customer communication platform for pre- and post-purchase support",
       subtitle:
         "Handle product questions, order issues, returns, and high-volume campaigns with one shared communication layer across chat, voice, AI automation, and routing.",
       visualTitle: "Shopper chat, order intent, queue routing, and AI summaries",
@@ -1969,7 +2149,7 @@ export const marketingPages: Record<string, MarketingPage> = {
       "shared client inbox",
     ],
     eyebrow: "Solutions for professional services",
-    title: "A better way to manage client inquiries and follow-up",
+    title: "Professional services communication platform for client intake and follow-up",
     subtitle:
       "Capture inquiries, qualify fit, route by practice or service line, and keep every conversation organized from first contact to active client work.",
     visualTitle: "Client intake, practice-area routing, and shared follow-up",
@@ -2075,7 +2255,7 @@ export const marketingPages: Record<string, MarketingPage> = {
       "clinic contact platform",
     ],
     eyebrow: "Solutions for healthcare",
-    title: "A privacy-aware communication layer for patient-facing teams",
+    title: "Healthcare communication software for privacy-aware patient inquiry workflows",
     subtitle:
       "Manage appointment requests, location-specific questions, service line routing, and after-hours communication in one organized workflow. Urgent medical concerns should always use established emergency or clinical escalation channels.",
     visualTitle: "Appointment request capture, location routing, and privacy-aware controls",
@@ -2182,7 +2362,7 @@ export const marketingPages: Record<string, MarketingPage> = {
       "program inquiry messaging",
     ],
     eyebrow: "Solutions for education",
-    title: "Help prospective and current students reach the right team faster",
+    title: "Education communication platform for admissions and student support teams",
     subtitle:
       "Capture program questions, route by campus or department, and keep student communication clear from first inquiry to final handoff.",
     visualTitle: "Program inquiry capture, department routing, and response tracking",
@@ -2289,7 +2469,7 @@ export const marketingPages: Record<string, MarketingPage> = {
       "after-hours inquiry capture",
     ],
     eyebrow: "Solutions for local and multi-location business",
-    title: "A faster way to handle customer inquiries across locations and service teams",
+    title: "Local business communication platform for location-based teams and service workflows",
     subtitle:
       "Capture quote requests, booking questions, and service inquiries, then route them by location, team, or business hours from one shared communication platform.",
     visualTitle: "Location-aware routing, after-hours capture, and team performance",
@@ -2410,7 +2590,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Use enterprise support when rollout, procurement, or customization require more structure.",
         ],
         footer:
-          "Suggested screenshot: pricing comparison showing Starter, Growth, Scale, and Enterprise with feature access and rollout guidance.",
+          "Pricing comparison for Starter, Growth, Scale, and Enterprise with feature access and rollout guidance.",
       },
     },
     sections: [
@@ -2605,7 +2785,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Build authority around the workflow problems buyers are already trying to solve.",
         ],
         footer:
-          "Suggested screenshot: editorial layout featuring practical articles on chat, routing, AI automation, and customer operations.",
+          "Editorial layout featuring practical articles on chat, routing, AI automation, and customer operations.",
       },
     },
     sections: [
@@ -2615,7 +2795,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         title: "Content for teams evaluating the operational side of communication",
         paragraphs: [
           "The blog is where SwyftUp answers the informational questions buyers ask before they choose a platform: how to reduce first response time, how to design routing, what to automate first, and what to measure beyond raw activity.",
-          "It should stay broad enough for multiple industries while remaining anchored in the platform’s core themes: chat, voice, AI automation, workflows, analytics, integrations, and security.",
+          "Content stays broad enough for multiple industries while remaining anchored in the platform’s core themes: chat, voice, AI automation, workflows, analytics, integrations, and security.",
         ],
       },
       {
@@ -2638,42 +2818,42 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             title: "How to Cut First Response Time Without Adding Headcount",
             description: "A practical look at routing, office hours, and shared ownership patterns that make faster response sustainable.",
-            meta: "Featured article placeholder",
+            meta: "Featured article",
             to: "/resources/guides",
             icon: "analytics",
           },
           {
             title: "First Available vs Round Robin: Choosing the Right Routing Model",
             description: "Compare routing patterns based on fairness, speed, specialization, and operational complexity.",
-            meta: "Featured article placeholder",
+            meta: "Featured article",
             to: "/resources/guides",
             icon: "routing",
           },
           {
             title: "What to Measure Beyond Response Time in Customer Conversations",
             description: "Go deeper into ownership quality, reopen rates, handoff friction, and conversion-oriented signals.",
-            meta: "Featured article placeholder",
+            meta: "Featured article",
             to: "/product/features",
             icon: "analytics",
           },
           {
             title: "When an AI Receptionist Helps and When It Gets in the Way",
             description: "Use AI where it improves capture and summaries, not where it creates more confusion for customers.",
-            meta: "Latest article placeholder",
+            meta: "New article",
             to: "/product/features",
             icon: "sparkles",
           },
           {
             title: "How Multi-Location Teams Should Think About Communication Coverage",
             description: "Design routing and fallback logic for distributed businesses without flattening local accountability.",
-            meta: "Latest article placeholder",
+            meta: "New article",
             to: "/solutions/local-business",
             icon: "local",
           },
           {
             title: "Why Shared Inboxes Fail and What Actually Fixes Them",
             description: "The missing operational layer is usually routing, ownership, and workflow visibility rather than another inbox feature.",
-            meta: "Latest article placeholder",
+            meta: "New article",
             to: "/product",
             icon: "message",
           },
@@ -2691,7 +2871,7 @@ export const marketingPages: Record<string, MarketingPage> = {
             icon: "book",
           },
           {
-            label: "See customer stories",
+            label: "See case study examples",
             to: "/resources/case-studies",
             description: "Understand how teams improve outcomes in real settings.",
             icon: "files",
@@ -2755,7 +2935,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Pair practical steps with direct links to product and support pages.",
         ],
         footer:
-          "Suggested screenshot: guides library with implementation playbooks, routing frameworks, and AI receptionist setup resources.",
+          "Guides library with implementation playbooks, routing frameworks, and AI receptionist setup resources.",
       },
     },
     sections: [
@@ -2764,8 +2944,8 @@ export const marketingPages: Record<string, MarketingPage> = {
         eyebrow: "SEO intro",
         title: "Guides are where planning turns into implementation",
         paragraphs: [
-          "The guides hub should target mid-funnel visitors who know the problem but need a clearer rollout path.",
-          "Position these resources as practical decision support for operators, team leads, and buyers who want to map strategy to execution.",
+          "The guides hub targets mid-funnel visitors who know the problem but need a clearer rollout path.",
+          "These resources provide practical decision support for operators, team leads, and buyers mapping strategy to execution.",
         ],
       },
       {
@@ -2785,28 +2965,28 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             title: "Launch SwyftUp in 14 Days",
             description: "A practical week-by-week rollout path covering widget setup, routing, AI intake, and first reporting review.",
-            meta: "Implementation guide placeholder",
+            meta: "Implementation guide",
             to: "/help",
             icon: "calendar",
           },
           {
             title: "Designing Office Hours and Fallback Routing",
             description: "Set up predictable coverage rules without overengineering the first version of your workflow.",
-            meta: "Routing playbook placeholder",
+            meta: "Routing playbook",
             to: "/product/features",
             icon: "routing",
           },
           {
             title: "What to Automate First with an AI Receptionist",
             description: "Choose the highest-leverage intake and summary tasks before you automate anything customer-facing.",
-            meta: "AI guide placeholder",
+            meta: "AI guide",
             to: "/product/features",
             icon: "sparkles",
           },
           {
             title: "How to Build an Analytics Review Cadence",
             description: "Use response time, handoff quality, reopen rates, and conversion signals to improve the system over time.",
-            meta: "Reporting guide placeholder",
+            meta: "Reporting guide",
             to: "/product/features",
             icon: "analytics",
           },
@@ -2875,9 +3055,9 @@ export const marketingPages: Record<string, MarketingPage> = {
     ],
     hero: {
       eyebrow: "Case studies",
-      title: "See how teams use SwyftUp to respond faster and work smarter",
+      title: "Case studies and workflow examples for customer communication teams",
       subtitle:
-        "Explore how teams across industries use SwyftUp to improve response time, reduce missed inquiries, and create cleaner handoffs between people and teams.",
+        "Review verified case studies when available and explore implementation patterns that show how teams deploy SwyftUp across industries.",
       actions: [demoAction, guidesAction, pricingAction],
       visual: {
         eyebrow: "Case study grid",
@@ -2888,17 +3068,17 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Connect each story to product, pricing, and guide pages to support evaluation.",
         ],
         footer:
-          "Suggested screenshot: case study grid showing industry filters, outcome metrics, and customer workflow snapshots.",
+          "Case study grid with industry filters, workflow themes, and implementation snapshots.",
       },
     },
     sections: [
       {
         kind: "copy",
         eyebrow: "SEO intro",
-        title: "Proof that better communication operations create better outcomes",
+        title: "Verified proof and implementation patterns that support buyer evaluation",
         paragraphs: [
-          "Case studies should reinforce purchase intent by linking practical operational improvements to the platform’s core capabilities.",
-          "The framing should stay focused on outcomes like faster response, stronger consistency, cleaner ownership, and better visibility rather than vague success language.",
+          "This page publishes verified customer stories when approval for public attribution is complete.",
+          "Until then, it highlights repeatable workflow patterns buyers can evaluate in a demo, then map to their own routing, ownership, and response model.",
         ],
       },
       {
@@ -2917,23 +3097,23 @@ export const marketingPages: Record<string, MarketingPage> = {
         ],
         items: [
           {
-            title: "Regional Realty Group cut first response time across 12 offices",
-            description: "A brokerage rollout that used office-aware routing and after-hours AI capture to tighten lead coverage.",
-            meta: "Metric placeholder: response time down 43%",
+            title: "Workflow example: multi-office lead routing for real estate",
+            description: "A brokerage pattern that combines office-aware routing and after-hours AI intake for cleaner lead coverage.",
+            meta: "Workflow spotlight",
             to: "/solutions/real-estate",
             icon: "building",
           },
           {
-            title: "Commerce brand handled campaign volume with smarter routing",
-            description: "A shopper support workflow that separated pre-purchase and post-purchase questions during high-volume campaigns.",
-            meta: "Metric placeholder: handled 2.1x more peak volume",
+            title: "Workflow example: ecommerce campaign-volume triage",
+            description: "A shopper support pattern that separates pre-purchase and post-purchase questions during peak demand.",
+            meta: "Workflow spotlight",
             to: "/solutions/ecommerce",
             icon: "cart",
           },
           {
-            title: "Clinic network centralized appointment intake across locations",
-            description: "A patient-facing workflow that made location routing and after-hours capture easier to manage.",
-            meta: "Metric placeholder: fewer missed appointment requests",
+            title: "Workflow example: appointment intake across clinic locations",
+            description: "A patient-facing pattern that centralizes location routing and after-hours capture without losing context.",
+            meta: "Workflow spotlight",
             to: "/solutions/healthcare",
             icon: "health",
           },
@@ -3015,17 +3195,17 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Make the changelog searchable by area: routing, analytics, integrations, developer, and fixes.",
         ],
         footer:
-          "Suggested screenshot: changelog feed showing recent releases across routing, analytics, integrations, and developer features.",
+          "Changelog feed showing recent releases across routing, analytics, integrations, and developer features.",
       },
     },
     sections: [
       {
         kind: "copy",
         eyebrow: "SEO intro",
-        title: "Release notes should be useful, searchable, and connected to documentation",
+        title: "Release notes that are useful, searchable, and connected to documentation",
         paragraphs: [
           "The changelog supports searches around product updates while also acting as a trust page for active evaluators and customers.",
-          "Each entry should explain what changed, who it helps, and where to go next for setup or troubleshooting guidance.",
+          "Each entry explains what changed, who it helps, and where to go next for setup or troubleshooting guidance.",
         ],
       },
       {
@@ -3046,21 +3226,21 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             title: "Conversation summaries at close",
             description: "Create cleaner handoff notes and easier review when a conversation reaches resolution.",
-            meta: "Release placeholder",
+            meta: "Release note",
             to: "/product/features",
             icon: "sparkles",
           },
           {
             title: "Office-hours routing builder",
             description: "Configure business windows, fallback paths, and assignment logic with more clarity.",
-            meta: "Release placeholder",
+            meta: "Release note",
             to: "/product/features",
             icon: "routing",
           },
           {
             title: "Webhook delivery logs",
             description: "Give technical teams more visibility into integration events, retries, and troubleshooting.",
-            meta: "Release placeholder",
+            meta: "Release note",
             to: "/product/developers",
             icon: "integrations",
           },
@@ -3131,7 +3311,7 @@ export const marketingPages: Record<string, MarketingPage> = {
       eyebrow: "Help Center",
       title: "Find what you need to launch, manage, and improve SwyftUp",
       subtitle:
-        "Search setup guides, routing help, voice and AI receptionist documentation, analytics articles, and admin resources. This page launches as a scaffold and grows into a full help center over time.",
+        "Search setup guides, routing help, voice and AI receptionist documentation, analytics articles, and admin resources.",
       actions: [helpAction, guidesAction, { label: "Contact Us", to: "/contact", variant: "secondary" }],
       visual: {
         eyebrow: "Support and docs",
@@ -3142,7 +3322,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Use strong linking into changelog, developer docs, and product pages.",
         ],
         footer:
-          "Suggested screenshot: help center layout with search, category cards, popular articles, and onboarding shortcuts.",
+          "Help center layout with search, category cards, popular articles, and onboarding shortcuts.",
       },
     },
     sections: [
@@ -3151,48 +3331,48 @@ export const marketingPages: Record<string, MarketingPage> = {
         eyebrow: "Popular topics",
         title: "Browse help by task or product area",
         intro:
-          "The Help Center should support both evaluators and customers who want product-specific answers before or after launch.",
+          "The Help Center supports both evaluators and customers who want product-specific answers before or after launch.",
         searchPlaceholder: "Search setup, routing, analytics, or troubleshooting...",
         items: [
           {
             title: "Getting started",
             description: "Workspace setup, widget install, and first-run onboarding articles for new admins.",
-            meta: "Category scaffold",
+            meta: "Category",
             to: "/resources/guides",
             icon: "calendar",
           },
           {
             title: "Inbox and messaging",
             description: "Learn how shared timelines, attachments, notes, tags, and statuses work day to day.",
-            meta: "Category scaffold",
+            meta: "Category",
             to: "/product/features",
             icon: "chat",
           },
           {
             title: "Voice",
             description: "Review browser-based calling behavior, setup, and workflow recommendations.",
-            meta: "Category scaffold",
+            meta: "Category",
             to: "/product/features",
             icon: "voice",
           },
           {
             title: "AI receptionist",
             description: "Configure after-hours coverage, qualification prompts, and handoff summaries.",
-            meta: "Category scaffold",
+            meta: "Category",
             to: "/product/features",
             icon: "sparkles",
           },
           {
             title: "Routing and assignment",
             description: "Set up office hours, round robin, fallback logic, and ownership controls.",
-            meta: "Category scaffold",
+            meta: "Category",
             to: "/product/features",
             icon: "routing",
           },
           {
             title: "Analytics and admin controls",
             description: "Use reporting, permissions, audit visibility, and retention settings more effectively.",
-            meta: "Category scaffold",
+            meta: "Category",
             to: "/product/security",
             icon: "analytics",
           },
@@ -3268,7 +3448,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         eyebrow: "Final CTA",
         title: "Use the Help Center as the bridge between launch and adoption",
         body:
-          "The Help Center should make SwyftUp easier to adopt at every stage, from first setup to advanced workflows. If the answer you need is not here, contact the team directly.",
+          "The Help Center makes SwyftUp easier to adopt at every stage, from first setup to advanced workflows. If the answer you need is not here, contact the team directly.",
         actions: [{ label: "Contact Us", to: "/contact", variant: "primary" }, guidesAction],
       },
     ],
@@ -3301,7 +3481,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "The company is focused on helping growing teams work with more confidence and less friction.",
         ],
         footer:
-          "Suggested screenshot: about page showing company mission, operating principles, and the team behind SwyftUp.",
+          "About page featuring company mission, operating principles, and the team behind SwyftUp.",
       },
     },
     sections: [
@@ -3344,24 +3524,24 @@ export const marketingPages: Record<string, MarketingPage> = {
       },
       {
         kind: "cards",
-        eyebrow: "Leadership placeholders",
-        title: "Team section scaffold",
+        eyebrow: "Leadership",
+        title: "How the leadership team is structured",
         intro:
-          "Use realistic placeholders at launch if the full leadership profile set is not yet ready.",
+          "SwyftUp is led by operators across product, engineering, and customer experience with a shared focus on execution quality.",
         items: [
           {
-            title: "[Founder / CEO Name]",
-            description: "Focused on product clarity, operational design, and helping businesses run communication more deliberately.",
+            title: "Executive leadership",
+            description: "Sets product direction, operating priorities, and long-term company strategy.",
             icon: "team",
           },
           {
-            title: "[Head of Product]",
-            description: "Owns the workflow thinking behind chat, voice, routing, and analytics across the platform.",
+            title: "Product and design",
+            description: "Owns the workflow design behind chat, voice, routing, and analytics.",
             icon: "workflow",
           },
           {
-            title: "[Head of Customer Success]",
-            description: "Works with customers on rollout planning, adoption, and long-term improvement after launch.",
+            title: "Customer success",
+            description: "Leads rollout planning, adoption, and post-launch optimization for customer teams.",
             icon: "help",
           },
         ],
@@ -3474,7 +3654,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Leave with a clearer picture of rollout scope and next steps.",
         ],
         footer:
-          "Suggested screenshot: contact page with short demo form, expectation-setting copy, and supporting links to pricing, security, and help.",
+          "Contact page with a short demo form, expectation-setting copy, and supporting links to pricing, security, and help.",
       },
     },
     sections: [
@@ -3517,7 +3697,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             name: "companyName",
             label: "Company name",
-            placeholder: "Northfield Group",
+            placeholder: "Your company name",
             required: true,
             helper: "Please enter your company name.",
           },
@@ -3685,7 +3865,7 @@ export const marketingPages: Record<string, MarketingPage> = {
       eyebrow: "Careers",
       title: "Help build the communication layer modern teams rely on",
       subtitle:
-        "This page launches as a thoughtful careers scaffold today and can grow into a full recruiting hub as openings are added.",
+        "Explore how we work and where we are hiring as the SwyftUp team grows.",
       actions: [
         { label: "View Open Roles", to: "/careers", variant: "primary" },
         { label: "Learn About SwyftUp", to: "/about", variant: "secondary" },
@@ -3693,14 +3873,14 @@ export const marketingPages: Record<string, MarketingPage> = {
       ],
       visual: {
         eyebrow: "Careers page",
-        title: "Mission, principles, and a future roles scaffold",
+        title: "Mission, principles, and role paths",
         items: [
           "Show why the problem matters and how the team works together.",
           "Keep values practical and human instead of startup-generic.",
           "Launch with a no-openings message if recruiting is not yet active.",
         ],
         footer:
-          "Suggested screenshot: careers page with mission statement, team principles, and future roles scaffold.",
+          "Careers page with mission statement, team principles, and current or upcoming role categories.",
       },
     },
     sections: [
@@ -3755,10 +3935,10 @@ export const marketingPages: Record<string, MarketingPage> = {
       },
       {
         kind: "copy",
-        eyebrow: "Open roles scaffold",
+        eyebrow: "Open roles",
         title: "A clean way to launch before the full hiring program is live",
         paragraphs: [
-          "If no roles are open yet, the page should say that plainly: No current openings. Join our talent network to hear when new roles are posted.",
+          "If no roles are open yet, the page says that plainly: No current openings. Join our talent network to hear when new roles are posted.",
           "That keeps the page honest while still building employer-brand equity and giving interested candidates a path to raise their hand.",
         ],
       },
@@ -3769,7 +3949,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         items: [
           {
             question: "Do you post all open roles here?",
-            answer: "Yes. This page should serve as the main home for current openings.",
+            answer: "Yes. This page serves as the main home for current openings.",
           },
           {
             question: "What kinds of people thrive at SwyftUp?",
@@ -3779,7 +3959,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             question: "What teams are likely to grow over time?",
             answer:
-              "Product, engineering, customer success, and go-to-market are the strongest default placeholders unless plans change.",
+              "Product, engineering, customer success, and go-to-market are the core teams we expect to keep growing.",
           },
           {
             question: "What should candidates expect from the process?",
@@ -3856,7 +4036,7 @@ export const marketingPages: Record<string, MarketingPage> = {
       eyebrow: "Partners",
       title: "Partner with SwyftUp",
       subtitle:
-        "This page launches as a scaffold for agencies, consultants, implementation teams, and referral partners who want to bring chat, voice, and AI workflows to their clients.",
+        "This page explains how agencies, consultants, implementation teams, and referral partners can bring SwyftUp workflows to their clients.",
       actions: [
         { label: "Apply to Partner", to: "/contact", variant: "primary" },
         salesAction,
@@ -3870,7 +4050,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Explain how SwyftUp works with agencies, consultants, and integrators.",
           "Connect enablement resources back to product and developer pages.",
         ],
-        footer: "Suggested screenshot: partner page with referral, implementation, and technology partnership paths.",
+        footer: "Partner page with referral, implementation, and technology partnership paths.",
       },
     },
     sections: [
@@ -3930,10 +4110,10 @@ export const marketingPages: Record<string, MarketingPage> = {
       },
       {
         kind: "copy",
-        eyebrow: "Enablement scaffold",
+        eyebrow: "Enablement",
         title: "What partners should expect over time",
         paragraphs: [
-          "The program should make room for partner onboarding, co-marketing opportunities, implementation resources, and clear referral or commercial terms.",
+          "The program includes partner onboarding, co-marketing opportunities, implementation resources, and clear referral or commercial terms.",
           "If the program is early, say that plainly and invite qualified partners to start the conversation now.",
         ],
       },
@@ -3955,7 +4135,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             question: "Will partners get enablement materials?",
             answer:
-              "Yes. The program should include product education, positioning support, and a path for rollout collaboration.",
+              "Yes. The program includes product education, positioning support, and a path for rollout collaboration.",
           },
           {
             question: "Can partners build integrations?",
@@ -3987,9 +4167,9 @@ export const marketingPages: Record<string, MarketingPage> = {
             icon: "code",
           },
           {
-            label: "See customer stories",
+            label: "See case study examples",
             to: "/resources/case-studies",
-            description: "Use outcome proof to support partner-led selling.",
+            description: "Use case study patterns to support partner-led discovery conversations.",
             icon: "files",
           },
           {
@@ -4037,7 +4217,7 @@ export const marketingPages: Record<string, MarketingPage> = {
       eyebrow: "Legal",
       title: "Privacy Policy",
       subtitle:
-        "This page is a publication-ready privacy scaffold written in plain language and should be reviewed by counsel before it goes live.",
+        "This Privacy Policy summarizes how SwyftUp handles information across the website and product.",
       actions: [
         { label: "Contact Us", to: "/contact", variant: "primary" },
         { label: "Review Security", to: "/product/security", variant: "secondary" },
@@ -4052,7 +4232,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Align the published version to actual product behavior and legal review.",
         ],
         footer:
-          "Suggested screenshot: clean privacy policy layout with summary, table of contents, and contact information.",
+          "Privacy policy layout with summary, table of contents, and contact information.",
       },
     },
     sections: [
@@ -4060,7 +4240,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         kind: "legal",
         eyebrow: "Privacy details",
         title: "A clear summary of how information is handled",
-        notice: "Last updated: [Month Day, Year]. This policy should be reviewed by counsel before publication.",
+        notice: "Last updated: March 8, 2026.",
         sections: [
           {
             title: "Information we collect",
@@ -4104,7 +4284,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             label: "Read the DPA",
             to: "/dpa",
-            description: "Continue into the customer-facing data processing scaffold.",
+            description: "Continue into the customer-facing data processing terms.",
             icon: "files",
           },
           {
@@ -4116,7 +4296,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             label: "Review the Cookie Policy",
             to: "/cookies",
-            description: "See how cookies and tracking preferences should be described.",
+            description: "See how cookies and tracking preferences are described.",
             icon: "files",
           },
           {
@@ -4147,7 +4327,7 @@ export const marketingPages: Record<string, MarketingPage> = {
       eyebrow: "Legal",
       title: "Terms of Service",
       subtitle:
-        "This page is a publication-ready terms scaffold and should be reviewed by counsel before it goes live.",
+        "These Terms of Service outline account use, billing, and service expectations for SwyftUp.",
       actions: [
         { label: "Contact Us", to: "/contact", variant: "primary" },
         { label: "Review Privacy Policy", to: "/privacy", variant: "secondary" },
@@ -4161,7 +4341,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Keep legal review steps and contact routes easy to find.",
           "Make the published page easy to scan for procurement and legal teams.",
         ],
-        footer: "Suggested screenshot: terms page with concise summary, legal sections, and clear contact information.",
+        footer: "Terms page with concise summary, legal sections, and clear contact information.",
       },
     },
     sections: [
@@ -4169,7 +4349,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         kind: "legal",
         eyebrow: "Terms details",
         title: "A simple framework for service terms",
-        notice: "Last updated: [Month Day, Year]. Legal review is recommended before publication.",
+        notice: "Last updated: March 8, 2026.",
         sections: [
           {
             title: "Accounts and use",
@@ -4218,7 +4398,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             label: "Read the DPA",
             to: "/dpa",
-            description: "Continue into the privacy and vendor review scaffold.",
+            description: "Continue into the privacy and vendor review terms.",
             icon: "files",
           },
           {
@@ -4270,7 +4450,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           "Make preference controls and browser guidance easy to find.",
         ],
         footer:
-          "Suggested screenshot: cookie policy layout with category explanations and preference controls.",
+          "Cookie policy layout with category explanations and preference controls.",
       },
     },
     sections: [
@@ -4278,7 +4458,7 @@ export const marketingPages: Record<string, MarketingPage> = {
         kind: "legal",
         eyebrow: "Cookie details",
         title: "A clear explanation of how tracking technology is used",
-        notice: "Last updated: [Month Day, Year]. The final policy should align with actual implementation.",
+        notice: "Last updated: March 8, 2026.",
         sections: [
           {
             title: "Cookie types",
@@ -4344,7 +4524,7 @@ export const marketingPages: Record<string, MarketingPage> = {
     slug: "/dpa",
     metaTitle: "Data Processing Addendum | SwyftUp",
     metaDescription:
-      "Review the SwyftUp data processing addendum scaffold for customer and vendor privacy review.",
+      "Review the SwyftUp Data Processing Addendum for customer and vendor privacy review.",
     keywords: [
       "SwyftUp data processing addendum",
       "data processing terms",
@@ -4357,29 +4537,29 @@ export const marketingPages: Record<string, MarketingPage> = {
       eyebrow: "Legal",
       title: "Data Processing Addendum",
       subtitle:
-        "This page serves as the DPA scaffold for customers evaluating SwyftUp and should be reviewed by counsel before publication.",
+        "This Data Processing Addendum outlines processing terms used in customer and vendor privacy review.",
       actions: [
         { label: "Contact Us", to: "/contact", variant: "primary" },
         { label: "Review Security", to: "/product/security", variant: "secondary" },
         { label: "Read Privacy Policy", to: "/privacy", variant: "ghost" },
       ],
       visual: {
-        eyebrow: "DPA scaffold",
+        eyebrow: "DPA overview",
         title: "Scope, security measures, and legal contact details",
         items: [
           "Explain controller and processor responsibilities plainly.",
           "Reference practical controls like encryption, permissions, audit visibility, and retention.",
           "Provide a path for subprocessor review and signature requests.",
         ],
-        footer: "Suggested screenshot: DPA page with scope summary, security measures, and legal contact details.",
+        footer: "DPA page with scope summary, security measures, and legal contact details.",
       },
     },
     sections: [
       {
         kind: "legal",
         eyebrow: "DPA details",
-        title: "A clear vendor review scaffold",
-        notice: "Last updated: [Month Day, Year]. Final legal review and signature mechanics should be confirmed before publication.",
+        title: "A clear vendor review framework",
+        notice: "Last updated: March 8, 2026.",
         sections: [
           {
             title: "Scope and roles",
@@ -4396,7 +4576,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           {
             title: "Subprocessors",
             paragraphs: [
-              "Include a placeholder for subprocessor disclosures and explain how the maintained list or update process will work.",
+              "Subprocessor disclosures are available on request and maintained as part of SwyftUp’s customer-facing legal documentation process.",
             ],
           },
           {
@@ -4504,7 +4684,7 @@ export const marketingNavGroups: NavGroup[] = [
       {
         label: "Developers",
         to: "/product/developers",
-        description: "Work with APIs, webhooks, and SDK scaffolds.",
+        description: "Work with APIs, webhooks, and SDK starter kits.",
       },
     ],
   },
@@ -4570,7 +4750,7 @@ export const marketingNavGroups: NavGroup[] = [
     items: [
       { label: "About", to: "/about", description: "Learn why SwyftUp exists." },
       { label: "Contact", to: "/contact", description: "Talk to sales or ask rollout questions." },
-      { label: "Careers", to: "/careers", description: "Explore the careers scaffold and future roles." },
+      { label: "Careers", to: "/careers", description: "Explore team culture and current or upcoming roles." },
       { label: "Partners", to: "/partners", description: "Apply as a referral, implementation, or technology partner." },
     ],
   },

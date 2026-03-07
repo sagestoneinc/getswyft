@@ -29,6 +29,82 @@ const websiteSchema = {
   inLanguage: "en-US",
 };
 
+const breadcrumbLabelMap: Record<string, string> = {
+  product: "Product",
+  features: "Features",
+  integrations: "Integrations",
+  security: "Security",
+  developers: "Developers",
+  solutions: "Solutions",
+  "real-estate": "Real Estate",
+  ecommerce: "Ecommerce",
+  "professional-services": "Professional Services",
+  healthcare: "Healthcare",
+  education: "Education",
+  "local-business": "Local Business",
+  pricing: "Pricing",
+  resources: "Resources",
+  guides: "Guides",
+  "case-studies": "Case Studies",
+  changelog: "Changelog",
+  blog: "Blog",
+  help: "Help Center",
+  about: "About",
+  contact: "Contact",
+  careers: "Careers",
+  partners: "Partners",
+  privacy: "Privacy",
+  terms: "Terms",
+  cookies: "Cookies",
+  dpa: "DPA",
+};
+
+function formatBreadcrumbLabel(segment: string) {
+  const mapped = breadcrumbLabelMap[segment];
+  if (mapped) {
+    return mapped;
+  }
+
+  return segment
+    .split("-")
+    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+    .join(" ");
+}
+
+function buildBreadcrumbSchema(pathname: string): StructuredData | undefined {
+  if (!pathname || pathname === "/") {
+    return undefined;
+  }
+
+  const parts = pathname.split("/").filter(Boolean);
+  const itemListElement: Array<Record<string, unknown>> = [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Home",
+      item: `${siteConfig.url}/`,
+    },
+  ];
+
+  let currentPath = "";
+
+  for (const [index, part] of parts.entries()) {
+    currentPath += `/${part}`;
+    itemListElement.push({
+      "@type": "ListItem",
+      position: index + 2,
+      name: formatBreadcrumbLabel(part),
+      item: toAbsoluteUrl(currentPath),
+    });
+  }
+
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement,
+  };
+}
+
 export function getMarketingSeo(pathname: string): SeoConfig {
   const page = getMarketingPage(pathname) ?? getMarketingPage("/");
 
@@ -39,7 +115,13 @@ export function getMarketingSeo(pathname: string): SeoConfig {
     };
   }
 
-  const structuredData = [organizationSchema, websiteSchema, ...toStructuredDataArray(page.structuredData)];
+  const breadcrumbSchema = buildBreadcrumbSchema(page.slug);
+  const structuredData = [
+    organizationSchema,
+    websiteSchema,
+    ...toStructuredDataArray(page.structuredData),
+    ...(breadcrumbSchema ? [breadcrumbSchema] : []),
+  ];
 
   return {
     title: page.metaTitle,

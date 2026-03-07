@@ -14,7 +14,6 @@ import {
   Globe2,
   GraduationCap,
   Handshake,
-  Headset,
   HeartPulse,
   LifeBuoy,
   Link2,
@@ -47,8 +46,16 @@ import {
   type MarketingResourceItem,
   type MarketingStepItem,
   type MarketingTestimonial,
+  type MarketingVisualSlide,
 } from "../../content/marketing-content";
 import { cn } from "../ui/utils";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "../ui/carousel";
 
 const iconMap: Record<IconName, LucideIcon> = {
   analytics: BarChart3,
@@ -226,7 +233,7 @@ function Hero({ hero }: { hero: MarketingHero }) {
             ))}
           </div>
           <div className="mt-6 rounded-2xl border border-dashed border-white/15 bg-[#08182a]/55 px-4 py-4">
-            <p className="text-xs uppercase tracking-[0.16em] text-white/50">Screenshot caption</p>
+            <p className="text-xs uppercase tracking-[0.16em] text-white/50">Product preview</p>
             <p className="mt-2 text-sm leading-6 text-white/72">{hero.visual.footer}</p>
           </div>
         </div>
@@ -413,6 +420,114 @@ function CardsSection({
           <Card key={`${item.title}-${item.to ?? item.description}`} item={item} linked={Boolean(item.to)} />
         ))}
       </div>
+    </SectionFrame>
+  );
+}
+
+function VisualSlide({
+  slide,
+}: {
+  slide: MarketingVisualSlide;
+}) {
+  const checklist = slide.items?.length ? slide.items : [slide.description];
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+      <div className="rounded-[24px] border border-border bg-white p-6 shadow-sm">
+        <h3 className="text-2xl text-primary" style={{ fontWeight: 700 }}>
+          {slide.title}
+        </h3>
+        <p className="mt-3 text-sm leading-7 text-muted-foreground">{slide.description}</p>
+        <div className="mt-6 space-y-3">
+          {checklist.map((item) => (
+            <div key={`${slide.title}-${item}`} className="flex items-start gap-3">
+              <span className="mt-0.5 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-xl bg-accent/10 text-accent">
+                <Check className="h-4 w-4" />
+              </span>
+              <p className="text-sm leading-7 text-muted-foreground">{item}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="rounded-[24px] border border-border bg-white p-5 shadow-sm">
+        {slide.imageSrc ? (
+          <figure>
+            <img
+              src={slide.imageSrc}
+              alt={slide.imageAlt ?? slide.title}
+              loading="lazy"
+              decoding="async"
+              className="h-[280px] w-full rounded-2xl border border-border object-cover"
+            />
+            <figcaption className="mt-3 text-sm leading-6 text-muted-foreground">{slide.caption}</figcaption>
+          </figure>
+        ) : (
+          <div className="h-full rounded-2xl border border-border bg-[linear-gradient(135deg,#f8fcfc_0%,#edf7f7_100%)] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm text-primary" style={{ fontWeight: 700 }}>
+                Workflow preview
+              </p>
+              <span className="rounded-full border border-accent/20 bg-accent/10 px-3 py-1 text-xs text-accent">
+                Live view
+              </span>
+            </div>
+            <div className="mt-4 space-y-3">
+              {checklist.map((item) => (
+                <div
+                  key={`${slide.caption}-${item}`}
+                  className="rounded-xl border border-border bg-white px-4 py-3 text-sm leading-6 text-muted-foreground"
+                >
+                  {item}
+                </div>
+              ))}
+            </div>
+            <p className="mt-4 text-sm leading-6 text-muted-foreground">{slide.caption}</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function VisualGallerySection({
+  title,
+  eyebrow,
+  intro,
+  slides,
+  action,
+  muted,
+}: {
+  title: string;
+  eyebrow?: string;
+  intro?: string;
+  slides: MarketingVisualSlide[];
+  action?: MarketingAction;
+  muted?: boolean;
+}) {
+  return (
+    <SectionFrame eyebrow={eyebrow} title={title} intro={intro} muted={muted}>
+      <div className="rounded-[30px] border border-border bg-white p-5 shadow-sm sm:p-6">
+        <Carousel opts={{ align: "start", loop: false }} className="pb-14">
+          <CarouselContent>
+            {slides.map((slide) => (
+              <CarouselItem key={`${slide.title}-${slide.caption}`}>
+                <VisualSlide slide={slide} />
+              </CarouselItem>
+            ))}
+          </CarouselContent>
+          {slides.length > 1 ? (
+            <>
+              <CarouselPrevious className="bottom-2 left-2 top-auto -translate-y-0 border-border bg-white text-primary hover:bg-[#f3fbfb]" />
+              <CarouselNext className="bottom-2 left-12 right-auto top-auto -translate-y-0 border-border bg-white text-primary hover:bg-[#f3fbfb]" />
+            </>
+          ) : null}
+        </Carousel>
+      </div>
+      {action ? (
+        <div className="mt-6">
+          <ActionButton action={action} />
+        </div>
+      ) : null}
     </SectionFrame>
   );
 }
@@ -1039,6 +1154,8 @@ function renderSection(section: MarketingPageSection, index: number) {
       return <StepsSection key={`${section.kind}-${section.title}`} muted={muted} {...section} />;
     case "cards":
       return <CardsSection key={`${section.kind}-${section.title}`} muted={muted} {...section} />;
+    case "visualGallery":
+      return <VisualGallerySection key={`${section.kind}-${section.title}`} muted={muted} {...section} />;
     case "pricing":
       return <PricingSection key={`${section.kind}-${section.title}`} muted={muted} {...section} />;
     case "resources":

@@ -3,17 +3,17 @@ import { ImageWithFallback } from "../figma/ImageWithFallback";
 import { ArrowRight, Target, Heart, Zap, Users } from "lucide-react";
 
 const values = [
-  { icon: Target, title: "Agent-First", description: "Every feature is designed around how real estate agents actually work, not how software engineers think they should." },
-  { icon: Zap, title: "Speed Matters", description: "In real estate, minutes count. We obsess over response times, load speeds, and time-to-value." },
+  { icon: Target, title: "Customer-First", description: "Every feature is designed around how real teams handle customer conversations in daily operations." },
+  { icon: Zap, title: "Speed Matters", description: "Response speed and handoff quality are core to the product experience." },
   { icon: Heart, title: "Simplicity", description: "Powerful doesn't mean complicated. SwyftUp is easy to set up, easy to use, and easy to love." },
-  { icon: Users, title: "Partnership", description: "We succeed when our customers succeed. Our support team is staffed by people who understand real estate." },
+  { icon: Users, title: "Partnership", description: "We succeed when our customers succeed. We work closely with teams from rollout through long-term optimization." },
 ];
 
 const team = [
-  { name: "Alex Rivera", role: "Co-Founder & CEO", bio: "Former RE/MAX tech director with 12 years in proptech." },
-  { name: "Jordan Park", role: "Co-Founder & CTO", bio: "Ex-Twilio engineer who built real-time comms at scale." },
-  { name: "Maya Singh", role: "VP of Product", bio: "Led product at two successful SaaS startups in the real estate vertical." },
-  { name: "Chris Tan", role: "Head of Customer Success", bio: "Licensed real estate agent turned customer advocate." },
+  { name: "Leadership Team", role: "Executive Team", bio: "Focused on product clarity, operational reliability, and long-term customer outcomes." },
+  { name: "Product Leadership", role: "Product", bio: "Designs communication workflows that connect chat, voice, AI, and routing." },
+  { name: "Engineering Leadership", role: "Engineering", bio: "Builds and operates the platform infrastructure, APIs, and integrations." },
+  { name: "Customer Success Leadership", role: "Customer Success", bio: "Partners with customers on rollout, adoption, and measurable improvement." },
 ];
 
 export function AboutPage() {
@@ -23,10 +23,10 @@ export function AboutPage() {
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-accent text-sm mb-3" style={{ fontWeight: 600 }}>ABOUT US</p>
           <h1 className="text-4xl md:text-5xl text-white mb-6" style={{ fontWeight: 700, lineHeight: 1.1 }}>
-            We're on a Mission to Modernize Real Estate Communication
+            We're on a Mission to Modernize Customer Communication
           </h1>
           <p className="text-lg text-white/70 max-w-2xl mx-auto">
-            SwyftUp was born from the frustration of watching leads slip through the cracks. We built the platform we wished existed.
+            SwyftUp was built to help teams respond faster, route smarter, and keep customer context visible from first contact to final follow-up.
           </p>
         </div>
       </section>
@@ -37,16 +37,16 @@ export function AboutPage() {
             <div className="rounded-2xl overflow-hidden shadow-xl">
               <ImageWithFallback
                 src="https://images.unsplash.com/photo-1758691736843-90f58dce465e?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3Nzg4Nzd8MHwxfHNlYXJjaHwxfHx0ZWFtJTIwY29sbGFib3JhdGlvbiUyMHdvcmtzcGFjZXxlbnwxfHx8fDE3NzI0ODQzNzl8MA&ixlib=rb-4.1.0&q=80&w=1080&utm_source=figma&utm_medium=referral"
-                alt="Team collaboration"
+                alt="SwyftUp team collaborating on customer communication workflows"
                 className="w-full h-80 object-cover"
               />
             </div>
             <div>
               <h2 className="text-3xl text-primary mb-6" style={{ fontWeight: 700 }}>Our Story</h2>
               <div className="space-y-4 text-muted-foreground">
-                <p>Founded in 2024, SwyftUp started when our co-founders realized that real estate agents were losing up to 40% of their website leads simply because they couldn't respond fast enough.</p>
-                <p>Most chat tools were built for SaaS companies, not real estate. Agents needed listing context, lead routing, and voice calling - all in one place.</p>
-                <p>Today, SwyftUp powers communication for over 2,500 agents across the country, handling 1.2 million messages per month.</p>
+                <p>SwyftUp started when the founding team saw how often customer conversations broke down during handoff between tools and teams.</p>
+                <p>Most communication stacks handled one channel well but left teams to stitch together routing, ownership, and follow-up manually.</p>
+                <p>The platform was built as one system for chat, voice, AI automation, and operational workflows so communication stays clear as volume grows.</p>
               </div>
             </div>
           </div>
