@@ -116,6 +116,27 @@ const seededConversations = [
   },
 ];
 
+const seededTeamMembers = [
+  {
+    externalAuthId: "seed|sarah-chen",
+    email: "sarah@getswyft.local",
+    displayName: "Sarah Chen",
+    roleKey: "tenant_admin",
+  },
+  {
+    externalAuthId: "seed|marcus-johnson",
+    email: "marcus@getswyft.local",
+    displayName: "Marcus Johnson",
+    roleKey: "agent",
+  },
+  {
+    externalAuthId: "seed|emily-rodriguez",
+    email: "emily@getswyft.local",
+    displayName: "Emily Rodriguez",
+    roleKey: "agent",
+  },
+];
+
 async function seed() {
   const tenant = await prisma.tenant.upsert({
     where: { slug: "default" },
@@ -225,6 +246,72 @@ async function seed() {
       tenantId: tenant.id,
       userId: adminUser.id,
       roleId: adminRole.id,
+    },
+  });
+
+  const roleByKey = {
+    tenant_admin: adminRole,
+    agent: agentRole,
+  };
+
+  for (const teamMember of seededTeamMembers) {
+    const user = await prisma.user.upsert({
+      where: {
+        externalAuthId: teamMember.externalAuthId,
+      },
+      update: {
+        email: teamMember.email,
+        displayName: teamMember.displayName,
+      },
+      create: {
+        externalAuthId: teamMember.externalAuthId,
+        email: teamMember.email,
+        displayName: teamMember.displayName,
+      },
+    });
+
+    await prisma.userRole.upsert({
+      where: {
+        tenantId_userId_roleId: {
+          tenantId: tenant.id,
+          userId: user.id,
+          roleId: roleByKey[teamMember.roleKey].id,
+        },
+      },
+      update: {},
+      create: {
+        tenantId: tenant.id,
+        userId: user.id,
+        roleId: roleByKey[teamMember.roleKey].id,
+      },
+    });
+  }
+
+  await prisma.tenantInvitation.upsert({
+    where: {
+      token: "seed-team-invite-token",
+    },
+    update: {
+      tenantId: tenant.id,
+      roleId: agentRole.id,
+      invitedByUserId: adminUser.id,
+      email: "new.agent@getswyft.local",
+      status: "PENDING",
+      expiresAt: new Date("2026-03-15T00:00:00Z"),
+      sentAt: new Date("2026-03-07T08:30:00Z"),
+      acceptedAt: null,
+      revokedAt: null,
+      acceptedUserId: null,
+    },
+    create: {
+      token: "seed-team-invite-token",
+      tenantId: tenant.id,
+      roleId: agentRole.id,
+      invitedByUserId: adminUser.id,
+      email: "new.agent@getswyft.local",
+      status: "PENDING",
+      expiresAt: new Date("2026-03-15T00:00:00Z"),
+      sentAt: new Date("2026-03-07T08:30:00Z"),
     },
   });
 

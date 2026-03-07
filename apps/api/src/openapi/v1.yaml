@@ -143,6 +143,30 @@ paths:
       responses:
         "200":
           description: Reaction state updated
+  /v1/users/team:
+    get:
+      summary: List tenant members and pending invitations
+      responses:
+        "200":
+          description: Team workspace state
+  /v1/users/team/invitations:
+    post:
+      summary: Invite a new team member via email
+      responses:
+        "201":
+          description: Invitation created and email requested
+  /v1/users/team/members/{userId}/role:
+    patch:
+      summary: Update a tenant team member role
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Team member updated
   /v1/audit-logs:
     get:
       summary: List tenant audit logs

@@ -19,6 +19,12 @@ const rawEnvSchema = z.object({
   DEV_AUTH_BYPASS: z.string().default("false"),
   DEV_DEFAULT_TENANT_SLUG: z.string().default("default"),
 
+  APP_BASE_URL: z.string().default("http://localhost:5173"),
+  EMAIL_PROVIDER: z.enum(["log", "resend"]).default("log"),
+  EMAIL_FROM: z.string().default("Getswyft <onboarding@example.com>"),
+  EMAIL_REPLY_TO: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
+
   STORAGE_PROVIDER: z.enum(["s3", "local"]).default("local"),
   S3_BUCKET_NAME: z.string().optional(),
   S3_REGION: z.string().default("us-east-1"),

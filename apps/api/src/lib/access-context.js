@@ -30,6 +30,91 @@ function aggregateMemberships(userRoles) {
   }));
 }
 
+async function expireStaleInvitations(prisma, email) {
+  if (!email) {
+    return;
+  }
+
+  await prisma.tenantInvitation.updateMany({
+    where: {
+      email: {
+        equals: email,
+        mode: "insensitive",
+      },
+      status: "PENDING",
+      expiresAt: {
+        lte: new Date(),
+      },
+    },
+    data: {
+      status: "EXPIRED",
+    },
+  });
+}
+
+async function acceptPendingInvitations(prisma, user) {
+  if (!user?.email) {
+    return;
+  }
+
+  await expireStaleInvitations(prisma, user.email);
+
+  const pendingInvitations = await prisma.tenantInvitation.findMany({
+    where: {
+      email: {
+        equals: user.email,
+        mode: "insensitive",
+      },
+      status: "PENDING",
+      expiresAt: {
+        gt: new Date(),
+      },
+    },
+    select: {
+      id: true,
+      tenantId: true,
+      roleId: true,
+    },
+  });
+
+  if (!pendingInvitations.length) {
+    return;
+  }
+
+  const acceptedAt = new Date();
+  await prisma.$transaction([
+    ...pendingInvitations.map((invitation) =>
+      prisma.userRole.upsert({
+        where: {
+          tenantId_userId_roleId: {
+            tenantId: invitation.tenantId,
+            userId: user.id,
+            roleId: invitation.roleId,
+          },
+        },
+        update: {},
+        create: {
+          tenantId: invitation.tenantId,
+          userId: user.id,
+          roleId: invitation.roleId,
+        },
+      }),
+    ),
+    ...pendingInvitations.map((invitation) =>
+      prisma.tenantInvitation.update({
+        where: {
+          id: invitation.id,
+        },
+        data: {
+          status: "ACCEPTED",
+          acceptedAt,
+          acceptedUserId: user.id,
+        },
+      }),
+    ),
+  ]);
+}
+
 export async function loadAccessContextFromClaims(claims, { autoProvision = true } = {}) {
   const prisma = getPrismaClient();
   const externalAuthId = String(claims.sub);
@@ -56,6 +141,8 @@ export async function loadAccessContextFromClaims(claims, { autoProvision = true
       permissions: [],
     };
   }
+
+  await acceptPendingInvitations(prisma, user);
 
   let userRoles = await prisma.userRole.findMany({
     where: {
