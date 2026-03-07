@@ -327,7 +327,7 @@ Getswyft uses Socket.IO for real-time updates, keeping your workspace responsive
 Your online/offline status is automatically tracked and shared with your team. When you're connected to the platform, your status shows as **online**. Other agents can see who's available for transfers and collaboration.
 
 Events:
-- `presence:user_status_changed` — Broadcast when your status changes.
+- `presence:update` — Broadcast when your status changes.
 
 ### Typing Indicators
 

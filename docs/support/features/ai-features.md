@@ -103,12 +103,12 @@ Before using any AI features, a tenant administrator must set up the AI configur
        "model": "preferred-model-name",
        "temperature": 0.7
      },
-     "enabled": true
+     "isEnabled": true
    }
    ```
 2. The system creates or updates the configuration for the specified key.
 3. To verify, list all configurations with `GET /v1/ai/config`.
-4. To disable AI temporarily without deleting the config, update the config with `"enabled": false`.
+4. To disable AI temporarily without deleting the config, update the config with `"isEnabled": false`.
 5. To remove a configuration entirely, send `DELETE /v1/ai/config/:key`.
 
 > **Important:** AI interaction endpoints (chat, summarize, moderate, assist, voice-bot) check that the tenant's AI configuration is enabled before processing requests. If AI is not configured or is disabled, these endpoints will return an error.
@@ -118,7 +118,7 @@ Before using any AI features, a tenant administrator must set up the AI configur
 1. Send a `POST` request to `/v1/ai/chat` with your message:
    ```json
    {
-     "message": "What are the move-in requirements for unit 4B?"
+     "input": "What are the move-in requirements for unit 4B?"
    }
    ```
 2. The system processes the message using the tenant's configured AI provider.
@@ -149,7 +149,7 @@ POST /v1/ai/summarize
 ```json
 POST /v1/ai/summarize
 {
-  "text": "Full text of the discussion you want summarized..."
+  "input": "Full text of the discussion you want summarized..."
 }
 ```
 

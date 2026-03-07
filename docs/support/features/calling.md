@@ -97,7 +97,7 @@ RINGING → ANSWERED → ENDED
 
 1. Click the **End Call** button in the call UI.
 2. The session status transitions to **ENDED**.
-3. The system automatically calculates and records the call **duration** based on the time between ANSWERED and ENDED.
+3. The system automatically calculates and records the call **duration** based on the time between the call's `startedAt` and `endedAt` timestamps (i.e., from call initiation until it ends).
 4. The call appears in the call history for future reference.
 
 ### Viewing Call History
@@ -120,7 +120,7 @@ RINGING → ANSWERED → ENDED
 
 ## System Behavior / What Users Should Expect
 
-- **Automatic duration calculation** — When a call transitions to ENDED, the system calculates the duration from the ANSWERED timestamp. No manual input is required.
+- **Automatic duration calculation** — When a call transitions to ENDED, the system calculates the duration from the `startedAt` timestamp to the `endedAt` timestamp. No manual input is required.
 - **Real-time participant state** — Mute and hold states are tracked per participant and updated in real time for all call members.
 - **Telemetry recording** — Telemetry events (e.g., network quality metrics, codec information, error logs) can be recorded during a call for diagnostics and analytics. These are stored per session.
 - **Telnyx telephony** — Outbound calls to phone numbers are routed through the Telnyx telephony provider. In development environments, a fallback is used if Telnyx credentials are not configured.

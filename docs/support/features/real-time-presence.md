@@ -49,7 +49,7 @@ The system supports four presence statuses:
 | **BUSY** | The user is connected but has indicated they are not available for new interactions |
 | **OFFLINE** | The user is not connected to the platform |
 
-Status changes are broadcast to all users in the tenant via the `presence:user_status_changed` event.
+Status changes are broadcast to all users in the tenant via the `presence:update` event.
 
 ### How Typing Indicators Work
 
@@ -92,7 +92,7 @@ This contract (`RealtimePresenceEvent`) is shared across all presence-related ev
 
 - When a Socket.IO connection is lost (e.g., browser closed, network interruption), the server performs automatic cleanup.
 - The user's `PresenceSession` is updated with a `lastSeenAt` timestamp recording when the disconnection occurred.
-- The user's status is changed to **OFFLINE** and a `presence:user_status_changed` event is broadcast to all tenant users.
+- The user's status is changed to **OFFLINE** and a `presence:update` event is broadcast to all tenant users.
 - If the user reconnects, a new presence session is created and their status returns to **ONLINE**.
 
 ### Channel Events
@@ -104,7 +104,7 @@ This contract (`RealtimePresenceEvent`) is shared across all presence-related ev
 ### Tenant Isolation
 
 - Presence events are scoped to the tenant. Users in one tenant cannot see the presence status of users in another tenant.
-- All broadcasts of `presence:user_status_changed` are limited to users within the same `tenantId`.
+- All broadcasts of `presence:update` are limited to users within the same `tenantId`.
 
 ## Permissions Required
 

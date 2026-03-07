@@ -289,7 +289,7 @@ PENDING → PROCESSING → COMPLETED
 
 ## AI Configuration
 
-**Endpoint:** `GET /v1/ai/config`, `PUT /v1/ai/config`, `DELETE /v1/ai/config`
+**Endpoint:** `GET /v1/ai/config`, `PUT /v1/ai/config/:key`, `DELETE /v1/ai/config/:key`
 **Required permission:** `tenant.manage`
 
 > **Note:** AI configuration is API-driven.
@@ -317,7 +317,7 @@ Each AI configuration entry has:
 
 ### Steps to Set Up AI
 
-1. `PUT /v1/ai/config` — Create a configuration entry with a `key`, `provider`, `config` (including credentials), and set `isEnabled: true`.
+1. `PUT /v1/ai/config/:key` — Create a configuration entry with a `key`, `provider`, `config` (including credentials), and set `isEnabled: true`.
 2. Test the capability using the relevant endpoint (e.g., `POST /v1/ai/chat`).
 3. Review AI interactions at `GET /v1/ai/interactions` to monitor usage, token consumption, and response quality.
 

@@ -26,7 +26,7 @@ Each user is assigned one of the following roles. A role is a named bundle of pe
 
 | Role | Internal Name | Permissions |
 |------|---------------|-------------|
-| **Tenant Admin** | `admin` | `tenant.manage`, `user.manage`, `conversation.read`, `conversation.write`, `moderation.manage`, `analytics.read`, `featureflag.manage` |
+| **Tenant Admin** | `tenant_admin` | `tenant.manage`, `user.manage`, `conversation.read`, `conversation.write`, `moderation.manage`, `analytics.read`, `featureflag.manage` |
 | **Agent** | `agent` | `conversation.read`, `conversation.write` |
 
 > **Note:** Tenant Admins have all seven permissions and full access to every feature. Agents have access only to conversation-related features (reading and writing).
@@ -90,11 +90,11 @@ The table below maps every platform feature and API endpoint to the permission r
 | Create channel | `/v1/channels` | POST | `conversation.write` |
 | Get channel | `/v1/channels/:id` | GET | `conversation.read` |
 | Update channel | `/v1/channels/:id` | PATCH | `conversation.write` |
-| Add channel member | `/v1/channels/:id/members` | POST | `conversation.write` |
-| Remove channel member | `/v1/channels/:id/members` | DELETE | `conversation.write` |
-| List channel messages | `/v1/channels/:id/messages` | GET | `conversation.read` |
-| Send channel message | `/v1/channels/:id/messages` | POST | `conversation.write` |
-| Toggle channel message reaction | `/v1/channels/:id/messages/:id/reactions` | POST | `conversation.write` |
+| Add channel member | `/v1/channels/:channelId/members` | POST | `conversation.write` |
+| Remove channel member | `/v1/channels/:channelId/members/:userId` | DELETE | `conversation.write` |
+| List channel messages | `/v1/channels/:channelId/messages` | GET | `conversation.read` |
+| Send channel message | `/v1/channels/:channelId/messages` | POST | `conversation.write` |
+| Toggle channel message reaction | `/v1/channels/:channelId/messages/:messageId/reactions` | POST | `conversation.write` |
 
 ### Calling
 

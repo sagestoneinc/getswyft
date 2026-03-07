@@ -72,7 +72,7 @@ Shared utilities live under `src/lib/`:
 
 - Authenticates socket connections using the same JWT/OIDC flow as HTTP.
 - Tracks presence sessions in the database (`PresenceSession` model).
-- Broadcasts `presence:user_status_changed` events to all users in the same tenant.
+- Broadcasts `presence:update` events to all users in the same tenant.
 - Handles disconnection cleanup with `lastSeenAt` timestamps.
 - **Typing indicators** — `typing:start` and `typing:stop` events broadcast `typing:update` to conversation or channel rooms.
 - **Channel events** — `channel:join` and `channel:leave` for real-time channel room management.

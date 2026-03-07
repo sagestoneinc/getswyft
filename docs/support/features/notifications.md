@@ -53,7 +53,7 @@ The notification system provides:
 1. Obtain an FCM device token from your mobile or desktop application.
 2. Send a `POST` request to `/v1/notifications/devices` with:
    - `token` (string, required) — The FCM device token.
-   - `platform` (string, required) — The device platform (e.g., `ios`, `android`, `web`).
+   - `deviceLabel` (string, optional) — A human-readable label for the device (e.g., "John's iPhone").
 3. The device is registered and will begin receiving push notifications.
 
 ### Removing a Device
