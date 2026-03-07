@@ -282,7 +282,7 @@ export function ConversationPage() {
 
         if (token) {
           uploadHeaders.set("Authorization", `Bearer ${token}`);
-        } else if ((import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined) !== "false") {
+        } else if ((import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined)?.toLowerCase() === "true") {
           uploadHeaders.set("x-dev-user-id", (import.meta.env.VITE_DEV_USER_ID as string | undefined) || "local-user");
           uploadHeaders.set("x-dev-user-email", (import.meta.env.VITE_DEV_USER_EMAIL as string | undefined) || "admin@getswyft.local");
           uploadHeaders.set("x-tenant-slug", (import.meta.env.VITE_DEV_TENANT_SLUG as string | undefined) || "default");

@@ -46,7 +46,7 @@ const authProvider: "keycloak" | "supabase" =
 const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL as string | undefined;
 const keycloakRealm = import.meta.env.VITE_KEYCLOAK_REALM as string | undefined;
 const keycloakClientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID as string | undefined;
-const devBypass = (import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined) !== "false";
+const devBypass = (import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined)?.toLowerCase() === "true";
 
 function mapKeycloakTokenToUser(tokenParsed: Keycloak.KeycloakTokenParsed | undefined): AuthUser | null {
   if (!tokenParsed) {
@@ -392,7 +392,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const supabase = getSupabaseClient();
         const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-          redirectTo: `${window.location.origin}/login`,
+          redirectTo: `${window.location.origin}/login?mode=reset`,
         });
 
         if (error) {

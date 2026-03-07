@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
 import { Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
 import { useAuth } from "../../providers/auth-provider";
 import { BrandLogo } from "../brand/logo";
 import { usePageSeo } from "../../lib/seo";
+import { getSupabaseClient, isSupabaseConfigured } from "../../lib/supabase";
 
 export function LoginPage() {
   const [searchParams] = useSearchParams();
@@ -13,8 +14,11 @@ export function LoginPage() {
   const [submitting, setSubmitting] = useState(false);
   const [email, setEmail] = useState(invitedEmail);
   const [password, setPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [authError, setAuthError] = useState<string | null>(null);
   const [forgotMessage, setForgotMessage] = useState<string | null>(null);
+  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
   const [socialLoadingProvider, setSocialLoadingProvider] = useState<"google" | "azure" | null>(null);
   const {
     login,
@@ -25,15 +29,29 @@ export function LoginPage() {
     isAuthenticated,
     isLoading,
   } = useAuth();
+  const recoveryMode = useMemo(() => {
+    if (!supportsPasswordAuth) {
+      return false;
+    }
+
+    const mode = searchParams.get("mode");
+    const queryType = searchParams.get("type");
+    const hashType =
+      typeof window !== "undefined"
+        ? new URLSearchParams(window.location.hash.replace(/^#/, "")).get("type")
+        : null;
+
+    return mode === "reset" || queryType === "recovery" || hashType === "recovery";
+  }, [searchParams, supportsPasswordAuth]);
 
   usePageSeo({
-    title: showForgot ? "Forgot Password | SwyftUp" : "Login | SwyftUp",
+    title: recoveryMode ? "Reset Password | SwyftUp" : showForgot ? "Forgot Password | SwyftUp" : "Login | SwyftUp",
     description: "Secure sign-in for the SwyftUp workspace used by real estate agents and teams.",
     path: "/login",
     noIndex: true,
   });
 
-  if (isAuthenticated) {
+  if (isAuthenticated && !recoveryMode) {
     return <Navigate to="/app" replace />;
   }
 
@@ -59,6 +77,7 @@ export function LoginPage() {
     setSubmitting(true);
     setAuthError(null);
     setForgotMessage(null);
+    setResetSuccess(null);
 
     try {
       await requestPasswordReset(email);
@@ -73,6 +92,7 @@ export function LoginPage() {
   async function handleSocialSignIn(provider: "google" | "azure") {
     setAuthError(null);
     setForgotMessage(null);
+    setResetSuccess(null);
     setSocialLoadingProvider(provider);
 
     try {
@@ -81,6 +101,122 @@ export function LoginPage() {
       setAuthError(error instanceof Error ? error.message : "Unable to sign in with social login");
       setSocialLoadingProvider(null);
     }
+  }
+
+  async function handleCompletePasswordReset() {
+    setSubmitting(true);
+    setAuthError(null);
+    setForgotMessage(null);
+    setResetSuccess(null);
+
+    try {
+      if (!isSupabaseConfigured()) {
+        throw new Error("Supabase environment variables are not configured");
+      }
+
+      if (newPassword.length < 8) {
+        throw new Error("Password must be at least 8 characters");
+      }
+
+      if (newPassword !== confirmPassword) {
+        throw new Error("Passwords do not match");
+      }
+
+      const supabase = getSupabaseClient();
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword,
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setResetSuccess("Password updated successfully. You can continue to your workspace.");
+      if (typeof window !== "undefined") {
+        const cleanUrl = `${window.location.origin}/login`;
+        window.history.replaceState({}, document.title, cleanUrl);
+      }
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch (error) {
+      setAuthError(error instanceof Error ? error.message : "Unable to reset password");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  if (recoveryMode) {
+    return (
+      <div className="min-h-screen bg-muted flex items-center justify-center p-4 font-[Inter,sans-serif]">
+        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
+          <Link to="/" className="flex justify-center mb-8" aria-label="SwyftUp home">
+            <BrandLogo size="md" />
+          </Link>
+          <h1 className="text-2xl text-primary text-center mb-2" style={{ fontWeight: 700 }}>Reset Password</h1>
+          <p className="text-sm text-muted-foreground text-center mb-6">
+            Enter your new password below to complete account recovery.
+          </p>
+
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm text-primary mb-1.5" style={{ fontWeight: 500 }}>New Password</label>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(event) => setNewPassword(event.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-accent/50"
+                placeholder="At least 8 characters"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-primary mb-1.5" style={{ fontWeight: 500 }}>Confirm Password</label>
+              <input
+                type={showPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(event) => setConfirmPassword(event.target.value)}
+                className="w-full px-4 py-2.5 rounded-lg border border-border bg-input-background focus:outline-none focus:ring-2 focus:ring-accent/50"
+                placeholder="Re-enter password"
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPassword((current) => !current)}
+              className="text-sm text-accent hover:underline"
+            >
+              {showPassword ? "Hide password" : "Show password"}
+            </button>
+
+            {authError && <p className="text-sm text-destructive">{authError}</p>}
+            {resetSuccess && (
+              <div className="flex items-start gap-2 rounded-lg bg-accent/10 px-3 py-2 text-sm text-accent">
+                <MailCheck className="w-4 h-4 mt-0.5" />
+                <span>{resetSuccess}</span>
+              </div>
+            )}
+
+            <button
+              onClick={() => void handleCompletePasswordReset()}
+              disabled={submitting || isLoading}
+              className="w-full bg-accent text-white py-3 rounded-lg hover:bg-accent/90 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
+              style={{ fontWeight: 600 }}
+            >
+              {(submitting || isLoading) && <Loader2 className="w-4 h-4 animate-spin" />}
+              Update Password
+            </button>
+
+            {resetSuccess && (
+              <Link
+                to="/app"
+                className="w-full mt-2 bg-white border border-border text-primary py-3 rounded-lg hover:bg-muted transition-all text-center block"
+                style={{ fontWeight: 600 }}
+              >
+                Continue to App
+              </Link>
+            )}
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (showForgot) {
