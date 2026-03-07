@@ -29,8 +29,8 @@ Start here if you handle conversations, messaging, and calls with visitors and l
 - [Platform Overview](platform-overview.md)
 - [Authentication & Login](features/authentication-and-login.md)
 - [Inbox & Conversations](features/inbox-and-conversations.md)
-- [Channels](channels.md)
-- [Calling](calling.md)
+- [Channels](features/channels.md)
+- [Calling](features/calling.md)
 - [Feed](feed.md)
 - [Notifications](notifications.md)
 - [Profile Settings](profile-settings.md)
@@ -61,8 +61,8 @@ Start here if you are troubleshooting issues or helping users with the platform.
 | Topic | Description |
 |-------|-------------|
 | [Inbox & Conversations](features/inbox-and-conversations.md) | Conversation list, tabs (Unassigned, Mine, Closed), search, message threads |
-| [Channels](channels.md) | Creating and managing communication channels |
-| [Calling](calling.md) | Voice calls within conversations |
+| [Channels](features/channels.md) | Creating and managing communication channels |
+| [Calling](features/calling.md) | Voice calls within conversations |
 | [Feed](feed.md) | Social-style activity feed |
 | [Visitor Widget](widget.md) | Embeddable chat widget for listing pages, session creation, after-hours detection |
 
