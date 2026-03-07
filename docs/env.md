@@ -26,9 +26,10 @@
 ## Website (`apps/website`)
 - `VITE_API_BASE_URL`
 - `VITE_WS_BASE_URL`
-- `VITE_AUTH_DOMAIN`
-- `VITE_AUTH_CLIENT_ID`
-- `VITE_AUTH_AUDIENCE`
+- `VITE_AUTH_PROVIDER` (`keycloak`)
+- `VITE_KEYCLOAK_URL`
+- `VITE_KEYCLOAK_REALM`
+- `VITE_KEYCLOAK_CLIENT_ID`
 - `VITE_DEV_AUTH_BYPASS`
 
 ## Agent / Widget (`apps/agent`, `apps/widget`)

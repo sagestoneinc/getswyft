@@ -13,6 +13,7 @@ Monorepo with:
 ```bash
 pnpm install
 cp apps/api/.env.example apps/api/.env
+cp apps/website/.env.example apps/website/.env
 pnpm -C apps/api prisma:generate
 pnpm -C apps/api prisma:migrate:deploy
 pnpm -C apps/api prisma:seed

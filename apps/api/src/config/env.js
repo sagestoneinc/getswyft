@@ -12,7 +12,7 @@ const rawEnvSchema = z.object({
   DATABASE_URL: z.string().optional(),
   REDIS_URL: z.string().optional(),
 
-  AUTH_PROVIDER: z.enum(["auth0", "clerk"]).default("auth0"),
+  AUTH_PROVIDER: z.enum(["auth0", "clerk", "keycloak"]).default("keycloak"),
   AUTH_ISSUER_URL: z.string().optional(),
   AUTH_AUDIENCE: z.string().optional(),
   AUTH_JWKS_URI: z.string().optional(),

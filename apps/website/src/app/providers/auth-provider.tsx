@@ -1,11 +1,17 @@
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { Auth0Client, type User } from "@auth0/auth0-spa-js";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import Keycloak from "keycloak-js";
 import { apiClient } from "../lib/api-client";
+
+type AuthUser = {
+  sub?: string;
+  email?: string;
+  name?: string;
+};
 
 type AuthContextValue = {
   isLoading: boolean;
   isAuthenticated: boolean;
-  user: User | null;
+  user: AuthUser | null;
   login: (targetPath?: string) => Promise<void>;
   logout: () => Promise<void>;
   getAccessToken: () => Promise<string | null>;
@@ -13,81 +19,109 @@ type AuthContextValue = {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-const authDomain = import.meta.env.VITE_AUTH_DOMAIN as string | undefined;
-const authClientId = import.meta.env.VITE_AUTH_CLIENT_ID as string | undefined;
-const authAudience = import.meta.env.VITE_AUTH_AUDIENCE as string | undefined;
+const authProvider = (import.meta.env.VITE_AUTH_PROVIDER as string | undefined) || "keycloak";
+const keycloakUrl = import.meta.env.VITE_KEYCLOAK_URL as string | undefined;
+const keycloakRealm = import.meta.env.VITE_KEYCLOAK_REALM as string | undefined;
+const keycloakClientId = import.meta.env.VITE_KEYCLOAK_CLIENT_ID as string | undefined;
 const devBypass = (import.meta.env.VITE_DEV_AUTH_BYPASS as string | undefined) !== "false";
 
+function mapTokenToUser(tokenParsed: Keycloak.KeycloakTokenParsed | undefined): AuthUser | null {
+  if (!tokenParsed) {
+    return null;
+  }
+
+  return {
+    sub: tokenParsed.sub,
+    email: tokenParsed.email,
+    name: tokenParsed.name || tokenParsed.preferred_username,
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [client, setClient] = useState<Auth0Client | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const keycloakRef = useRef<Keycloak | null>(null);
 
   useEffect(() => {
     let mounted = true;
 
     async function init() {
-      if (!authDomain || !authClientId) {
+      if (authProvider !== "keycloak") {
+        throw new Error(`Unsupported VITE_AUTH_PROVIDER=${authProvider}. Only 'keycloak' is supported now.`);
+      }
+
+      if (!keycloakUrl || !keycloakRealm || !keycloakClientId) {
         if (devBypass) {
+          apiClient.setAccessTokenProvider(async () => null);
+          if (!mounted) {
+            return;
+          }
+
           setIsAuthenticated(true);
           setUser({
             sub: "dev|local-user",
             email: "admin@getswyft.local",
             name: "Local Admin",
           });
-
-          apiClient.setAccessTokenProvider(async () => null);
-        }
-
-        if (mounted) {
           setIsLoading(false);
+          return;
         }
-        return;
+
+        throw new Error("Keycloak environment variables are not configured");
       }
 
-      const auth0 = new Auth0Client({
-        domain: authDomain,
-        clientId: authClientId,
-        authorizationParams: {
-          audience: authAudience,
-          redirect_uri: `${window.location.origin}/login`,
-        },
-        cacheLocation: "localstorage",
+      const keycloak = new Keycloak({
+        url: keycloakUrl,
+        realm: keycloakRealm,
+        clientId: keycloakClientId,
       });
 
-      setClient(auth0);
+      keycloakRef.current = keycloak;
 
-      if (window.location.search.includes("code=") && window.location.search.includes("state=")) {
-        const callback = await auth0.handleRedirectCallback();
-        const target = callback.appState?.returnTo || "/app";
-        window.history.replaceState({}, document.title, target);
-      }
-
-      const authenticated = await auth0.isAuthenticated();
-      const profile = authenticated ? await auth0.getUser() : null;
+      const authenticated = await keycloak.init({
+        onLoad: "check-sso",
+        checkLoginIframe: false,
+        pkceMethod: "S256",
+      });
 
       if (!mounted) {
         return;
       }
 
       setIsAuthenticated(authenticated);
-      setUser(profile || null);
+      setUser(mapTokenToUser(keycloak.tokenParsed));
 
       apiClient.setAccessTokenProvider(async () => {
-        if (!authenticated) {
+        if (!keycloak.authenticated) {
           return null;
         }
 
-        return auth0.getTokenSilently();
+        await keycloak.updateToken(30);
+        return keycloak.token || null;
       });
 
       setIsLoading(false);
     }
 
-    init().catch(() => {
-      if (mounted) {
-        setIsLoading(false);
+    init().catch((error) => {
+      if (!mounted) {
+        return;
+      }
+
+      if (devBypass) {
+        apiClient.setAccessTokenProvider(async () => null);
+        setIsAuthenticated(true);
+        setUser({
+          sub: "dev|local-user",
+          email: "admin@getswyft.local",
+          name: "Local Admin",
+        });
+      }
+
+      setIsLoading(false);
+      if (!devBypass) {
+        console.error(error);
       }
     });
 
@@ -102,42 +136,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated,
       user,
       login: async (targetPath = "/app") => {
-        if (!client) {
+        const keycloak = keycloakRef.current;
+
+        if (!keycloak) {
           if (devBypass) {
             setIsAuthenticated(true);
             return;
           }
-          throw new Error("Auth provider is not configured");
+          throw new Error("Keycloak is not initialized");
         }
 
-        await client.loginWithRedirect({
-          appState: {
-            returnTo: targetPath,
-          },
+        await keycloak.login({
+          redirectUri: `${window.location.origin}${targetPath}`,
         });
       },
       logout: async () => {
-        if (!client) {
+        const keycloak = keycloakRef.current;
+
+        if (!keycloak) {
           setIsAuthenticated(false);
           setUser(null);
           return;
         }
 
-        client.logout({
-          logoutParams: {
-            returnTo: `${window.location.origin}/login`,
-          },
+        await keycloak.logout({
+          redirectUri: `${window.location.origin}/login`,
         });
       },
       getAccessToken: async () => {
-        if (!client || !isAuthenticated) {
+        const keycloak = keycloakRef.current;
+
+        if (!keycloak || !keycloak.authenticated) {
           return null;
         }
 
-        return client.getTokenSilently();
+        await keycloak.updateToken(30);
+        return keycloak.token || null;
       },
     };
-  }, [client, isAuthenticated, isLoading, user]);
+  }, [isAuthenticated, isLoading, user]);
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

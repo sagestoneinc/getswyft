@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router";
-import { describe, expect, it, vi } from "vitest";
-import { AppLayout } from "../app-layout";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../providers/auth-provider", () => ({
   useAuth: () => ({
@@ -21,6 +20,12 @@ vi.mock("../../../providers/tenant-provider", () => ({
     featureFlags: {},
   }),
 }));
+
+let AppLayout: (typeof import("../app-layout"))["AppLayout"];
+
+beforeAll(async () => {
+  ({ AppLayout } = await import("../app-layout"));
+});
 
 describe("AppLayout", () => {
   it("redirects unauthenticated users to login", () => {

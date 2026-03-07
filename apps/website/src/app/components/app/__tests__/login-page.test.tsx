@@ -1,7 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it, vi } from "vitest";
-import { LoginPage } from "../login-page";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../providers/auth-provider", () => ({
   useAuth: () => ({
@@ -13,6 +12,12 @@ vi.mock("../../../providers/auth-provider", () => ({
     user: null,
   }),
 }));
+
+let LoginPage: (typeof import("../login-page"))["LoginPage"];
+
+beforeAll(async () => {
+  ({ LoginPage } = await import("../login-page"));
+});
 
 describe("LoginPage", () => {
   it("renders sign in view", () => {
