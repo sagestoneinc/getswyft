@@ -11,8 +11,9 @@
 ```
 apps/
   api/        – Express back-end (Prisma + PostgreSQL)
-  agent/      – Vite SPA (agent dashboard)
-  widget/     – Vite SPA (embeddable widget)
+  website/    – Vite SPA (tenant management dashboard)
+  agent/      – Vite SPA (agent console)
+  widget/     – Vite SPA (embeddable visitor widget)
 ```
 
 Each service is deployed as a separate Railway service inside the **same**
@@ -45,6 +46,13 @@ fields in the Railway dashboard.
 |-------|---------|
 | Build | `npm run install:ci && npm run build:widget` |
 | Start | `npm run start:widget` |
+
+### Website
+
+| Field | Command |
+|-------|---------|
+| Build | `npm run install:ci && npm run build:website` |
+| Start | `npm run start:website` |
 
 > `install:ci` enables corepack, activates the pinned pnpm version, and
 > runs `pnpm install --frozen-lockfile --prod=false` (dev dependencies are
@@ -79,6 +87,18 @@ fields in the Railway dashboard.
 | `VITE_WS_URL` | WebSocket URL of the API service |
 | `VITE_TENANT_ID` | Tenant identifier for the widget |
 | `PORT` | *(set automatically by Railway)* |
+
+### Website service
+
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_BASE_URL` | Public URL of the API service (e.g. `https://api-production-xxxx.up.railway.app`) |
+| `VITE_WS_BASE_URL` | WebSocket URL of the API service (e.g. `wss://api-production-xxxx.up.railway.app`) |
+| `VITE_AUTH_PROVIDER` | Auth provider (`keycloak`, `supabase`, or `firebase`) |
+| `PORT` | *(set automatically by Railway)* |
+
+> See [env.md](env.md) for the full list of website environment variables
+> including auth provider–specific settings.
 
 ### Suggested (all services)
 

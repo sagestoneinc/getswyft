@@ -115,6 +115,11 @@ model Tenant {
   billingSubscription BillingSubscription?
   billingInvoices   BillingInvoice[]
   notificationDevices NotificationDevice[]
+  channels          Channel[]
+  callSessions      CallSession[]
+  posts             Post[]
+  complianceExports ComplianceExport[]
+  aiInteractions    AIInteraction[]
 }
 
 model TenantDomain {
@@ -198,6 +203,18 @@ model User {
   acceptedInvitations   TenantInvitation[]    @relation("AcceptedInvitations")
   routingFallbackTenants TenantRoutingSettings[] @relation("RoutingFallbackUser")
   notificationDevices   NotificationDevice[]
+  channelMemberships       ChannelMember[]
+  channelMessages          ChannelMessage[]          @relation("ChannelMessageSender")
+  channelMessageReactions  ChannelMessageReaction[]
+  initiatedCalls           CallSession[]             @relation("InitiatedCalls")
+  callParticipations       CallParticipant[]
+  callTelemetry            CallTelemetry[]
+  posts                    Post[]                    @relation("PostAuthor")
+  postComments             PostComment[]             @relation("CommentAuthor")
+  postReactions            PostReaction[]
+  createdChannels          Channel[]                 @relation("ChannelCreator")
+  complianceExports        ComplianceExport[]        @relation("ComplianceRequester")
+  aiInteractions           AIInteraction[]
 }
 
 model Profile {
@@ -307,6 +324,8 @@ model Conversation {
   tenant       Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   assignedUser User?                 @relation("AssignedConversations", fields: [assignedUserId], references: [id], onDelete: SetNull)
   messages     ConversationMessage[]
+  callSessions CallSession[]
+  aiInteractions AIInteraction[]
 
   @@index([tenantId, lastMessageAt])
   @@index([tenantId, status, assignedUserId])
@@ -592,4 +611,274 @@ model ModerationReport {
   reporter User?  @relation("ReporterModerationReports", fields: [reporterUserId], references: [id], onDelete: SetNull)
 
   @@index([tenantId, status, createdAt])
+}
+
+// ─── Phase 2: Groups / Channels ─────────────────────────────────────────────
+
+enum ChannelType {
+  PUBLIC
+  PRIVATE
+  DIRECT
+}
+
+model Channel {
+  id              String      @id @default(cuid())
+  tenantId        String
+  name            String
+  slug            String
+  type            ChannelType @default(PUBLIC)
+  description     String?
+  topic           String?
+  isArchived      Boolean     @default(false)
+  createdByUserId String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  tenant         Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByUser  User?            @relation("ChannelCreator", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  members        ChannelMember[]
+  messages       ChannelMessage[]
+  callSessions   CallSession[]
+  aiInteractions AIInteraction[]
+
+  @@unique([tenantId, slug])
+  @@index([tenantId, isArchived, createdAt])
+}
+
+model ChannelMember {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  role      String   @default("member")
+  joinedAt  DateTime @default(now())
+
+  channel Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+}
+
+model ChannelMessage {
+  id              String   @id @default(cuid())
+  channelId       String
+  senderUserId    String?
+  parentMessageId String?
+  body            String
+  metadata        Json?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  channel       Channel                  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  senderUser    User?                    @relation("ChannelMessageSender", fields: [senderUserId], references: [id], onDelete: SetNull)
+  parentMessage ChannelMessage?          @relation("ChannelMessageThread", fields: [parentMessageId], references: [id], onDelete: SetNull)
+  replies       ChannelMessage[]         @relation("ChannelMessageThread")
+  reactions     ChannelMessageReaction[]
+
+  @@index([channelId, createdAt])
+}
+
+model ChannelMessageReaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message ChannelMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user    User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([messageId, userId, emoji])
+}
+
+// ─── Phase 3: Calling ───────────────────────────────────────────────────────
+
+enum CallStatus {
+  RINGING
+  ANSWERED
+  BUSY
+  FAILED
+  ENDED
+}
+
+enum CallType {
+  VOICE
+  VIDEO
+}
+
+model CallSession {
+  id                String     @id @default(cuid())
+  tenantId          String
+  conversationId    String?
+  channelId         String?
+  callType          CallType   @default(VOICE)
+  status            CallStatus @default(RINGING)
+  initiatedByUserId String?
+  roomName          String?
+  provider          String     @default("livekit")
+  startedAt         DateTime   @default(now())
+  answeredAt        DateTime?
+  endedAt           DateTime?
+  durationSeconds   Int?
+  recordingUrl      String?
+  metadata          Json?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  tenant          Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  conversation    Conversation?     @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  channel         Channel?          @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  initiatedByUser User?             @relation("InitiatedCalls", fields: [initiatedByUserId], references: [id], onDelete: SetNull)
+  participants    CallParticipant[]
+  telemetry       CallTelemetry[]
+
+  @@index([tenantId, status, createdAt])
+  @@index([conversationId])
+}
+
+model CallParticipant {
+  id            String    @id @default(cuid())
+  callSessionId String
+  userId        String
+  joinedAt      DateTime  @default(now())
+  leftAt        DateTime?
+  isMuted       Boolean   @default(false)
+  isOnHold      Boolean   @default(false)
+
+  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([callSessionId, userId])
+}
+
+model CallTelemetry {
+  id            String   @id @default(cuid())
+  callSessionId String
+  userId        String?
+  eventName     String
+  value         Float?
+  metadata      Json?
+  occurredAt    DateTime @default(now())
+
+  callSession CallSession @relation(fields: [callSessionId], references: [id], onDelete: Cascade)
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([callSessionId, occurredAt])
+}
+
+// ─── Phase 4: Feed / Social ─────────────────────────────────────────────────
+
+enum PostVisibility {
+  PUBLIC
+  TEAM
+  PRIVATE
+}
+
+model Post {
+  id           String         @id @default(cuid())
+  tenantId     String
+  authorUserId String
+  body         String
+  mediaUrls    String[]
+  visibility   PostVisibility @default(TEAM)
+  isPinned     Boolean        @default(false)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  tenant    Tenant         @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  author    User           @relation("PostAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  comments  PostComment[]
+  reactions PostReaction[]
+
+  @@index([tenantId, visibility, createdAt])
+}
+
+model PostComment {
+  id              String   @id @default(cuid())
+  postId          String
+  authorUserId    String
+  parentCommentId String?
+  body            String
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  post          Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  author        User          @relation("CommentAuthor", fields: [authorUserId], references: [id], onDelete: Cascade)
+  parentComment PostComment?  @relation("CommentThread", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies       PostComment[] @relation("CommentThread")
+
+  @@index([postId, createdAt])
+}
+
+model PostReaction {
+  id        String   @id @default(cuid())
+  postId    String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId, emoji])
+}
+
+// ─── Phase 5: Compliance ────────────────────────────────────────────────────
+
+enum ComplianceExportStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model ComplianceExport {
+  id                String                 @id @default(cuid())
+  tenantId          String
+  requestedByUserId String?
+  exportType        String
+  status            ComplianceExportStatus @default(PENDING)
+  storageKey        String?
+  completedAt       DateTime?
+  metadata          Json?
+  createdAt         DateTime               @default(now())
+  updatedAt         DateTime               @updatedAt
+
+  tenant          Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  requestedByUser User?  @relation("ComplianceRequester", fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, status, createdAt])
+}
+
+// ─── Phase 6: AI ────────────────────────────────────────────────────────────
+
+enum AIInteractionType {
+  CHATBOT
+  ASSISTANT
+  SUMMARIZATION
+  MODERATION
+  VOICE_BOT
+}
+
+model AIInteraction {
+  id             String            @id @default(cuid())
+  tenantId       String
+  userId         String?
+  type           AIInteractionType
+  conversationId String?
+  channelId      String?
+  input          String
+  output         String?
+  model          String?
+  provider       String?
+  tokensUsed     Int?
+  durationMs     Int?
+  metadata       Json?
+  createdAt      DateTime          @default(now())
+
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user         User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  conversation Conversation? @relation(fields: [conversationId], references: [id], onDelete: SetNull)
+  channel      Channel?      @relation(fields: [channelId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, type, createdAt])
 }

@@ -147,12 +147,24 @@ paths:
       responses:
         "200":
           description: Presigned upload response
+  /v1/storage/upload:
+    put:
+      summary: Upload a file directly (used with the local storage provider)
+      responses:
+        "201":
+          description: File uploaded
   /v1/analytics/events:
     post:
       summary: Ingest analytics event
       responses:
         "202":
           description: Event accepted
+  /v1/analytics/summary:
+    get:
+      summary: Get aggregated analytics summary for the current tenant
+      responses:
+        "200":
+          description: Analytics summary
   /v1/conversations:
     get:
       summary: List tenant conversations with search and workflow filters

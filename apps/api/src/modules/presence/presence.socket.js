@@ -388,6 +388,79 @@ export function registerPresenceSocket(io) {
       safeAck(callback, { ok: true, message });
     });
 
+    function handleTyping(isTyping, { conversationId, channelId } = {}, callback) {
+      if (!hasSocketPermission(auth, "conversation.write")) {
+        safeAck(callback, { ok: false, error: "Missing permission: conversation.write" });
+        return;
+      }
+
+      if (!conversationId && !channelId) {
+        safeAck(callback, { ok: false, error: "conversationId or channelId is required" });
+        return;
+      }
+
+      const room = conversationId
+        ? `tenant:${auth.tenant.tenantId}:conversation:${conversationId}`
+        : `tenant:${auth.tenant.tenantId}:channel:${channelId}`;
+
+      const displayName = auth.user.displayName || auth.user.email;
+
+      socket.to(room).emit("typing:update", {
+        userId: auth.user.id,
+        displayName,
+        ...(conversationId ? { conversationId } : { channelId }),
+        isTyping,
+      });
+
+      safeAck(callback, { ok: true });
+    }
+
+    socket.on("typing:start", (payload, callback) => handleTyping(true, payload, callback));
+    socket.on("typing:stop", (payload, callback) => handleTyping(false, payload, callback));
+
+    socket.on("channel:join", async ({ channelId } = {}, callback) => {
+      if (!hasSocketPermission(auth, "conversation.read")) {
+        safeAck(callback, { ok: false, error: "Missing permission: conversation.read" });
+        return;
+      }
+
+      if (!channelId || typeof channelId !== "string") {
+        safeAck(callback, { ok: false, error: "channelId is required" });
+        return;
+      }
+
+      const channel = await prisma.channel.findFirst({
+        where: {
+          id: channelId,
+          tenantId: auth.tenant.tenantId,
+        },
+        select: {
+          id: true,
+        },
+      });
+
+      if (!channel) {
+        safeAck(callback, { ok: false, error: "Channel not found" });
+        return;
+      }
+
+      const room = `tenant:${auth.tenant.tenantId}:channel:${channelId}`;
+      socket.join(room);
+
+      safeAck(callback, { ok: true, channelId });
+    });
+
+    socket.on("channel:leave", ({ channelId } = {}, callback) => {
+      if (!channelId || typeof channelId !== "string") {
+        safeAck(callback, { ok: false, error: "channelId is required" });
+        return;
+      }
+
+      const room = `tenant:${auth.tenant.tenantId}:channel:${channelId}`;
+      socket.leave(room);
+      safeAck(callback, { ok: true, channelId });
+    });
+
     socket.on("disconnect", async () => {
       try {
         await prisma.presenceSession.updateMany({
