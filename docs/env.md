@@ -1,38 +1,111 @@
 # Environment Variables
 
 ## API (`apps/api`)
-- `NODE_ENV`
-- `PORT`
-- `CORS_ORIGINS`
-- `LOG_LEVEL`
-- `DATABASE_URL`
-- `REDIS_URL`
-- `AUTH_PROVIDER`
-- `AUTH_ISSUER_URL`
-- `AUTH_AUDIENCE`
-- `AUTH_JWKS_URI`
-- `DEV_AUTH_BYPASS`
-- `DEV_DEFAULT_TENANT_SLUG`
-- `STORAGE_PROVIDER`
-- `S3_BUCKET_NAME`
-- `S3_REGION`
-- `S3_ENDPOINT`
-- `S3_ACCESS_KEY_ID`
-- `S3_SECRET_ACCESS_KEY`
-- `LIVEKIT_URL`
-- `LIVEKIT_API_KEY`
-- `LIVEKIT_API_SECRET`
+
+### Runtime
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NODE_ENV` | `development` | Runtime environment (`development`, `production`) |
+| `PORT` | `8080` | HTTP server port |
+| `CORS_ORIGINS` | `http://localhost:5173,http://localhost:4174` | Comma-separated allowed CORS origins |
+| `LOG_LEVEL` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |
+
+### Data stores
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DATABASE_URL` | — | PostgreSQL connection string |
+| `REDIS_URL` | `redis://localhost:6379` | Redis connection string (used for presence and caching) |
+
+### Authentication
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `AUTH_PROVIDER` | `supabase` | Auth provider (`supabase`, `keycloak`, `generic`) |
+| `AUTH_ISSUER_URL` | — | OIDC issuer URL for token verification |
+| `AUTH_AUDIENCE` | — | Expected JWT audience claim |
+| `AUTH_JWKS_URI` | — | JWKS endpoint URL (auto-derived from issuer when omitted) |
+| `SUPABASE_URL` | — | Supabase project URL (when `AUTH_PROVIDER=supabase`) |
+| `DEV_AUTH_BYPASS` | `false` | Enable header-based auth bypass for local development |
+| `DEV_DEFAULT_TENANT_SLUG` | `default` | Tenant slug used during dev auth bypass |
+| `APP_BASE_URL` | `http://localhost:5173` | Base URL used in invitation emails and links |
+
+### Email
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `EMAIL_PROVIDER` | `log` | Email provider (`log` for dev console, `resend` for production) |
+| `EMAIL_FROM` | — | Sender address for outgoing emails |
+| `EMAIL_REPLY_TO` | — | Reply-to address for outgoing emails |
+| `RESEND_API_KEY` | — | Resend API key (when `EMAIL_PROVIDER=resend`) |
+
+### Storage
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `STORAGE_PROVIDER` | `local` | File storage provider (`local` or `s3`) |
+| `S3_BUCKET_NAME` | — | S3 bucket name |
+| `S3_REGION` | `us-east-1` | S3 region |
+| `S3_ENDPOINT` | — | S3-compatible endpoint URL (for MinIO, R2, etc.) |
+| `S3_ACCESS_KEY_ID` | — | S3 access key |
+| `S3_SECRET_ACCESS_KEY` | — | S3 secret key |
+
+### Voice / Video
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `LIVEKIT_URL` | — | LiveKit server URL (scaffolded, not yet integrated) |
+| `LIVEKIT_API_KEY` | — | LiveKit API key |
+| `LIVEKIT_API_SECRET` | — | LiveKit API secret |
+
+### Push notifications
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `PUSH_PROVIDER` | `log` | Push provider (`log` for dev console, `fcm` for Firebase Cloud Messaging) |
+| `FCM_PROJECT_ID` | — | Firebase project ID |
+| `FCM_CLIENT_EMAIL` | — | Firebase service account email |
+| `FCM_PRIVATE_KEY` | — | Firebase service account private key |
+
+### Telephony
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `TELEPHONY_PROVIDER` | `log` | Telephony provider (`log` for dev console, `telnyx` for production) |
+| `TELNYX_API_KEY` | — | Telnyx API key |
+| `TELNYX_CONNECTION_ID` | — | Telnyx connection ID for outbound calls |
+| `TELNYX_MESSAGING_PROFILE_ID` | — | Telnyx messaging profile ID |
+| `TELNYX_FROM_NUMBER` | — | Outbound caller ID phone number |
 
 ## Website (`apps/website`)
-- `VITE_API_BASE_URL`
-- `VITE_WS_BASE_URL`
-- `VITE_AUTH_PROVIDER` (`keycloak`)
-- `VITE_KEYCLOAK_URL`
-- `VITE_KEYCLOAK_REALM`
-- `VITE_KEYCLOAK_CLIENT_ID`
-- `VITE_DEV_AUTH_BYPASS`
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_BASE_URL` | `http://localhost:8080` | Backend API base URL |
+| `VITE_WS_BASE_URL` | `http://localhost:8080` | WebSocket base URL |
+| `VITE_AUTH_PROVIDER` | `supabase` | Auth provider (`keycloak`, `supabase`, `firebase`) |
+| `VITE_KEYCLOAK_URL` | — | Keycloak server URL |
+| `VITE_KEYCLOAK_REALM` | — | Keycloak realm |
+| `VITE_KEYCLOAK_CLIENT_ID` | — | Keycloak client ID |
+| `VITE_SUPABASE_URL` | — | Supabase project URL |
+| `VITE_SUPABASE_ANON_KEY` | — | Supabase anonymous API key |
+| `VITE_FIREBASE_API_KEY` | — | Firebase Web API key |
+| `VITE_FIREBASE_AUTH_DOMAIN` | — | Firebase auth domain |
+| `VITE_FIREBASE_PROJECT_ID` | — | Firebase project ID |
+| `VITE_FIREBASE_STORAGE_BUCKET` | — | Firebase storage bucket |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | — | Firebase messaging sender ID |
+| `VITE_FIREBASE_APP_ID` | — | Firebase app ID |
+| `VITE_FIREBASE_VAPID_KEY` | — | Firebase VAPID key for web push |
+| `VITE_DEV_AUTH_BYPASS` | `false` | Enable dev auth bypass (must also be enabled on the API) |
+| `VITE_DEV_USER_ID` | — | Simulated user ID during dev bypass |
+| `VITE_DEV_USER_EMAIL` | — | Simulated user email during dev bypass |
+| `VITE_DEV_TENANT_SLUG` | — | Simulated tenant slug during dev bypass |
 
 ## Agent / Widget (`apps/agent`, `apps/widget`)
-- `VITE_API_BASE_URL`
-- `VITE_WS_BASE_URL`
-- `VITE_SOCKET_TOKEN`
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VITE_API_BASE_URL` | — | Backend API base URL |
+| `VITE_WS_BASE_URL` | — | WebSocket base URL |
+| `VITE_SOCKET_TOKEN` | — | Pre-shared token for socket authentication |

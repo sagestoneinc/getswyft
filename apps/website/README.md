@@ -1,73 +1,59 @@
-# React + TypeScript + Vite
+# Getswyft Website
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+React + TypeScript dashboard for tenant management, built with Vite.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **Login** — multi-provider authentication (Keycloak, Supabase, Firebase) with dev bypass
+- **Inbox** — conversation list with tab filtering (unassigned / mine / closed) and full-text search
+- **Conversation detail** — message thread with send, emoji reactions, read receipts, and lead info sidebar
+- **Routing settings** — office hours, timezone, routing mode (manual / first-available / round-robin), fallback user
+- **Team management** — list members with presence indicators, send/resend/revoke invitations, assign roles
+- **Webhooks** — create, edit, and delete webhook endpoints; view delivery logs; send test deliveries
+- **Analytics** — summary statistics and charts
+- **Billing** — subscription details, seat usage, invoice history
+- **Profile** — user settings and notification preferences
 
-## React Compiler
+## Tech stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- React 19 + TypeScript
+- Vite 7 (dev server and build)
+- Radix UI (20+ accessible component primitives)
+- Tailwind CSS 4
+- React Router 7
+- React Hook Form + Zod validation
+- Recharts (data visualization)
+- Socket.IO Client (real-time presence and messaging)
+- Sonner (toast notifications)
 
-## Expanding the ESLint configuration
+## Development
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+# From the monorepo root
+pnpm dev:website
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+The dev server starts at `http://localhost:5173`.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Copy `.env.example` to `.env` and configure the auth provider and API URL. See [docs/env.md](../../docs/env.md) for the full variable reference.
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## Testing
+
+```bash
+pnpm -C apps/website test       # run once
+pnpm -C apps/website test:watch # watch mode
 ```
+
+## Linting
+
+```bash
+pnpm -C apps/website lint
+```
+
+## Build
+
+```bash
+pnpm -C apps/website build
+```
+
+Produces a static build in `dist/` with pre-rendered marketing pages.
