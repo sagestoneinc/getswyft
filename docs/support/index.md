@@ -14,7 +14,7 @@ Start here if you manage your organization's Getswyft account — team setup, ro
 - [Authentication & Login](features/authentication-and-login.md)
 - [Routing Configuration](routing.md)
 - [Team Management](team-management.md)
-- [Webhooks](webhooks.md)
+- [Webhooks](features/webhooks.md)
 - [Analytics Dashboard](analytics.md)
 - [Billing & Subscriptions](billing.md)
 - [Moderation](moderation.md)
@@ -31,8 +31,8 @@ Start here if you handle conversations, messaging, and calls with visitors and l
 - [Inbox & Conversations](features/inbox-and-conversations.md)
 - [Channels](features/channels.md)
 - [Calling](features/calling.md)
-- [Feed](feed.md)
-- [Notifications](notifications.md)
+- [Feed](features/feed-and-posts.md)
+- [Notifications](features/notifications.md)
 - [Profile Settings](profile-settings.md)
 - [Agent Guide](agent-guide.md)
 
@@ -63,7 +63,7 @@ Start here if you are troubleshooting issues or helping users with the platform.
 | [Inbox & Conversations](features/inbox-and-conversations.md) | Conversation list, tabs (Unassigned, Mine, Closed), search, message threads |
 | [Channels](features/channels.md) | Creating and managing communication channels |
 | [Calling](features/calling.md) | Voice calls within conversations |
-| [Feed](feed.md) | Social-style activity feed |
+| [Feed](features/feed-and-posts.md) | Social-style activity feed |
 | [Visitor Widget](widget.md) | Embeddable chat widget for listing pages, session creation, after-hours detection |
 
 ### Administration
@@ -72,7 +72,7 @@ Start here if you are troubleshooting issues or helping users with the platform.
 |-------|-------------|
 | [Routing Configuration](routing.md) | Routing mode, office hours, timezone, fallback agent |
 | [Team Management](team-management.md) | Member list, invitations, role assignment |
-| [Webhooks](webhooks.md) | Webhook CRUD, event types, test delivery, delivery logs |
+| [Webhooks](features/webhooks.md) | Webhook CRUD, event types, test delivery, delivery logs |
 | [Analytics Dashboard](analytics.md) | KPI cards, conversation volume, response time, lead source charts |
 | [Billing & Subscriptions](billing.md) | Subscription management, invoices, seat pricing |
 | [Moderation](moderation.md) | Moderation reports and AI-assisted moderation |
@@ -90,7 +90,7 @@ Start here if you are troubleshooting issues or helping users with the platform.
 |-------|-------------|
 | [Real-Time Presence](presence.md) | Online/offline status via Socket.IO |
 | [File Uploads](file-uploads.md) | Attachment handling and storage |
-| [Notifications](notifications.md) | In-app and push notification delivery |
+| [Notifications](features/notifications.md) | In-app and push notification delivery |
 | [Permissions Matrix](permissions.md) | Full list of permission keys, values, and what each controls |
 
 ### Reference
