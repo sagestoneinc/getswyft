@@ -15,6 +15,9 @@ export const SUPPORTED_WEBHOOK_EVENT_TYPES = [
   "team.invite_accepted",
 ];
 
+// Retry schedule: delays in ms between attempts (3 retries after initial attempt)
+const RETRY_DELAYS_MS = [5_000, 15_000, 45_000];
+
 function toUniqueSupportedEventTypes(eventTypes) {
   return Array.from(
     new Set(
@@ -38,10 +41,15 @@ function signPayload(rawBody, secret) {
   return crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
 }
 
-async function deliverWebhook(endpoint, delivery, { tenant, eventType, payload, requestId }) {
-  const prisma = getPrismaClient();
-  const body = buildWebhookBody({ tenant, eventType, payload });
-  const rawBody = JSON.stringify(body);
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Attempts a single HTTP delivery of the webhook payload.
+ * Returns { ok, statusCode, responseBody } — never throws.
+ */
+async function attemptDelivery(endpoint, rawBody, { eventType, deliveryId, requestId }) {
   const startedAt = Date.now();
 
   try {
@@ -49,7 +57,7 @@ async function deliverWebhook(endpoint, delivery, { tenant, eventType, payload, 
       "Content-Type": "application/json",
       "User-Agent": "getswyft-webhooks/1.0",
       "x-getswyft-event": eventType,
-      "x-getswyft-delivery-id": delivery.id,
+      "x-getswyft-delivery-id": deliveryId,
       "x-getswyft-request-id": requestId || "",
     };
 
@@ -65,55 +73,105 @@ async function deliverWebhook(endpoint, delivery, { tenant, eventType, payload, 
     });
 
     const responseBody = await response.text().catch(() => "");
-    const completedAt = new Date();
-    const status = response.ok ? "SUCCESS" : "FAILED";
 
+    return {
+      ok: response.ok,
+      retryable: response.status >= 500,
+      statusCode: response.status,
+      responseBody: responseBody.slice(0, 2000) || null,
+      durationMs: Date.now() - startedAt,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      retryable: true,
+      statusCode: null,
+      responseBody: String(error.message || error).slice(0, 2000),
+      durationMs: Date.now() - startedAt,
+    };
+  }
+}
+
+async function deliverWebhook(endpoint, delivery, { tenant, eventType, payload, requestId }) {
+  const prisma = getPrismaClient();
+  const rawBody = JSON.stringify(buildWebhookBody({ tenant, eventType, payload }));
+
+  let result = null;
+  let attempt = 0;
+
+  // Initial attempt + up to RETRY_DELAYS_MS.length retries
+  while (attempt <= RETRY_DELAYS_MS.length) {
+    if (attempt > 0) {
+      const delay = RETRY_DELAYS_MS[attempt - 1];
+      logger.info("webhook_retry_scheduled", {
+        endpointId: endpoint.id,
+        deliveryId: delivery.id,
+        eventType,
+        attempt,
+        delayMs: delay,
+      });
+      await sleep(delay);
+    }
+
+    result = await attemptDelivery(endpoint, rawBody, {
+      eventType,
+      deliveryId: delivery.id,
+      requestId,
+    });
+
+    attempt += 1;
+
+    if (result.ok || !result.retryable) {
+      break;
+    }
+
+    logger.warn("webhook_delivery_attempt_failed", {
+      endpointId: endpoint.id,
+      deliveryId: delivery.id,
+      eventType,
+      attempt,
+      statusCode: result.statusCode,
+      retryable: result.retryable,
+      remainingRetries: RETRY_DELAYS_MS.length - attempt + 1,
+    });
+  }
+
+  const status = result.ok ? "SUCCESS" : "FAILED";
+  const completedAt = new Date();
+
+  try {
     await prisma.$transaction([
       prisma.webhookDelivery.update({
         where: { id: delivery.id },
         data: {
           status,
-          statusCode: response.status,
-          responseBody: responseBody.slice(0, 2000) || null,
-          durationMs: Date.now() - startedAt,
+          statusCode: result.statusCode,
+          responseBody: result.responseBody,
+          durationMs: result.durationMs,
         },
       }),
       prisma.webhookEndpoint.update({
         where: { id: endpoint.id },
-        data: response.ok
-          ? {
-              lastDeliveredAt: completedAt,
-            }
-          : {
-              lastErrorAt: completedAt,
-            },
+        data: result.ok
+          ? { lastDeliveredAt: completedAt }
+          : { lastErrorAt: completedAt },
       }),
     ]);
-  } catch (error) {
-    const completedAt = new Date();
+  } catch (dbError) {
+    logger.error("webhook_delivery_db_update_failed", {
+      endpointId: endpoint.id,
+      deliveryId: delivery.id,
+      error: dbError.message,
+    });
+  }
 
-    await prisma.$transaction([
-      prisma.webhookDelivery.update({
-        where: { id: delivery.id },
-        data: {
-          status: "FAILED",
-          responseBody: String(error.message || error).slice(0, 2000),
-          durationMs: Date.now() - startedAt,
-        },
-      }),
-      prisma.webhookEndpoint.update({
-        where: { id: endpoint.id },
-        data: {
-          lastErrorAt: completedAt,
-        },
-      }),
-    ]);
-
+  if (!result.ok) {
     logger.warn("webhook_delivery_failed", {
       endpointId: endpoint.id,
       eventType,
       requestId,
-      error: error.message,
+      totalAttempts: attempt,
+      finalStatusCode: result.statusCode,
     });
   }
 }

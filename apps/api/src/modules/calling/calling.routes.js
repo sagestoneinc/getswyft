@@ -2,6 +2,8 @@ import { Router } from "express";
 import { getPrismaClient } from "../../lib/db.js";
 import { writeAuditLog } from "../../lib/audit.js";
 import { recordAnalyticsEvent } from "../../lib/analytics.js";
+import { generateRoomToken, isLiveKitConfigured, LiveKitConfigError } from "../../lib/livekit.js";
+import { env } from "../../config/env.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { requireTenant } from "../../middleware/tenant.js";
@@ -530,6 +532,100 @@ callingRouter.get(
           _count: undefined,
         })),
         nextCursor: hasMore ? sessions[sessions.length - 1].id : null,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+
+// GET /sessions/:sessionId/token – Generate a LiveKit room access token
+callingRouter.get(
+  "/sessions/:sessionId/token",
+  requireAuth,
+  requireTenant,
+  requirePermission("conversation.write"),
+  async (req, res, next) => {
+    try {
+      if (!isLiveKitConfigured()) {
+        return res.status(503).json({
+          ok: false,
+          error: "Voice/video calling is not configured for this server",
+        });
+      }
+
+      const prisma = getPrismaClient();
+
+      const session = await prisma.callSession.findFirst({
+        where: {
+          id: req.params.sessionId,
+          tenantId: req.tenant.id,
+        },
+      });
+
+      if (!session) {
+        return res.status(404).json({
+          ok: false,
+          error: "Call session not found",
+        });
+      }
+
+      if (session.status === "ENDED" || session.status === "FAILED") {
+        return res.status(409).json({
+          ok: false,
+          error: "Cannot join a call session that has already ended",
+        });
+      }
+
+      if (!session.roomName) {
+        return res.status(409).json({
+          ok: false,
+          error: "Call session does not have a room assigned",
+        });
+      }
+
+      const identity = req.auth.user.id;
+
+      let token;
+      try {
+        token = await generateRoomToken({
+          roomName: session.roomName,
+          identity,
+          canPublish: true,
+          canSubscribe: true,
+          ttlSeconds: 3600,
+        });
+      } catch (error) {
+        if (error instanceof LiveKitConfigError) {
+          return res.status(503).json({
+            ok: false,
+            error: "Voice/video calling is not configured for this server",
+          });
+        }
+        throw error;
+      }
+
+      await Promise.all([
+        writeAuditLog(req, {
+          action: "call_session.token_issued",
+          entityType: "call_session",
+          entityId: session.id,
+          metadata: { roomName: session.roomName, identity },
+        }),
+        recordAnalyticsEvent(req, {
+          eventName: "call_session.token_issued",
+          eventCategory: "calling",
+          metadata: { callSessionId: session.id },
+        }),
+      ]);
+
+      return res.json({
+        ok: true,
+        token,
+        url: env.LIVEKIT_URL,
+        roomName: session.roomName,
+        identity,
+        expiresInSeconds: 3600,
       });
     } catch (error) {
       return next(error);
