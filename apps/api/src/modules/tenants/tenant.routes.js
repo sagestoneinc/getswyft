@@ -2235,16 +2235,6 @@ tenantRouter.patch(
         return res.status(400).json({ ok: false, error: "No supported billing updates were provided" });
       }
 
-      const seatHolders = await prisma.userRole.findMany({
-        where: {
-          tenantId: req.tenant.id,
-          role: { key: { in: MANAGED_ROLE_KEYS } },
-        },
-        distinct: ["userId"],
-        select: { userId: true },
-      });
-      const activeSeats = seatHolders.length || 1;
-      data.activeSeats = activeSeats;
       const [seatHolders, invoices] = await Promise.all([
         prisma.userRole.findMany({
           where: {
@@ -2276,9 +2266,6 @@ tenantRouter.patch(
           currency: "USD",
           activeSeats,
           nextBillingAt: "nextBillingAt" in data ? data.nextBillingAt : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          nextBillingAt: data.nextBillingAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-          activeSeats: 1,
-          nextBillingAt: data.nextBillingAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
         update: { ...data, activeSeats },
       });
@@ -2366,8 +2353,6 @@ tenantRouter.post(
 
       const now = new Date();
       const invoiceNumber = `INV-${req.tenant.slug.toUpperCase()}-${now.getTime()}-${crypto.randomBytes(4).toString("hex")}`;
-      const randomSuffix = crypto.randomBytes(4).toString("hex").toUpperCase();
-      const invoiceNumber = `INV-${req.tenant.slug.toUpperCase()}-${now.getTime()}-${randomSuffix}`;
 
       const invoice = await prisma.billingInvoice.create({
         data: {
