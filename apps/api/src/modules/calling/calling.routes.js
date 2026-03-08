@@ -2,12 +2,11 @@ import { Router } from "express";
 import { getPrismaClient } from "../../lib/db.js";
 import { writeAuditLog } from "../../lib/audit.js";
 import { recordAnalyticsEvent } from "../../lib/analytics.js";
-import { generateRoomToken, isLiveKitConfigured, LiveKitConfigError } from "../../lib/livekit.js";
+import { generateRoomToken, isLiveKitConfigured, LiveKitConfigError, createLiveKitToken, getLiveKitUrl } from "../../lib/livekit.js";
 import { env } from "../../config/env.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { requireTenant } from "../../middleware/tenant.js";
-import { createLiveKitToken, isLiveKitConfigured, getLiveKitUrl } from "../../lib/livekit.js";
 
 const DEFAULT_PAGE_LIMIT = 50;
 const MAX_PAGE_LIMIT = 100;

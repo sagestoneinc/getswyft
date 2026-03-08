@@ -1,5 +1,38 @@
+import crypto from "node:crypto";
 import { SignJWT } from "jose";
 import { env } from "../config/env.js";
+import { logger } from "./logger.js";
+
+const TOKEN_TTL_SECONDS = 6 * 60 * 60;
+
+export class LiveKitConfigError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "LiveKitConfigError";
+  }
+}
+
+/**
+ * Returns true when LiveKit is configured in the environment.
+ */
+export function isLiveKitConfigured() {
+  return Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET);
+}
+
+/**
+ * Returns the configured LiveKit URL, or null if not set.
+ */
+export function getLiveKitUrl() {
+  return env.LIVEKIT_URL || null;
+}
+
+function getApiSecret() {
+  if (!env.LIVEKIT_API_SECRET) {
+    throw new LiveKitConfigError("LIVEKIT_API_SECRET is required for LiveKit token generation");
+  }
+
+  return new TextEncoder().encode(env.LIVEKIT_API_SECRET);
+}
 
 /**
  * Generates a LiveKit access token for a participant to join a room.
@@ -46,25 +79,21 @@ export async function generateRoomToken({
     .setNotBefore(now)
     .setExpirationTime(now + ttlSeconds)
     .sign(secretBytes);
-import crypto from "node:crypto";
-import { SignJWT } from "jose";
-import { env } from "../config/env.js";
-import { logger } from "./logger.js";
 
-const TOKEN_TTL_SECONDS = 6 * 60 * 60;
-
-function getApiSecret() {
-  if (!env.LIVEKIT_API_SECRET) {
-    throw new Error("LIVEKIT_API_SECRET is required for LiveKit token generation");
-  }
-
-  return new TextEncoder().encode(env.LIVEKIT_API_SECRET);
+  return token;
 }
 
-export function isLiveKitConfigured() {
-  return Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET);
-}
-
+/**
+ * Generates a LiveKit access token with extended metadata for a call participant.
+ *
+ * @param {object} options
+ * @param {string} options.roomName             - The LiveKit room name
+ * @param {string} options.participantIdentity  - Unique identity for the participant
+ * @param {string} [options.participantName]    - Display name for the participant
+ * @param {boolean} [options.canPublish=true]   - Allow participant to publish tracks
+ * @param {boolean} [options.canSubscribe=true] - Allow participant to subscribe to tracks
+ * @returns {Promise<string|null>} Signed JWT token string, or null if LiveKit is not configured
+ */
 export async function createLiveKitToken({ roomName, participantIdentity, participantName, canPublish = true, canSubscribe = true }) {
   if (!isLiveKitConfigured()) {
     logger.warn("livekit_not_configured", {
@@ -100,20 +129,4 @@ export async function createLiveKitToken({ roomName, participantIdentity, partic
     .sign(secret);
 
   return token;
-}
-
-export class LiveKitConfigError extends Error {
-  constructor(message) {
-    super(message);
-    this.name = "LiveKitConfigError";
-  }
-}
-
-/**
- * Returns true when LiveKit is configured in the environment.
- */
-export function isLiveKitConfigured() {
-  return Boolean(env.LIVEKIT_URL && env.LIVEKIT_API_KEY && env.LIVEKIT_API_SECRET);
-export function getLiveKitUrl() {
-  return env.LIVEKIT_URL || null;
 }
