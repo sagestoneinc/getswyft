@@ -2,7 +2,7 @@ import { Outlet, Link, useLocation, Navigate } from "react-router";
 import { useEffect, useState } from "react";
 import {
   Inbox, Settings, Webhook, BarChart3, Users,
-  CreditCard, User, Menu, X, LogOut, Loader2, AlertTriangle, BellRing, Bot, ShieldAlert, FileClock, MessagesSquare, Shield, Plug, PhoneCall
+  CreditCard, User, Menu, X, LogOut, Loader2, AlertTriangle, BellRing, Bot, ShieldAlert, FileClock, MessagesSquare, Shield, Plug, PhoneCall, MessageCircle
 } from "lucide-react";
 import { registerPushNotifications, requestPushNotificationsAccess, type PushRegistrationStatus } from "../../lib/push";
 import { useAuth } from "../../providers/auth-provider";
@@ -16,6 +16,7 @@ const sidebarItems = [
   { to: "/app/routing", icon: Settings, label: "Routing", requiredPermission: "tenant.manage" },
   { to: "/app/webhooks", icon: Webhook, label: "Webhooks", requiredPermission: "tenant.manage" },
   { to: "/app/integrations", icon: Plug, label: "Integrations", requiredPermission: "tenant.manage" },
+  { to: "/app/widget", icon: MessageCircle, label: "Chat Widget", requiredPermission: "tenant.manage" },
   { to: "/app/analytics", icon: BarChart3, label: "Analytics", requiredPermission: "analytics.read" },
   { to: "/app/team", icon: Users, label: "Team", requiredPermission: "user.manage" },
   { to: "/app/billing", icon: CreditCard, label: "Billing", requiredPermission: "tenant.manage" },

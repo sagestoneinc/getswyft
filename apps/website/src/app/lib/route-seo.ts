@@ -203,6 +203,11 @@ const appRouteMetadata = [
     description: "Manage channels, call sessions, feed posts, and compliance exports in one workspace.",
   },
   {
+    match: (pathname: string) => pathname === "/app/widget",
+    title: "Chat Widget | SwyftUp",
+    description: "Choose and customise the chat widget design for your customer-facing website experience.",
+  },
+  {
     match: (pathname: string) => pathname === "/app/admin",
     title: "Admin Control Center | SwyftUp",
     description: "Review tenant operations, health alerts, and system readiness from the SwyftUp admin workspace.",
