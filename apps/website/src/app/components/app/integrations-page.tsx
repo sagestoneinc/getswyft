@@ -133,7 +133,7 @@ export function IntegrationsPage() {
             Tenant
           </p>
           <p className="text-sm text-primary" style={{ fontWeight: 600 }}>Workspace slug</p>
-          <p className="text-xs text-muted-foreground mt-1 break-all">{workspaceId}</p>
+          <p className="text-xs text-muted-foreground mt-1 break-all">{workspaceSlug}</p>
           <p className="text-xs text-muted-foreground mt-3">
             This value maps directly to `VITE_SWYFT_WIDGET_WORKSPACE_SLUG`.
           </p>
