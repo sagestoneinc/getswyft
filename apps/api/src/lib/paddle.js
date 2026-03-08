@@ -102,10 +102,22 @@ export function verifyPaddleWebhookSignature(rawBody, signature) {
     .update(payload)
     .digest("hex");
 
-  return crypto.timingSafeEqual(
-    Buffer.from(computed, "hex"),
-    Buffer.from(h1, "hex"),
-  );
+  try {
+    const computedBuf = Buffer.from(computed, "hex");
+    const receivedBuf = Buffer.from(h1, "hex");
+
+    if (computedBuf.length !== receivedBuf.length) {
+      return false;
+    }
+
+    return crypto.timingSafeEqual(computedBuf, receivedBuf);
+  } catch (error) {
+    logger.warn("paddle_webhook_signature_invalid", {
+      reason: "Failed to parse or compare webhook signature",
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return false;
+  }
 }
 
 export function mapPaddleStatus(paddleStatus) {
