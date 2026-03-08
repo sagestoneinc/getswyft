@@ -70,6 +70,8 @@ const rawEnvSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_BASE_URL: z.string().optional(),
   OPENAI_MODEL: z.string().optional(),
+  ANTHROPIC_API_KEY: z.string().optional(),
+  ANTHROPIC_MODEL: z.string().optional(),
   AI_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
 
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),

@@ -2137,6 +2137,374 @@ tenantRouter.get("/current/billing", requireAuth, requireTenant, requirePermissi
   }
 });
 
+// ---------------------------------------------------------------------------
+// Billing write endpoints
+// ---------------------------------------------------------------------------
+
+const VALID_BILLING_INTERVALS = ["MONTHLY", "YEARLY"];
+const VALID_BILLING_STATUSES = ["TRIALING", "ACTIVE", "PAST_DUE", "CANCELED"];
+const VALID_INVOICE_STATUSES = ["DRAFT", "OPEN", "PAID", "VOID"];
+
+async function ensureBillingSubscription(prisma, tenantId) {
+  const seatHolders = await prisma.userRole.findMany({
+    where: {
+      tenantId,
+      role: { key: { in: MANAGED_ROLE_KEYS } },
+    },
+    distinct: ["userId"],
+    select: { userId: true },
+  });
+  const activeSeats = seatHolders.length || 1;
+  return prisma.billingSubscription.upsert({
+    where: { tenantId },
+    create: {
+      tenantId,
+      provider: "manual",
+      planKey: "professional",
+      planName: "Professional",
+      interval: "MONTHLY",
+      status: "ACTIVE",
+      seatPriceCents: 4900,
+      currency: "USD",
+      activeSeats,
+      nextBillingAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+    },
+    update: { activeSeats },
+  });
+}
+
+// PATCH /current/billing — update subscription plan snapshot
+tenantRouter.patch(
+  "/current/billing",
+  requireAuth,
+  requireTenant,
+  requirePermission("tenant.manage"),
+  async (req, res, next) => {
+    try {
+      const prisma = getPrismaClient();
+
+      const data = {};
+
+      if (typeof req.body?.planKey === "string") {
+        data.planKey = req.body.planKey.trim();
+      }
+
+      if (typeof req.body?.planName === "string") {
+        data.planName = req.body.planName.trim();
+      }
+
+      if (req.body?.interval !== undefined) {
+        const interval = String(req.body.interval || "").trim().toUpperCase();
+        if (!VALID_BILLING_INTERVALS.includes(interval)) {
+          return res.status(400).json({
+            ok: false,
+            error: `interval must be one of: ${VALID_BILLING_INTERVALS.map((v) => v.toLowerCase()).join(", ")}`,
+          });
+        }
+        data.interval = interval;
+      }
+
+      if (req.body?.status !== undefined) {
+        const status = String(req.body.status || "").trim().toUpperCase();
+        if (!VALID_BILLING_STATUSES.includes(status)) {
+          return res.status(400).json({
+            ok: false,
+            error: `status must be one of: ${VALID_BILLING_STATUSES.map((v) => v.toLowerCase()).join(", ")}`,
+          });
+        }
+        data.status = status;
+      }
+
+      if (req.body?.seatPriceCents !== undefined) {
+        const price = Number(req.body.seatPriceCents);
+        if (!Number.isInteger(price) || price < 0) {
+          return res.status(400).json({ ok: false, error: "seatPriceCents must be a non-negative integer" });
+        }
+        data.seatPriceCents = price;
+      }
+
+      if (req.body?.nextBillingAt !== undefined) {
+        const date = req.body.nextBillingAt ? new Date(req.body.nextBillingAt) : null;
+        if (req.body.nextBillingAt && Number.isNaN(date?.getTime())) {
+          return res.status(400).json({ ok: false, error: "nextBillingAt must be a valid ISO date string" });
+        }
+        data.nextBillingAt = date;
+      }
+
+      if (Object.keys(data).length === 0) {
+        return res.status(400).json({ ok: false, error: "No supported billing updates were provided" });
+      }
+
+      const seatHolders = await prisma.userRole.findMany({
+        where: {
+          tenantId: req.tenant.id,
+          role: { key: { in: MANAGED_ROLE_KEYS } },
+        },
+        distinct: ["userId"],
+        select: { userId: true },
+      });
+      const activeSeats = seatHolders.length || 1;
+      data.activeSeats = activeSeats;
+      const [seatHolders, invoices] = await Promise.all([
+        prisma.userRole.findMany({
+          where: {
+            tenantId: req.tenant.id,
+            role: { key: { in: MANAGED_ROLE_KEYS } },
+          },
+          distinct: ["userId"],
+          select: { userId: true },
+        }),
+        prisma.billingInvoice.findMany({
+          where: { tenantId: req.tenant.id },
+          orderBy: { issuedAt: "desc" },
+          take: 12,
+        }),
+      ]);
+
+      const activeSeats = seatHolders.length || 1;
+
+      const subscription = await prisma.billingSubscription.upsert({
+        where: { tenantId: req.tenant.id },
+        create: {
+          tenantId: req.tenant.id,
+          provider: "manual",
+          planKey: data.planKey || "professional",
+          planName: data.planName || "Professional",
+          interval: data.interval || "MONTHLY",
+          status: data.status || "ACTIVE",
+          seatPriceCents: data.seatPriceCents ?? 4900,
+          currency: "USD",
+          activeSeats,
+          nextBillingAt: "nextBillingAt" in data ? data.nextBillingAt : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          nextBillingAt: data.nextBillingAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          activeSeats: 1,
+          nextBillingAt: data.nextBillingAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        },
+        update: { ...data, activeSeats },
+      });
+
+      await Promise.all([
+        writeAuditLog(req, {
+          action: "billing.subscription_updated",
+          entityType: "billing_subscription",
+          entityId: subscription.id,
+          metadata: data,
+        }),
+        recordAnalyticsEvent(req, {
+          eventName: "billing.subscription_updated",
+          eventCategory: "billing",
+          metadata: { planKey: subscription.planKey, status: subscription.status },
+        }),
+      ]);
+
+      return res.json({
+        ok: true,
+        billing: serializeBilling(subscription, invoices, activeSeats),
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+
+// POST /current/billing/invoices — create an invoice record
+tenantRouter.post(
+  "/current/billing/invoices",
+  requireAuth,
+  requireTenant,
+  requirePermission("tenant.manage"),
+  async (req, res, next) => {
+    try {
+      const prisma = getPrismaClient();
+
+      const amountCents = Number(req.body?.amountCents);
+      if (!Number.isInteger(amountCents) || amountCents < 0) {
+        return res.status(400).json({ ok: false, error: "amountCents must be a non-negative integer" });
+      }
+
+      const status = req.body?.status
+        ? String(req.body.status).trim().toUpperCase()
+        : "PAID";
+
+      if (!VALID_INVOICE_STATUSES.includes(status)) {
+        return res.status(400).json({
+          ok: false,
+          error: `status must be one of: ${VALID_INVOICE_STATUSES.map((v) => v.toLowerCase()).join(", ")}`,
+        });
+      }
+
+      let periodStart = null;
+      let periodEnd = null;
+
+      if (req.body?.periodStart) {
+        periodStart = new Date(req.body.periodStart);
+        if (Number.isNaN(periodStart.getTime())) {
+          return res.status(400).json({ ok: false, error: "periodStart must be a valid ISO date string" });
+        }
+      }
+
+      if (req.body?.periodEnd) {
+        periodEnd = new Date(req.body.periodEnd);
+        if (Number.isNaN(periodEnd.getTime())) {
+          return res.status(400).json({ ok: false, error: "periodEnd must be a valid ISO date string" });
+        }
+      }
+
+      const hostedUrl = req.body?.hostedUrl ? String(req.body.hostedUrl).trim() : null;
+      if (hostedUrl) {
+        try {
+          const parsed = new URL(hostedUrl);
+          if (!["http:", "https:"].includes(parsed.protocol)) {
+            throw new Error("invalid protocol");
+          }
+        } catch {
+          return res.status(400).json({ ok: false, error: "hostedUrl must be a valid HTTP(S) URL" });
+        }
+      }
+
+      const subscription = await ensureBillingSubscription(prisma, req.tenant.id);
+
+      const now = new Date();
+      const randomSuffix = crypto.randomBytes(4).toString("hex").toUpperCase();
+      const invoiceNumber = `INV-${req.tenant.slug.toUpperCase()}-${now.getTime()}-${randomSuffix}`;
+
+      const invoice = await prisma.billingInvoice.create({
+        data: {
+          tenantId: req.tenant.id,
+          subscriptionId: subscription.id,
+          invoiceNumber,
+          status,
+          amountCents,
+          currency: req.body?.currency ? String(req.body.currency).trim().toUpperCase() : "USD",
+          issuedAt: now,
+          periodStart,
+          periodEnd,
+          paidAt: status === "PAID" ? now : null,
+          hostedUrl,
+        },
+      });
+
+      await Promise.all([
+        writeAuditLog(req, {
+          action: "billing.invoice_created",
+          entityType: "billing_invoice",
+          entityId: invoice.id,
+          metadata: { invoiceNumber, amountCents, status },
+        }),
+        recordAnalyticsEvent(req, {
+          eventName: "billing.invoice_created",
+          eventCategory: "billing",
+          metadata: { invoiceId: invoice.id, amountCents, status },
+        }),
+      ]);
+
+      return res.status(201).json({
+        ok: true,
+        invoice: {
+          id: invoice.id,
+          invoiceNumber: invoice.invoiceNumber,
+          status: invoice.status.toLowerCase(),
+          amountCents: invoice.amountCents,
+          currency: invoice.currency,
+          issuedAt: invoice.issuedAt,
+          periodStart: invoice.periodStart,
+          periodEnd: invoice.periodEnd,
+          paidAt: invoice.paidAt,
+          hostedUrl: invoice.hostedUrl,
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+
+// PATCH /current/billing/invoices/:invoiceId — update invoice status
+tenantRouter.patch(
+  "/current/billing/invoices/:invoiceId",
+  requireAuth,
+  requireTenant,
+  requirePermission("tenant.manage"),
+  async (req, res, next) => {
+    try {
+      const prisma = getPrismaClient();
+
+      const invoice = await prisma.billingInvoice.findFirst({
+        where: {
+          id: req.params.invoiceId,
+          tenantId: req.tenant.id,
+        },
+      });
+
+      if (!invoice) {
+        return res.status(404).json({ ok: false, error: "Invoice not found" });
+      }
+
+      const data = {};
+
+      if (req.body?.status !== undefined) {
+        const status = String(req.body.status || "").trim().toUpperCase();
+        if (!VALID_INVOICE_STATUSES.includes(status)) {
+          return res.status(400).json({
+            ok: false,
+            error: `status must be one of: ${VALID_INVOICE_STATUSES.map((v) => v.toLowerCase()).join(", ")}`,
+          });
+        }
+        data.status = status;
+        data.paidAt = status === "PAID" ? new Date() : null;
+      }
+
+      if (req.body?.hostedUrl !== undefined) {
+        const hostedUrl = req.body.hostedUrl ? String(req.body.hostedUrl).trim() : null;
+        if (hostedUrl) {
+          try {
+            const parsed = new URL(hostedUrl);
+            if (!["http:", "https:"].includes(parsed.protocol)) {
+              throw new Error("invalid protocol");
+            }
+          } catch {
+            return res.status(400).json({ ok: false, error: "hostedUrl must be a valid HTTP(S) URL" });
+          }
+        }
+        data.hostedUrl = hostedUrl;
+      }
+
+      if (Object.keys(data).length === 0) {
+        return res.status(400).json({ ok: false, error: "No supported invoice updates were provided" });
+      }
+
+      const updated = await prisma.billingInvoice.update({
+        where: { id: invoice.id },
+        data,
+      });
+
+      await writeAuditLog(req, {
+        action: "billing.invoice_updated",
+        entityType: "billing_invoice",
+        entityId: invoice.id,
+        metadata: { previousStatus: invoice.status, ...data },
+      });
+
+      return res.json({
+        ok: true,
+        invoice: {
+          id: updated.id,
+          invoiceNumber: updated.invoiceNumber,
+          status: updated.status.toLowerCase(),
+          amountCents: updated.amountCents,
+          currency: updated.currency,
+          issuedAt: updated.issuedAt,
+          periodStart: updated.periodStart,
+          periodEnd: updated.periodEnd,
+          paidAt: updated.paidAt,
+          hostedUrl: updated.hostedUrl,
+        },
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
 // ─── Add-ons: Phone Numbers ─────────────────────────────────────────────────
 
 // GET /current/addons – Overview of add-ons for the tenant
