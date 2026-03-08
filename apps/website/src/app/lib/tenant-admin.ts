@@ -54,6 +54,8 @@ export type BillingSubscription = {
   provider: string;
   paddleCustomerId: string | null;
   paddleSubscriptionId: string | null;
+  braintreeCustomerId: string | null;
+  braintreeSubscriptionId: string | null;
   planKey: string;
   planName: string;
   interval: "monthly" | "yearly";

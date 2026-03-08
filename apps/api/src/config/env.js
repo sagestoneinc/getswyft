@@ -52,11 +52,18 @@ const rawEnvSchema = z.object({
   TELNYX_MESSAGING_PROFILE_ID: z.string().optional(),
   TELNYX_FROM_NUMBER: z.string().optional(),
 
-  BILLING_PROVIDER: z.enum(["manual", "paddle"]).default("manual"),
+  BILLING_PROVIDER: z.enum(["manual", "paddle", "braintree"]).default("manual"),
   PADDLE_API_KEY: z.string().optional(),
   PADDLE_WEBHOOK_SECRET: z.string().optional(),
   PADDLE_ENV: z.enum(["sandbox", "production"]).default("sandbox"),
   PADDLE_PRICE_ID: z.string().optional(),
+
+  BRAINTREE_MERCHANT_ID: z.string().optional(),
+  BRAINTREE_PUBLIC_KEY: z.string().optional(),
+  BRAINTREE_PRIVATE_KEY: z.string().optional(),
+  BRAINTREE_WEBHOOK_SECRET: z.string().optional(),
+  BRAINTREE_ENV: z.enum(["sandbox", "production"]).default("sandbox"),
+  BRAINTREE_PLAN_ID: z.string().optional(),
 
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_BASE_URL: z.string().optional(),

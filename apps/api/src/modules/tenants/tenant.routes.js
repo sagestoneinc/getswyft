@@ -163,6 +163,8 @@ function serializeBilling(subscription, invoices, activeSeats) {
         provider: subscription.provider,
         paddleCustomerId: subscription.paddleCustomerId || null,
         paddleSubscriptionId: subscription.paddleSubscriptionId || null,
+        braintreeCustomerId: subscription.braintreeCustomerId || null,
+        braintreeSubscriptionId: subscription.braintreeSubscriptionId || null,
         planKey: subscription.planKey,
         planName: subscription.planName,
         interval: subscription.interval.toLowerCase(),

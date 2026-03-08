@@ -8,6 +8,11 @@ import {
   mapPaddleStatus,
   mapPaddleInterval,
 } from "../../lib/paddle.js";
+import {
+  verifyBraintreeWebhookSignature,
+  mapBraintreeStatus,
+  parseBraintreeAmount,
+} from "../../lib/braintree.js";
 
 export const billingRouter = Router();
 
@@ -242,6 +247,287 @@ async function handleTransactionCompleted(prisma, data, req) {
       entityType: "billing_invoice",
       entityId: invoiceNumber,
       metadata: { transactionId, amountCents: totalAmount },
+    });
+  }
+}
+
+// ─── Braintree webhook ───────────────────────────────────────────────────────
+
+billingRouter.post("/braintree-webhook", async (req, res, next) => {
+  try {
+    const signature = req.headers["x-braintree-signature"] || req.body?.bt_signature || "";
+    const payload = req.body?.bt_payload || JSON.stringify(req.body);
+
+    const isValid = verifyBraintreeWebhookSignature(signature, payload);
+    if (!isValid) {
+      logger.warn("braintree_webhook_signature_invalid", {
+        signature: signature ? "present" : "missing",
+      });
+      return res.status(400).json({ ok: false, error: "Invalid webhook signature" });
+    }
+
+    let notification;
+    try {
+      notification = typeof payload === "string" ? JSON.parse(Buffer.from(payload, "base64").toString("utf8")) : payload;
+    } catch {
+      notification = req.body;
+    }
+
+    const kind = notification?.kind || notification?.event_type;
+    const subject = notification?.subject || notification?.data || notification;
+
+    if (!kind) {
+      return res.status(400).json({ ok: false, error: "Missing webhook kind" });
+    }
+
+    logger.info("braintree_webhook_received", { kind });
+
+    const prisma = getPrismaClient();
+
+    if (kind === "subscription_charged_successfully") {
+      await handleBraintreeSubscriptionCharged(prisma, subject, req);
+    } else if (kind === "subscription_created" || kind === "subscription_went_active") {
+      await handleBraintreeSubscriptionActive(prisma, subject, req);
+    } else if (kind === "subscription_canceled" || kind === "subscription_expired") {
+      await handleBraintreeSubscriptionCanceled(prisma, subject, req);
+    } else if (kind === "subscription_went_past_due") {
+      await handleBraintreeSubscriptionPastDue(prisma, subject, req);
+    } else {
+      logger.info("braintree_webhook_unhandled", { kind });
+    }
+
+    return res.json({ ok: true });
+  } catch (error) {
+    logger.error("braintree_webhook_error", { error: error.message });
+    return next(error);
+  }
+});
+
+async function resolveBraintreeTenant(prisma, subject) {
+  const subscription = subject?.subscription || subject;
+  const braintreeSubscriptionId = subscription?.id;
+
+  const customFields = subscription?.customFields || subscription?.custom_fields || {};
+  const tenantId = customFields.tenant_id;
+
+  if (tenantId) {
+    return { tenantId, braintreeSubscriptionId, subscription };
+  }
+
+  if (braintreeSubscriptionId) {
+    const existing = await prisma.billingSubscription.findFirst({
+      where: { braintreeSubscriptionId },
+      select: { tenantId: true },
+    });
+
+    if (existing) {
+      return { tenantId: existing.tenantId, braintreeSubscriptionId, subscription };
+    }
+  }
+
+  return { tenantId: null, braintreeSubscriptionId, subscription };
+}
+
+async function handleBraintreeSubscriptionActive(prisma, subject, req) {
+  const { tenantId, braintreeSubscriptionId, subscription } = await resolveBraintreeTenant(prisma, subject);
+
+  if (!tenantId) {
+    logger.warn("braintree_webhook_no_tenant_id", { braintreeSubscriptionId });
+    return;
+  }
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true },
+  });
+
+  if (!tenant) {
+    logger.warn("braintree_webhook_tenant_not_found", { tenantId });
+    return;
+  }
+
+  const status = mapBraintreeStatus(subscription?.status || "Active");
+  const priceCents = parseBraintreeAmount(subscription?.price);
+  const nextBillingDate = subscription?.nextBillingDate
+    ? new Date(subscription.nextBillingDate)
+    : null;
+  const planId = subscription?.planId || "professional";
+
+  await prisma.billingSubscription.upsert({
+    where: { tenantId },
+    update: {
+      provider: "braintree",
+      braintreeSubscriptionId,
+      braintreeCustomerId: subscription?.paymentMethodToken || null,
+      status,
+      seatPriceCents: priceCents || 4900,
+      nextBillingAt: nextBillingDate,
+      planName: planId,
+    },
+    create: {
+      tenantId,
+      provider: "braintree",
+      braintreeSubscriptionId,
+      braintreeCustomerId: subscription?.paymentMethodToken || null,
+      planKey: "professional",
+      planName: planId,
+      interval: "MONTHLY",
+      status,
+      seatPriceCents: priceCents || 4900,
+      currency: "USD",
+      activeSeats: 1,
+      nextBillingAt: nextBillingDate,
+    },
+  });
+
+  req.tenant = tenant;
+
+  await writeAuditLog(req, {
+    action: "billing.subscription.active",
+    entityType: "billing_subscription",
+    entityId: braintreeSubscriptionId,
+    metadata: { provider: "braintree", status },
+  });
+
+  await recordAnalyticsEvent(req, {
+    eventName: "billing.subscription.active",
+    eventCategory: "billing",
+    metadata: { braintreeSubscriptionId, status },
+  });
+}
+
+async function handleBraintreeSubscriptionCanceled(prisma, subject, req) {
+  const { tenantId, braintreeSubscriptionId } = await resolveBraintreeTenant(prisma, subject);
+
+  if (!tenantId) {
+    return;
+  }
+
+  const existing = await prisma.billingSubscription.findUnique({
+    where: { tenantId },
+  });
+
+  if (!existing) {
+    return;
+  }
+
+  await prisma.billingSubscription.update({
+    where: { tenantId },
+    data: { status: "CANCELED" },
+  });
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true },
+  });
+
+  if (tenant) {
+    req.tenant = tenant;
+
+    await writeAuditLog(req, {
+      action: "billing.subscription.canceled",
+      entityType: "billing_subscription",
+      entityId: braintreeSubscriptionId,
+      metadata: { provider: "braintree", braintreeSubscriptionId },
+    });
+  }
+}
+
+async function handleBraintreeSubscriptionPastDue(prisma, subject, req) {
+  const { tenantId, braintreeSubscriptionId } = await resolveBraintreeTenant(prisma, subject);
+
+  if (!tenantId) {
+    return;
+  }
+
+  await prisma.billingSubscription.updateMany({
+    where: { tenantId },
+    data: { status: "PAST_DUE" },
+  });
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true },
+  });
+
+  if (tenant) {
+    req.tenant = tenant;
+
+    await writeAuditLog(req, {
+      action: "billing.subscription.past_due",
+      entityType: "billing_subscription",
+      entityId: braintreeSubscriptionId,
+      metadata: { provider: "braintree" },
+    });
+  }
+}
+
+async function handleBraintreeSubscriptionCharged(prisma, subject, req) {
+  const { tenantId, braintreeSubscriptionId, subscription } = await resolveBraintreeTenant(prisma, subject);
+
+  if (!tenantId) {
+    return;
+  }
+
+  const billingSubscription = await prisma.billingSubscription.findUnique({
+    where: { tenantId },
+  });
+
+  if (!billingSubscription) {
+    return;
+  }
+
+  const transactions = subscription?.transactions || [];
+  const latestTransaction = transactions[0];
+
+  if (!latestTransaction) {
+    return;
+  }
+
+  const amountCents = parseBraintreeAmount(latestTransaction.amount);
+  const currency = latestTransaction.currencyIsoCode || "USD";
+  const invoiceNumber = `BT-${(latestTransaction.id || braintreeSubscriptionId || "").slice(-8).toUpperCase()}`;
+
+  const existingInvoice = await prisma.billingInvoice.findUnique({
+    where: { invoiceNumber },
+  });
+
+  if (existingInvoice) {
+    return;
+  }
+
+  const billingPeriod = subscription?.currentBillingCycle;
+  const now = new Date();
+
+  await prisma.billingInvoice.create({
+    data: {
+      tenantId,
+      subscriptionId: billingSubscription.id,
+      invoiceNumber,
+      status: "PAID",
+      amountCents,
+      currency,
+      issuedAt: now,
+      periodStart: billingPeriod ? now : null,
+      periodEnd: subscription?.nextBillingDate ? new Date(subscription.nextBillingDate) : null,
+      paidAt: now,
+      hostedUrl: null,
+    },
+  });
+
+  const tenant = await prisma.tenant.findUnique({
+    where: { id: tenantId },
+    select: { id: true },
+  });
+
+  if (tenant) {
+    req.tenant = tenant;
+
+    await writeAuditLog(req, {
+      action: "billing.invoice.paid",
+      entityType: "billing_invoice",
+      entityId: invoiceNumber,
+      metadata: { provider: "braintree", transactionId: latestTransaction.id, amountCents },
     });
   }
 }

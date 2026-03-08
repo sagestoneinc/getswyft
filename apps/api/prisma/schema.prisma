@@ -487,27 +487,31 @@ model WebhookDelivery {
 }
 
 model BillingSubscription {
-  id                   String                    @id @default(cuid())
-  tenantId             String                    @unique
-  provider             String                    @default("manual")
-  paddleCustomerId     String?
-  paddleSubscriptionId String?
-  planKey              String                    @default("professional")
-  planName             String                    @default("Professional")
-  interval             BillingInterval           @default(MONTHLY)
-  status               BillingSubscriptionStatus @default(ACTIVE)
-  seatPriceCents       Int                       @default(4900)
-  currency             String                    @default("USD")
-  activeSeats          Int                       @default(1)
-  nextBillingAt        DateTime?
-  createdAt            DateTime                  @default(now())
-  updatedAt            DateTime                  @updatedAt
+  id                      String                    @id @default(cuid())
+  tenantId                String                    @unique
+  provider                String                    @default("manual")
+  paddleCustomerId        String?
+  paddleSubscriptionId    String?
+  braintreeCustomerId     String?
+  braintreeSubscriptionId String?
+  planKey                 String                    @default("professional")
+  planName                String                    @default("Professional")
+  interval                BillingInterval           @default(MONTHLY)
+  status                  BillingSubscriptionStatus @default(ACTIVE)
+  seatPriceCents          Int                       @default(4900)
+  currency                String                    @default("USD")
+  activeSeats             Int                       @default(1)
+  nextBillingAt           DateTime?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
 
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoices BillingInvoice[]
 
   @@index([paddleCustomerId])
   @@index([paddleSubscriptionId])
+  @@index([braintreeCustomerId])
+  @@index([braintreeSubscriptionId])
 }
 
 model BillingInvoice {
