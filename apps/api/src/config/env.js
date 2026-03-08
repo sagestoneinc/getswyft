@@ -65,6 +65,8 @@ const rawEnvSchema = z.object({
   BRAINTREE_ENV: z.enum(["sandbox", "production"]).default("sandbox"),
   BRAINTREE_PLAN_ID: z.string().optional(),
 
+  SIP_ENCRYPTION_KEY: z.string().optional(),
+
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_BASE_URL: z.string().optional(),
   OPENAI_MODEL: z.string().optional(),
@@ -77,6 +79,13 @@ const rawEnvSchema = z.object({
 });
 
 const parsed = rawEnvSchema.parse(process.env);
+
+if (parsed.NODE_ENV === "production" && !parsed.SIP_ENCRYPTION_KEY) {
+  throw new Error(
+    "SIP_ENCRYPTION_KEY is required in production. " +
+      "SIP trunk password encryption cannot function without this variable."
+  );
+}
 
 function parseBool(value) {
   return value === "1" || value?.toLowerCase?.() === "true";

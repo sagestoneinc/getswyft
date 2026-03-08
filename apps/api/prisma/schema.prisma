@@ -553,7 +553,7 @@ model TenantPhoneNumber {
   tenantId      String
   phoneNumber   String
   label         String?
-  provider      String            @default("telnyx")
+  provider      String            @default("manual")
   capabilities  Json?
   status        PhoneNumberStatus @default(ACTIVE)
   monthlyCostCents Int            @default(100)
@@ -565,7 +565,7 @@ model TenantPhoneNumber {
 
   tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
-  @@unique([tenantId, phoneNumber])
+  @@unique([tenantId, phoneNumber, status])
   @@index([tenantId, status])
 }
 
@@ -575,7 +575,7 @@ model TenantSipTrunk {
   name              String
   host              String
   port              Int            @default(5060)
-  transport         String         @default("udp")
+  transport         String         @default("tls")
   username          String?
   password          String?
   realm             String?

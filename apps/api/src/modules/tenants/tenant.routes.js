@@ -31,7 +31,12 @@ const DOMAIN_PATTERN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)
 const SIP_ENCRYPTION_ALGORITHM = "aes-256-gcm";
 
 function getSipEncryptionKey() {
-  const secret = process.env.JWT_SECRET || "getswyft-default-encryption-key";
+  const secret = process.env.SIP_ENCRYPTION_KEY;
+  if (!secret) {
+    throw new Error(
+      "SIP_ENCRYPTION_KEY environment variable is required for SIP trunk password encryption"
+    );
+  }
   return crypto.createHash("sha256").update(secret).digest();
 }
 
@@ -2144,7 +2149,7 @@ tenantRouter.get("/current/addons", requireAuth, requireTenant, requirePermissio
         orderBy: { provisionedAt: "desc" },
       }),
       prisma.tenantSipTrunk.findMany({
-        where: { tenantId: req.tenant.id },
+        where: { tenantId: req.tenant.id, status: "ACTIVE" },
         orderBy: { createdAt: "desc" },
       }),
     ]);
@@ -2185,19 +2190,36 @@ tenantRouter.post("/current/addons/phone-numbers", requireAuth, requireTenant, r
       return res.status(409).json({ ok: false, error: "This phone number is already provisioned for your workspace" });
     }
 
-    const record = await prisma.tenantPhoneNumber.create({
-      data: {
-        tenantId: req.tenant.id,
-        phoneNumber,
-        label,
-        provider: "manual",
-        capabilities: req.body?.capabilities || { voice: true, sms: true },
-        status: "ACTIVE",
-        monthlyCostCents: 100,
-        currency: "USD",
-        provisionedAt: new Date(),
-      },
+    // Re-activate a previously released row if one exists, otherwise create new
+    const released = await prisma.tenantPhoneNumber.findFirst({
+      where: { tenantId: req.tenant.id, phoneNumber, status: "RELEASED" },
+      orderBy: { releasedAt: "desc" },
     });
+
+    const record = released
+      ? await prisma.tenantPhoneNumber.update({
+          where: { id: released.id },
+          data: {
+            label,
+            capabilities: req.body?.capabilities || { voice: true, sms: true },
+            status: "ACTIVE",
+            provisionedAt: new Date(),
+            releasedAt: null,
+          },
+        })
+      : await prisma.tenantPhoneNumber.create({
+          data: {
+            tenantId: req.tenant.id,
+            phoneNumber,
+            label,
+            provider: "manual",
+            capabilities: req.body?.capabilities || { voice: true, sms: true },
+            status: "ACTIVE",
+            monthlyCostCents: 100,
+            currency: "USD",
+            provisionedAt: new Date(),
+          },
+        });
 
     await Promise.all([
       writeAuditLog(req, {
@@ -2270,7 +2292,7 @@ tenantRouter.post("/current/addons/sip-trunks", requireAuth, requireTenant, requ
     const name = String(req.body?.name || "").trim();
     const host = String(req.body?.host || "").trim();
     const port = Number(req.body?.port) || 5060;
-    const transport = String(req.body?.transport || "udp").toLowerCase();
+    const transport = String(req.body?.transport || "tls").toLowerCase();
 
     if (!name) {
       return res.status(400).json({ ok: false, error: "name is required" });
@@ -2341,10 +2363,18 @@ tenantRouter.patch("/current/addons/sip-trunks/:sipTrunkId", requireAuth, requir
 
     const data = {};
     if (req.body?.name !== undefined) {
-      data.name = String(req.body.name).trim();
+      const name = String(req.body.name).trim();
+      if (!name) {
+        return res.status(400).json({ ok: false, error: "name must not be empty" });
+      }
+      data.name = name;
     }
     if (req.body?.host !== undefined) {
-      data.host = String(req.body.host).trim();
+      const host = String(req.body.host).trim();
+      if (!host) {
+        return res.status(400).json({ ok: false, error: "host must not be empty" });
+      }
+      data.host = host;
     }
     if (req.body?.port !== undefined) {
       const port = Number(req.body.port);
