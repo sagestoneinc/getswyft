@@ -2235,6 +2235,16 @@ tenantRouter.patch(
         return res.status(400).json({ ok: false, error: "No supported billing updates were provided" });
       }
 
+      const seatHolders = await prisma.userRole.findMany({
+        where: {
+          tenantId: req.tenant.id,
+          role: { key: { in: MANAGED_ROLE_KEYS } },
+        },
+        distinct: ["userId"],
+        select: { userId: true },
+      });
+      const activeSeats = seatHolders.length || 1;
+      data.activeSeats = activeSeats;
       const [seatHolders, invoices] = await Promise.all([
         prisma.userRole.findMany({
           where: {
