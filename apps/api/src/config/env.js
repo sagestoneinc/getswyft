@@ -81,9 +81,9 @@ const rawEnvSchema = z.object({
 const parsed = rawEnvSchema.parse(process.env);
 
 if (parsed.NODE_ENV === "production" && !parsed.SIP_ENCRYPTION_KEY) {
-  console.warn(
-    "⚠️  SIP_ENCRYPTION_KEY is not set. SIP trunk password encryption will fail at runtime. " +
-      "Set this variable before using SIP trunk features."
+  throw new Error(
+    "SIP_ENCRYPTION_KEY is required in production. " +
+      "SIP trunk password encryption cannot function without this variable."
   );
 }
 
