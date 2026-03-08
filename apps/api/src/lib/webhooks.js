@@ -41,13 +41,9 @@ function signPayload(rawBody, secret) {
   return crypto.createHmac("sha256", secret).update(rawBody).digest("hex");
 }
 
-function sleep(ms) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
 /**
  * Attempts a single HTTP delivery of the webhook payload.
- * Returns { ok, statusCode, responseBody } — never throws.
+ * Returns { ok, retryable, statusCode, responseBody, durationMs } — never throws.
  */
 async function attemptDelivery(endpoint, rawBody, { eventType, deliveryId, requestId }) {
   const startedAt = Date.now();
@@ -92,53 +88,9 @@ async function attemptDelivery(endpoint, rawBody, { eventType, deliveryId, reque
   }
 }
 
-async function deliverWebhook(endpoint, delivery, { tenant, eventType, payload, requestId }) {
-  const prisma = getPrismaClient();
-  const rawBody = JSON.stringify(buildWebhookBody({ tenant, eventType, payload }));
-
-  let result = null;
-  let attempt = 0;
-
-  // Initial attempt + up to RETRY_DELAYS_MS.length retries
-  while (attempt <= RETRY_DELAYS_MS.length) {
-    if (attempt > 0) {
-      const delay = RETRY_DELAYS_MS[attempt - 1];
-      logger.info("webhook_retry_scheduled", {
-        endpointId: endpoint.id,
-        deliveryId: delivery.id,
-        eventType,
-        attempt,
-        delayMs: delay,
-      });
-      await sleep(delay);
-    }
-
-    result = await attemptDelivery(endpoint, rawBody, {
-      eventType,
-      deliveryId: delivery.id,
-      requestId,
-    });
-
-    attempt += 1;
-
-    if (result.ok || !result.retryable) {
-      break;
-    }
-
-    logger.warn("webhook_delivery_attempt_failed", {
-      endpointId: endpoint.id,
-      deliveryId: delivery.id,
-      eventType,
-      attempt,
-      statusCode: result.statusCode,
-      retryable: result.retryable,
-      remainingRetries: RETRY_DELAYS_MS.length - attempt + 1,
-    });
-  }
-
-  const status = result.ok ? "SUCCESS" : "FAILED";
+async function persistDeliveryOutcome(prisma, endpoint, delivery, result) {
   const completedAt = new Date();
-
+  const status = result.ok ? "SUCCESS" : "FAILED";
   try {
     await prisma.$transaction([
       prisma.webhookDelivery.update({
@@ -164,13 +116,93 @@ async function deliverWebhook(endpoint, delivery, { tenant, eventType, payload, 
       error: dbError.message,
     });
   }
+}
 
-  if (!result.ok) {
+function scheduleWebhookRetries(endpoint, delivery, rawBody, { eventType, requestId }, attempt) {
+  if (attempt > RETRY_DELAYS_MS.length) {
+    return;
+  }
+
+  const delay = RETRY_DELAYS_MS[attempt - 1];
+
+  logger.info("webhook_retry_scheduled", {
+    endpointId: endpoint.id,
+    deliveryId: delivery.id,
+    eventType,
+    attempt,
+    delayMs: delay,
+  });
+
+  setTimeout(async () => {
+    const result = await attemptDelivery(endpoint, rawBody, {
+      eventType,
+      deliveryId: delivery.id,
+      requestId,
+    });
+
+    if (result.ok || !result.retryable) {
+      const prisma = getPrismaClient();
+      await persistDeliveryOutcome(prisma, endpoint, delivery, result);
+      if (!result.ok) {
+        logger.warn("webhook_delivery_failed", {
+          endpointId: endpoint.id,
+          eventType,
+          requestId,
+          attempt,
+          finalStatusCode: result.statusCode,
+        });
+      }
+      return;
+    }
+
+    logger.warn("webhook_delivery_attempt_failed", {
+      endpointId: endpoint.id,
+      deliveryId: delivery.id,
+      eventType,
+      attempt,
+      statusCode: result.statusCode,
+      retryable: result.retryable,
+      remainingRetries: RETRY_DELAYS_MS.length - attempt,
+    });
+
+    scheduleWebhookRetries(endpoint, delivery, rawBody, { eventType, requestId }, attempt + 1);
+  }, delay);
+}
+
+async function deliverWebhook(endpoint, delivery, { tenant, eventType, payload, requestId }) {
+  const prisma = getPrismaClient();
+  const rawBody = JSON.stringify(buildWebhookBody({ tenant, eventType, payload }));
+
+  // Perform the initial attempt synchronously in the request path.
+  const result = await attemptDelivery(endpoint, rawBody, {
+    eventType,
+    deliveryId: delivery.id,
+    requestId,
+  });
+
+  // Persist the outcome of the initial attempt.
+  await persistDeliveryOutcome(prisma, endpoint, delivery, result);
+
+  // If the initial attempt failed but is retryable, schedule background retries
+  // without blocking the caller.
+  if (!result.ok && result.retryable) {
+    logger.warn("webhook_delivery_attempt_failed", {
+      endpointId: endpoint.id,
+      deliveryId: delivery.id,
+      eventType,
+      attempt: 1,
+      statusCode: result.statusCode,
+      retryable: result.retryable,
+      remainingRetries: RETRY_DELAYS_MS.length,
+    });
+
+    scheduleWebhookRetries(endpoint, delivery, rawBody, { eventType, requestId }, 2);
+  } else if (!result.ok) {
     logger.warn("webhook_delivery_failed", {
       endpointId: endpoint.id,
       eventType,
       requestId,
-      totalAttempts: attempt,
+      attempt: 1,
       finalStatusCode: result.statusCode,
     });
   }

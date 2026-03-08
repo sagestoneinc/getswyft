@@ -2226,6 +2226,24 @@ tenantRouter.patch(
         return res.status(400).json({ ok: false, error: "No supported billing updates were provided" });
       }
 
+      const [seatHolders, invoices] = await Promise.all([
+        prisma.userRole.findMany({
+          where: {
+            tenantId: req.tenant.id,
+            role: { key: { in: MANAGED_ROLE_KEYS } },
+          },
+          distinct: ["userId"],
+          select: { userId: true },
+        }),
+        prisma.billingInvoice.findMany({
+          where: { tenantId: req.tenant.id },
+          orderBy: { issuedAt: "desc" },
+          take: 12,
+        }),
+      ]);
+
+      const activeSeats = seatHolders.length || 1;
+
       const subscription = await prisma.billingSubscription.upsert({
         where: { tenantId: req.tenant.id },
         create: {
@@ -2237,16 +2255,10 @@ tenantRouter.patch(
           status: data.status || "ACTIVE",
           seatPriceCents: data.seatPriceCents ?? 4900,
           currency: "USD",
-          activeSeats: 1,
-          nextBillingAt: data.nextBillingAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          activeSeats,
+          nextBillingAt: "nextBillingAt" in data ? data.nextBillingAt : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
-        update: data,
-      });
-
-      const invoices = await prisma.billingInvoice.findMany({
-        where: { tenantId: req.tenant.id },
-        orderBy: { issuedAt: "desc" },
-        take: 12,
+        update: { ...data, activeSeats },
       });
 
       await Promise.all([
@@ -2265,7 +2277,7 @@ tenantRouter.patch(
 
       return res.json({
         ok: true,
-        billing: serializeBilling(subscription, invoices, subscription.activeSeats),
+        billing: serializeBilling(subscription, invoices, activeSeats),
       });
     } catch (error) {
       return next(error);
@@ -2331,7 +2343,8 @@ tenantRouter.post(
       const subscription = await ensureBillingSubscription(prisma, req.tenant.id);
 
       const now = new Date();
-      const invoiceNumber = `INV-${req.tenant.slug.toUpperCase()}-${now.getTime()}`;
+      const randomSuffix = crypto.randomBytes(4).toString("hex").toUpperCase();
+      const invoiceNumber = `INV-${req.tenant.slug.toUpperCase()}-${now.getTime()}-${randomSuffix}`;
 
       const invoice = await prisma.billingInvoice.create({
         data: {
