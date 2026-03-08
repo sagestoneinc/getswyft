@@ -16,6 +16,7 @@ import { ModerationPage } from "../components/app/moderation-page";
 import { AuditPage } from "../components/app/audit-page";
 import { CollaborationPage } from "../components/app/collaboration-page";
 import { AdminPage } from "../components/app/admin-page";
+import { AddonsPage } from "../components/app/addons-page";
 
 export const privateRoutes: RouteObject[] = [
   {
@@ -35,6 +36,7 @@ export const privateRoutes: RouteObject[] = [
       { path: "analytics", Component: AnalyticsPage },
       { path: "team", Component: TeamPage },
       { path: "billing", Component: BillingPage },
+      { path: "addons", Component: AddonsPage },
       { path: "notifications", Component: NotificationsPage },
       { path: "ai", Component: AiPage },
       { path: "moderation", Component: ModerationPage },

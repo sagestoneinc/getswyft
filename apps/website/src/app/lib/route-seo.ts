@@ -173,6 +173,11 @@ const appRouteMetadata = [
     description: "Review plans, invoices, seats, and payment details for your SwyftUp workspace.",
   },
   {
+    match: (pathname: string) => pathname === "/app/addons",
+    title: "Add-ons | SwyftUp",
+    description: "Purchase phone numbers and integrate SIP or PSTN trunks for your SwyftUp workspace.",
+  },
+  {
     match: (pathname: string) => pathname === "/app/notifications",
     title: "Notifications | SwyftUp",
     description: "Review in-app notifications, push readiness, and delivery status in your SwyftUp workspace.",
