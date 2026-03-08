@@ -2146,6 +2146,15 @@ const VALID_BILLING_STATUSES = ["TRIALING", "ACTIVE", "PAST_DUE", "CANCELED"];
 const VALID_INVOICE_STATUSES = ["DRAFT", "OPEN", "PAID", "VOID"];
 
 async function ensureBillingSubscription(prisma, tenantId) {
+  const seatHolders = await prisma.userRole.findMany({
+    where: {
+      tenantId,
+      role: { key: { in: MANAGED_ROLE_KEYS } },
+    },
+    distinct: ["userId"],
+    select: { userId: true },
+  });
+  const activeSeats = seatHolders.length || 1;
   return prisma.billingSubscription.upsert({
     where: { tenantId },
     create: {
@@ -2157,10 +2166,10 @@ async function ensureBillingSubscription(prisma, tenantId) {
       status: "ACTIVE",
       seatPriceCents: 4900,
       currency: "USD",
-      activeSeats: 1,
+      activeSeats,
       nextBillingAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
-    update: {},
+    update: { activeSeats },
   });
 }
 
@@ -2257,6 +2266,9 @@ tenantRouter.patch(
           currency: "USD",
           activeSeats,
           nextBillingAt: "nextBillingAt" in data ? data.nextBillingAt : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          nextBillingAt: data.nextBillingAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          activeSeats: 1,
+          nextBillingAt: data.nextBillingAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
         update: { ...data, activeSeats },
       });
