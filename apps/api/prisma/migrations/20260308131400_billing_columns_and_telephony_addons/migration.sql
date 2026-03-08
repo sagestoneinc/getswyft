@@ -28,7 +28,7 @@ CREATE TABLE "TenantPhoneNumber" (
     "tenantId" TEXT NOT NULL,
     "phoneNumber" TEXT NOT NULL,
     "label" TEXT,
-    "provider" TEXT NOT NULL DEFAULT 'telnyx',
+    "provider" TEXT NOT NULL DEFAULT 'manual',
     "capabilities" JSONB,
     "status" "PhoneNumberStatus" NOT NULL DEFAULT 'ACTIVE',
     "monthlyCostCents" INTEGER NOT NULL DEFAULT 100,
@@ -48,7 +48,7 @@ CREATE TABLE "TenantSipTrunk" (
     "name" TEXT NOT NULL,
     "host" TEXT NOT NULL,
     "port" INTEGER NOT NULL DEFAULT 5060,
-    "transport" TEXT NOT NULL DEFAULT 'udp',
+    "transport" TEXT NOT NULL DEFAULT 'tls',
     "username" TEXT,
     "password" TEXT,
     "realm" TEXT,
@@ -61,7 +61,7 @@ CREATE TABLE "TenantSipTrunk" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "TenantPhoneNumber_tenantId_phoneNumber_key" ON "TenantPhoneNumber"("tenantId", "phoneNumber");
+CREATE UNIQUE INDEX "TenantPhoneNumber_tenantId_phoneNumber_status_key" ON "TenantPhoneNumber"("tenantId", "phoneNumber", "status");
 
 -- CreateIndex
 CREATE INDEX "TenantPhoneNumber_tenantId_status_idx" ON "TenantPhoneNumber"("tenantId", "status");

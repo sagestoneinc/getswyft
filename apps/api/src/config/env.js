@@ -65,6 +65,8 @@ const rawEnvSchema = z.object({
   BRAINTREE_ENV: z.enum(["sandbox", "production"]).default("sandbox"),
   BRAINTREE_PLAN_ID: z.string().optional(),
 
+  SIP_ENCRYPTION_KEY: z.string().optional(),
+
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_BASE_URL: z.string().optional(),
   OPENAI_MODEL: z.string().optional(),
