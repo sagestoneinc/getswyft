@@ -33,7 +33,7 @@ Each domain is encapsulated in its own route module under `src/modules/`:
 |--------|------------|-------------|
 | `auth` | `/v1/auth` | Returns the current user context (`/me`) |
 | `widget` | `/v1/widget` | Public visitor session creation and visitor-scoped messaging |
-| `tenants` | `/v1/tenants` | Tenant settings, branding, feature flags, routing config, webhooks, billing |
+| `tenants` | `/v1/tenants` | Tenant settings, branding, feature flags, custom domains, API keys, routing config, webhooks, billing |
 | `users` | `/v1/users` | Team management, invitations, role assignment, assignable members |
 | `messaging` | `/v1` | Conversations, messages, reactions, read receipts, attachments, outbound calls |
 | `channels` | `/v1/channels` | Channel CRUD, membership, channel messaging, threading, reactions |
@@ -87,6 +87,7 @@ The Prisma schema defines 40 models across these domains:
 - **TenantDomain** — custom domains per tenant with primary flag
 - **TenantBranding** — primary color, logo URL, support email
 - **TenantFeatureFlag** — per-tenant feature flags with JSON config
+- **TenantApiKey** — tenant-scoped API keys for server-to-server integrations with permission scoping
 - **TenantRoutingSettings** — routing mode (manual/first-available/round-robin), office hours, timezone, fallback user
 
 ### Identity and access
@@ -154,9 +155,9 @@ Development follows a six-phase plan. See [roadmap.md](roadmap.md) for the full 
 |-------|-------|--------|
 | 1 | Foundations | ✅ Complete |
 | 2 | Core Messaging | ✅ Complete |
-| 3 | Calling | ✅ Complete |
+| 3 | Calling | ⚠️ Partial (LiveKit media transport pending) |
 | 4 | Feed / Social | ✅ Complete |
-| 5 | Admin / Analytics / Security | ✅ Complete |
+| 5 | Admin / Analytics / Security | ⚠️ Partial (billing processor integration pending) |
 | 6 | AI Layer | ✅ Complete |
 
 ## Security
@@ -169,13 +170,13 @@ Development follows a six-phase plan. See [roadmap.md](roadmap.md) for the full 
 - Audit logging of all sensitive operations
 - Tenant-aware database queries (no cross-tenant data leaks)
 - Webhook payload signing with HMAC secrets
+- Tenant API key authentication for external integrations via `x-api-key`
 - Zod validation on all request bodies
 - Request tracing with structured logging
 - Dev auth bypass gated behind `DEV_AUTH_BYPASS=true` (disabled in production)
 
 ### Not yet implemented
 - CSRF protection
-- API key authentication for external integrations
 
 ## Frontend architecture
 

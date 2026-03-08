@@ -10,7 +10,7 @@ The platform defines seven permission keys. Each key maps to a dot-notation valu
 
 | Key | Value | Description |
 |-----|-------|-------------|
-| `tenantManage` | `tenant.manage` | Manage tenant-level settings including routing, billing, webhooks, compliance exports, and AI configuration. |
+| `tenantManage` | `tenant.manage` | Manage tenant-level settings including branding, domains, API keys, routing, billing, webhooks, compliance exports, and AI configuration. |
 | `userManage` | `user.manage` | Manage team members, send invitations, and assign or update user roles. |
 | `conversationRead` | `conversation.read` | View conversations, messages, channels, feed posts, call history, call sessions, and analytics summaries. |
 | `conversationWrite` | `conversation.write` | Send messages, create or update conversations and channels, initiate calls, post to the feed, upload files, manage moderation reports, and use AI chat/assist/voice-bot features. |
@@ -42,6 +42,8 @@ The table below maps every platform feature and API endpoint to the permission r
 | Feature / Action | API Route | Method | Required Permission |
 |---|---|---|---|
 | View current user info | `/v1/auth/me` | GET | (authenticated) |
+| Inspect invitation token | `/v1/auth/invitations/:token` | GET | Public |
+| Accept invitation token | `/v1/auth/invitations/accept` | POST | (authenticated) |
 | View profile | `/v1/auth/profile` | GET | (authenticated) |
 | Update profile | `/v1/auth/profile` | PATCH | (authenticated) |
 
@@ -52,6 +54,21 @@ The table below maps every platform feature and API endpoint to the permission r
 | Get tenant details | `/v1/tenants/current` | GET | (authenticated) |
 | Get routing settings | `/v1/tenants/current/settings` | GET | `tenant.manage` |
 | Update routing settings | `/v1/tenants/current/settings` | PATCH | `tenant.manage` |
+| Get branding | `/v1/tenants/current/branding` | GET | `tenant.manage` |
+| Update branding | `/v1/tenants/current/branding` | PATCH | `tenant.manage` |
+| List domains | `/v1/tenants/current/domains` | GET | `tenant.manage` |
+| Create domain | `/v1/tenants/current/domains` | POST | `tenant.manage` |
+| Update domain | `/v1/tenants/current/domains/:domainId` | PATCH | `tenant.manage` |
+| Delete domain | `/v1/tenants/current/domains/:domainId` | DELETE | `tenant.manage` |
+| List API keys | `/v1/tenants/current/api-keys` | GET | `tenant.manage` |
+| Create API key | `/v1/tenants/current/api-keys` | POST | `tenant.manage` |
+| Update API key | `/v1/tenants/current/api-keys/:apiKeyId` | PATCH | `tenant.manage` |
+| Rotate API key | `/v1/tenants/current/api-keys/:apiKeyId/rotate` | POST | `tenant.manage` |
+| Delete API key | `/v1/tenants/current/api-keys/:apiKeyId` | DELETE | `tenant.manage` |
+| List feature flags | `/v1/tenants/current/feature-flags` | GET | `featureflag.manage` |
+| Create feature flag | `/v1/tenants/current/feature-flags` | POST | `featureflag.manage` |
+| Update feature flag | `/v1/tenants/current/feature-flags/:key` | PATCH | `featureflag.manage` |
+| Delete feature flag | `/v1/tenants/current/feature-flags/:key` | DELETE | `featureflag.manage` |
 | List webhooks | `/v1/tenants/current/webhooks` | GET | `tenant.manage` |
 | Create webhook | `/v1/tenants/current/webhooks` | POST | `tenant.manage` |
 | Update webhook | `/v1/tenants/current/webhooks/:id` | PATCH | `tenant.manage` |
@@ -66,8 +83,13 @@ The table below maps every platform feature and API endpoint to the permission r
 | Get user roles | `/v1/users/me/roles` | GET | (authenticated) |
 | List assignable members | `/v1/users/team/assignable` | GET | `conversation.write` |
 | List team members | `/v1/users/team` | GET | `user.manage` |
+| List invitations | `/v1/users/team/invitations` | GET | `user.manage` |
+| Get invitation | `/v1/users/team/invitations/:invitationId` | GET | `user.manage` |
 | Send invitation | `/v1/users/team/invitations` | POST | `user.manage` |
+| Resend invitation | `/v1/users/team/invitations/:invitationId/resend` | POST | `user.manage` |
+| Revoke invitation | `/v1/users/team/invitations/:invitationId/revoke` | POST | `user.manage` |
 | Update member role | `/v1/users/team/members/:userId/role` | PATCH | `user.manage` |
+| Remove team member | `/v1/users/team/members/:userId` | DELETE | `user.manage` |
 
 ### Conversations
 
@@ -102,13 +124,13 @@ The table below maps every platform feature and API endpoint to the permission r
 |---|---|---|---|
 | Create call session | `/v1/calls/sessions` | POST | `conversation.write` |
 | List call sessions | `/v1/calls/sessions` | GET | `conversation.read` |
-| Get call session | `/v1/calls/sessions/:id` | GET | `conversation.read` |
-| Update call session | `/v1/calls/sessions/:id` | PATCH | `conversation.write` |
-| Add call participant | `/v1/calls/sessions/:id/participants` | POST | `conversation.write` |
-| Update call participant | `/v1/calls/sessions/:id/participants` | PATCH | `conversation.write` |
-| Remove call participant | `/v1/calls/sessions/:id/participants` | DELETE | `conversation.write` |
+| Get call session | `/v1/calls/sessions/:sessionId` | GET | `conversation.read` |
+| Update call session | `/v1/calls/sessions/:sessionId` | PATCH | `conversation.write` |
+| Add call participant | `/v1/calls/sessions/:sessionId/participants` | POST | `conversation.write` |
+| Update call participant | `/v1/calls/sessions/:sessionId/participants/:userId` | PATCH | `conversation.write` |
+| Remove call participant | `/v1/calls/sessions/:sessionId/participants/:userId` | DELETE | `conversation.write` |
 | List call history | `/v1/calls/history` | GET | `conversation.read` |
-| Submit call telemetry | `/v1/calls/sessions/:id/telemetry` | POST | `conversation.write` |
+| Submit call telemetry | `/v1/calls/sessions/:sessionId/telemetry` | POST | `conversation.write` |
 
 ### Feed
 
@@ -137,8 +159,9 @@ The table below maps every platform feature and API endpoint to the permission r
 | Feature / Action | API Route | Method | Required Permission |
 |---|---|---|---|
 | List compliance exports | `/v1/compliance/exports` | GET | `tenant.manage` |
-| Create compliance export | `/v1/compliance/exports` | POST | `tenant.manage` |
 | Get compliance export | `/v1/compliance/exports/:id` | GET | `tenant.manage` |
+| Update compliance export | `/v1/compliance/exports/:id` | PATCH | `tenant.manage` |
+| Resolve compliance export download | `/v1/compliance/exports/:id/download` | GET | `tenant.manage` |
 
 ### AI Features
 
@@ -208,6 +231,7 @@ The sidebar navigation items visible to each role are determined by the permissi
 ## Notes
 
 - **Authentication-only features** — Several endpoints require only a valid authentication token and do not check for a specific permission. These include viewing your own profile, reading notifications, registering devices, and recording analytics events. Every logged-in user can access these regardless of role.
+- **API keys** — Server-to-server integrations can authenticate with `x-api-key`. Each tenant API key carries its own permission set and is managed through tenant admin endpoints.
 - **Audit logs** accept either `tenant.manage` or `analytics.read`, meaning both Tenant Admins and any future role with `analytics.read` can view them.
 - **Creating a moderation report** requires `conversation.write` (available to Agents), but **reviewing and managing** moderation reports requires `moderation.manage` (Tenant Admin only).
 - Permissions are enforced server-side on every API request. The UI hides features for which the user lacks permission, but the API layer is the authoritative access-control boundary.

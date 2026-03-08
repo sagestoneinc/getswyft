@@ -10,6 +10,9 @@ export const SUPPORTED_WEBHOOK_EVENT_TYPES = [
   "message.sent",
   "system.test",
   "team.invite_sent",
+  "team.invite_resent",
+  "team.invite_revoked",
+  "team.invite_accepted",
 ];
 
 function toUniqueSupportedEventTypes(eventTypes) {

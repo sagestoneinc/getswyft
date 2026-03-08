@@ -7,6 +7,19 @@ export async function writeAuditLog(req, input) {
     return null;
   }
 
+  const metadata =
+    input.metadata && typeof input.metadata === "object" && !Array.isArray(input.metadata)
+      ? { ...input.metadata }
+      : input.metadata || null;
+  const metadataWithActor =
+    req.auth?.apiKey?.id && metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? {
+          ...metadata,
+          apiKeyId: req.auth.apiKey.id,
+          apiKeyName: req.auth.apiKey.name,
+        }
+      : metadata;
+
   return prisma.auditLog.create({
     data: {
       tenantId: req.tenant.id,
@@ -14,7 +27,7 @@ export async function writeAuditLog(req, input) {
       action: input.action,
       entityType: input.entityType,
       entityId: input.entityId || null,
-      metadata: input.metadata || null,
+      metadata: metadataWithActor,
       ipAddress: req.ip || null,
       userAgent: req.header("user-agent") || null,
     },

@@ -25,6 +25,8 @@ describe("Prisma schema integrity", () => {
     expectRegex(schema, /model\s+BillingSubscription\s+\{[\s\S]*?tenantId\s+String\s+@unique[\s\S]*?\n\}/m, "BillingSubscription should enforce one subscription per tenant");
     expectRegex(schema, /model\s+BillingInvoice\s+\{[\s\S]*?invoiceNumber\s+String\s+@unique[\s\S]*?\n\}/m, "BillingInvoice.invoiceNumber should be unique");
     expectRegex(schema, /model\s+NotificationDevice\s+\{[\s\S]*?token\s+String\s+@unique[\s\S]*?\n\}/m, "NotificationDevice.token should be unique");
+    expectRegex(schema, /model\s+TenantApiKey\s+\{[\s\S]*?keyPrefix\s+String\s+@unique[\s\S]*?\n\}/m, "TenantApiKey.keyPrefix should be unique");
+    expectRegex(schema, /model\s+TenantApiKey\s+\{[\s\S]*?secretHash\s+String\s+@unique[\s\S]*?\n\}/m, "TenantApiKey.secretHash should be unique");
     expectRegex(schema, /model\s+Channel\s+\{[\s\S]*?@@unique\(\[tenantId,\s*slug\]\)[\s\S]*?\n\}/m, "Channel should enforce unique tenant/slug");
     expectRegex(schema, /model\s+ChannelMember\s+\{[\s\S]*?@@unique\(\[channelId,\s*userId\]\)[\s\S]*?\n\}/m, "ChannelMember should enforce unique channel/user membership");
     expectRegex(schema, /model\s+ChannelMessageReaction\s+\{[\s\S]*?@@unique\(\[messageId,\s*userId,\s*emoji\]\)[\s\S]*?\n\}/m, "ChannelMessageReaction should enforce unique message/user/emoji reactions");
@@ -52,6 +54,10 @@ describe("Prisma schema integrity", () => {
     const invitations = getModelBlock("TenantInvitation");
     expectRegex(invitations, /acceptedUser\s+User\?\s+@relation\([^)]+onDelete:\s*SetNull[^)]*\)/, "TenantInvitation.acceptedUser should use SetNull");
 
+    const tenantApiKey = getModelBlock("TenantApiKey");
+    expectRegex(tenantApiKey, /createdByUser\s+User\?\s+@relation\([^)]+onDelete:\s*SetNull[^)]*\)/, "TenantApiKey.createdByUser should use SetNull");
+    expectRegex(tenantApiKey, /tenant\s+Tenant\s+@relation\([^)]+onDelete:\s*Cascade[^)]*\)/, "TenantApiKey.tenant should use Cascade");
+
     const channel = getModelBlock("Channel");
     expectRegex(channel, /tenant\s+Tenant\s+@relation\([^)]+onDelete:\s*Cascade[^)]*\)/, "Channel.tenant should use Cascade");
     expectRegex(channel, /createdByUser\s+User\?\s+@relation\([^)]+onDelete:\s*SetNull[^)]*\)/, "Channel.createdByUser should use SetNull");
@@ -73,6 +79,7 @@ describe("Prisma schema integrity", () => {
       "PresenceSession",
       "Conversation",
       "TenantInvitation",
+      "TenantApiKey",
       "WebhookEndpoint",
       "WebhookDelivery",
       "BillingInvoice",

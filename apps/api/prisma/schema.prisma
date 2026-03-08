@@ -110,6 +110,7 @@ model Tenant {
   moderationReports ModerationReport[]
   conversations     Conversation[]
   invitations       TenantInvitation[]
+  apiKeys           TenantApiKey[]
   webhookEndpoints  WebhookEndpoint[]
   webhookDeliveries WebhookDelivery[]
   billingSubscription BillingSubscription?
@@ -201,6 +202,7 @@ model User {
   messageReceipts       MessageReceipt[]
   sentInvitations       TenantInvitation[]    @relation("SentInvitations")
   acceptedInvitations   TenantInvitation[]    @relation("AcceptedInvitations")
+  createdTenantApiKeys  TenantApiKey[]        @relation("CreatedTenantApiKeys")
   routingFallbackTenants TenantRoutingSettings[] @relation("RoutingFallbackUser")
   notificationDevices   NotificationDevice[]
   channelMemberships       ChannelMember[]
@@ -422,6 +424,27 @@ model TenantInvitation {
   @@index([tenantId, status, createdAt])
   @@index([tenantId, email, status])
   @@index([email, status, expiresAt])
+}
+
+model TenantApiKey {
+  id              String    @id @default(cuid())
+  tenantId        String
+  createdByUserId String?
+  name            String
+  keyPrefix       String    @unique
+  secretHash      String    @unique
+  permissions     String[]
+  lastUsedAt      DateTime?
+  lastUsedIp      String?
+  disabledAt      DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  tenant         Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdByUser  User?  @relation("CreatedTenantApiKeys", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  @@index([tenantId, disabledAt, createdAt])
+  @@index([tenantId, name, createdAt])
 }
 
 model WebhookEndpoint {

@@ -1,28 +1,118 @@
 openapi: 3.1.0
 info:
   title: Getswyft API
-  version: 1.0.0
+  version: 1.1.0
+  description: |
+    Express + Socket.IO API for Getswyft.
+
+    Authentication supports:
+    - Bearer JWT access tokens for authenticated users
+    - `x-api-key` for tenant-scoped external integrations
+
+    Widget visitor routes use their own visitor-scoped bearer token after session creation.
 servers:
   - url: https://{host}
     variables:
       host:
         default: api.getswyft.local
+security:
+  - bearerAuth: []
+  - apiKeyAuth: []
+tags:
+  - name: Auth
+  - name: Tenants
+  - name: Users
+  - name: Notifications
+  - name: Storage
+  - name: Analytics
+  - name: Audit
+  - name: Messaging
+  - name: Channels
+  - name: Calling
+  - name: Feed
+  - name: Moderation
+  - name: Compliance
+  - name: AI
+  - name: Widget
 paths:
+  /v1/auth/invitations/{token}:
+    get:
+      tags: [Auth]
+      summary: Inspect an invitation token before sign-in or acceptance
+      security: []
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invitation token status and tenant metadata
+        "404":
+          description: Invitation not found
   /v1/auth/me:
     get:
+      tags: [Auth]
       summary: Get current authenticated user context
       responses:
         "200":
-          description: Current user and tenant context
-  /v1/tenants/current:
+          description: Current user and active tenant context
+  /v1/auth/memberships:
     get:
-      summary: Get current tenant details and feature flags
+      tags: [Auth]
+      summary: List tenant memberships available to the current principal
       responses:
         "200":
-          description: Tenant details
+          description: Membership list and current active tenant if set
+  /v1/auth/invitations/accept:
+    post:
+      tags: [Auth]
+      summary: Accept an invitation token as the authenticated user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        "201":
+          description: Invitation accepted and tenant membership granted
+        "403":
+          description: Invitation email does not match authenticated user
+        "409":
+          description: Invitation was revoked or already accepted
+        "410":
+          description: Invitation expired
+  /v1/auth/profile:
+    get:
+      tags: [Auth]
+      summary: Get the authenticated user's profile
+      responses:
+        "200":
+          description: User profile
+    patch:
+      tags: [Auth]
+      summary: Update the authenticated user's profile
+      responses:
+        "200":
+          description: Updated user profile
+
+  /v1/tenants:
+    post:
+      tags: [Tenants]
+      summary: Create a new tenant workspace and assign the current user as admin
+      responses:
+        "201":
+          description: Tenant created
   /v1/tenants/{tenantId}:
     delete:
-      summary: Permanently delete a tenant workspace (requires tenant.manage and another remaining tenant)
+      tags: [Tenants]
+      summary: Permanently delete a tenant workspace
       parameters:
         - in: path
           name: tenantId
@@ -32,30 +122,208 @@ paths:
       responses:
         "200":
           description: Tenant deleted
+  /v1/tenants/current:
+    get:
+      tags: [Tenants]
+      summary: Get current tenant details, branding, and feature flags
+      responses:
+        "200":
+          description: Tenant details
   /v1/tenants/current/settings:
     get:
-      summary: Get tenant routing settings and fallback candidates
+      tags: [Tenants]
+      summary: Get routing settings and fallback candidates
       responses:
         "200":
           description: Tenant routing settings
     patch:
-      summary: Update tenant routing settings
+      tags: [Tenants]
+      summary: Update routing settings
       responses:
         "200":
           description: Updated routing settings
+  /v1/tenants/current/branding:
+    get:
+      tags: [Tenants]
+      summary: Get tenant branding settings
+      responses:
+        "200":
+          description: Branding settings
+    patch:
+      tags: [Tenants]
+      summary: Update tenant branding, logo, and support email
+      responses:
+        "200":
+          description: Updated branding settings
+  /v1/tenants/current/feature-flags:
+    get:
+      tags: [Tenants]
+      summary: List tenant feature flags
+      responses:
+        "200":
+          description: Feature flags
+    post:
+      tags: [Tenants]
+      summary: Create a tenant feature flag
+      responses:
+        "201":
+          description: Feature flag created
+  /v1/tenants/current/feature-flags/{key}:
+    patch:
+      tags: [Tenants]
+      summary: Update a tenant feature flag
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Feature flag updated
+    delete:
+      tags: [Tenants]
+      summary: Delete a tenant feature flag
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Feature flag deleted
+  /v1/tenants/current/domains:
+    get:
+      tags: [Tenants]
+      summary: List custom domains assigned to the current tenant
+      responses:
+        "200":
+          description: Tenant domains
+    post:
+      tags: [Tenants]
+      summary: Add a custom domain to the current tenant
+      responses:
+        "201":
+          description: Domain created
+  /v1/tenants/current/domains/{domainId}:
+    patch:
+      tags: [Tenants]
+      summary: Update a tenant custom domain
+      parameters:
+        - in: path
+          name: domainId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Domain updated
+    delete:
+      tags: [Tenants]
+      summary: Delete a tenant custom domain
+      parameters:
+        - in: path
+          name: domainId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Domain deleted
+  /v1/tenants/current/api-keys:
+    get:
+      tags: [Tenants]
+      summary: List tenant API keys for external integrations
+      responses:
+        "200":
+          description: API key metadata
+    post:
+      tags: [Tenants]
+      summary: Create a tenant API key and return the raw token once
+      responses:
+        "201":
+          description: API key created
+  /v1/tenants/current/api-keys/{apiKeyId}:
+    patch:
+      tags: [Tenants]
+      summary: Update tenant API key metadata, permissions, or active state
+      parameters:
+        - in: path
+          name: apiKeyId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: API key updated
+    delete:
+      tags: [Tenants]
+      summary: Delete a tenant API key
+      parameters:
+        - in: path
+          name: apiKeyId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: API key deleted
+  /v1/tenants/current/api-keys/{apiKeyId}/rotate:
+    post:
+      tags: [Tenants]
+      summary: Rotate a tenant API key and return the new raw token once
+      parameters:
+        - in: path
+          name: apiKeyId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: API key rotated
   /v1/tenants/current/webhooks:
     get:
+      tags: [Tenants]
       summary: List tenant webhook endpoints and recent delivery logs
       responses:
         "200":
           description: Webhook workspace
     post:
+      tags: [Tenants]
       summary: Create a tenant webhook endpoint
       responses:
         "201":
           description: Webhook endpoint created
+  /v1/tenants/current/webhooks/deliveries/{deliveryId}:
+    get:
+      tags: [Tenants]
+      summary: Get a webhook delivery record and payload
+      parameters:
+        - in: path
+          name: deliveryId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Webhook delivery details
+  /v1/tenants/current/webhooks/deliveries/{deliveryId}/retry:
+    post:
+      tags: [Tenants]
+      summary: Retry a previous webhook delivery to the same endpoint
+      parameters:
+        - in: path
+          name: deliveryId
+          required: true
+          schema:
+            type: string
+      responses:
+        "202":
+          description: Retry dispatched
   /v1/tenants/current/webhooks/{webhookId}:
     patch:
+      tags: [Tenants]
       summary: Update a tenant webhook endpoint
       parameters:
         - in: path
@@ -67,6 +335,7 @@ paths:
         "200":
           description: Webhook endpoint updated
     delete:
+      tags: [Tenants]
       summary: Delete a tenant webhook endpoint
       parameters:
         - in: path
@@ -79,7 +348,8 @@ paths:
           description: Webhook endpoint deleted
   /v1/tenants/current/webhooks/{webhookId}/test:
     post:
-      summary: Send a test webhook delivery to a tenant endpoint
+      tags: [Tenants]
+      summary: Send a test delivery to a tenant webhook endpoint
       parameters:
         - in: path
           name: webhookId
@@ -88,34 +358,126 @@ paths:
             type: string
       responses:
         "202":
-          description: Test webhook dispatched
+          description: Test delivery dispatched
   /v1/tenants/current/billing:
     get:
+      tags: [Tenants]
       summary: Get tenant billing summary and invoices
       responses:
         "200":
           description: Billing workspace
+
   /v1/users/me/roles:
     get:
-      summary: Get current user's roles and permissions in tenant
+      tags: [Users]
+      summary: Get current user's roles and permissions in the active tenant
       responses:
         "200":
           description: Role and permission details
   /v1/users/team/assignable:
     get:
-      summary: List assignable tenant teammates for conversation routing and transfer
+      tags: [Users]
+      summary: List assignable tenant members for routing and transfer
       responses:
         "200":
           description: Assignable team members
+  /v1/users/team:
+    get:
+      tags: [Users]
+      summary: List active team members plus pending invitations
+      responses:
+        "200":
+          description: Team workspace state
+  /v1/users/team/invitations:
+    get:
+      tags: [Users]
+      summary: List invitation history for the current tenant
+      responses:
+        "200":
+          description: Invitation list
+    post:
+      tags: [Users]
+      summary: Invite a new team member via email
+      responses:
+        "201":
+          description: Invitation created and email requested
+  /v1/users/team/invitations/{invitationId}:
+    get:
+      tags: [Users]
+      summary: Get a single invitation record
+      parameters:
+        - in: path
+          name: invitationId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invitation details
+  /v1/users/team/invitations/{invitationId}/resend:
+    post:
+      tags: [Users]
+      summary: Resend an invitation by issuing a fresh token and email
+      parameters:
+        - in: path
+          name: invitationId
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Invitation resent
+  /v1/users/team/invitations/{invitationId}/revoke:
+    post:
+      tags: [Users]
+      summary: Revoke an invitation
+      parameters:
+        - in: path
+          name: invitationId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Invitation revoked
+  /v1/users/team/members/{userId}/role:
+    patch:
+      tags: [Users]
+      summary: Update a tenant team member role
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Team member updated
+  /v1/users/team/members/{userId}:
+    delete:
+      tags: [Users]
+      summary: Remove a team member from the current tenant
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Team member removed
+
   /v1/notifications:
     get:
-      summary: List notifications for current user
+      tags: [Notifications]
+      summary: List notifications for the current user
       responses:
         "200":
           description: Notification list
   /v1/notifications/{id}/read:
     post:
-      summary: Mark notification as read
+      tags: [Notifications]
+      summary: Mark a notification as read
       parameters:
         - in: path
           name: id
@@ -127,65 +489,74 @@ paths:
           description: Notification marked as read
   /v1/notifications/devices:
     post:
-      summary: Register the current browser or device for push notifications
+      tags: [Notifications]
+      summary: Register a browser or device for push notifications
       responses:
         "201":
           description: Notification device registered
     delete:
-      summary: Disable a previously registered push notification device token
+      tags: [Notifications]
+      summary: Disable a registered push notification device token
       responses:
         "200":
           description: Notification device disabled
   /v1/notifications/test:
     post:
-      summary: Create and fan out a test push notification to the current user
+      tags: [Notifications]
+      summary: Send a test push notification to the current user
       responses:
         "201":
           description: Test notification created
+
   /v1/storage/presign-upload:
     post:
-      summary: Create upload URL for attachment storage
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                filename:
-                  type: string
-                contentType:
-                  type: string
+      tags: [Storage]
+      summary: Create a presigned upload target for attachments
       responses:
         "200":
-          description: Presigned upload response
+          description: Upload target created
   /v1/storage/upload:
     put:
-      summary: Upload a file directly (used with the local storage provider)
+      tags: [Storage]
+      summary: Upload a file directly when using local storage
       responses:
         "201":
           description: File uploaded
+
   /v1/analytics/events:
     post:
-      summary: Ingest analytics event
+      tags: [Analytics]
+      summary: Ingest an analytics event for the current tenant
       responses:
         "202":
           description: Event accepted
   /v1/analytics/summary:
     get:
+      tags: [Analytics]
       summary: Get aggregated analytics summary for the current tenant
       responses:
         "200":
           description: Analytics summary
+
+  /v1/audit-logs:
+    get:
+      tags: [Audit]
+      summary: List tenant audit logs with cursor pagination
+      responses:
+        "200":
+          description: Audit log list
+
   /v1/conversations:
     get:
-      summary: List tenant conversations with search and workflow filters
+      tags: [Messaging]
+      summary: List tenant conversations with workflow and search filters
       responses:
         "200":
           description: Conversation list
   /v1/conversations/{id}:
     get:
-      summary: Get a single tenant conversation
+      tags: [Messaging]
+      summary: Get a single conversation
       parameters:
         - in: path
           name: id
@@ -196,7 +567,8 @@ paths:
         "200":
           description: Conversation detail
     patch:
-      summary: Update conversation assignment, transfer, notes, or workflow status
+      tags: [Messaging]
+      summary: Update conversation assignment, status, or notes
       parameters:
         - in: path
           name: id
@@ -205,10 +577,11 @@ paths:
             type: string
       responses:
         "200":
-          description: Updated conversation detail
+          description: Updated conversation
   /v1/conversations/{id}/messages:
     get:
-      summary: List messages for a conversation
+      tags: [Messaging]
+      summary: List messages in a conversation
       parameters:
         - in: path
           name: id
@@ -217,9 +590,10 @@ paths:
             type: string
       responses:
         "200":
-          description: Conversation message list
+          description: Conversation messages
     post:
-      summary: Send a message to a conversation
+      tags: [Messaging]
+      summary: Send a conversation message with optional attachments or threading
       parameters:
         - in: path
           name: id
@@ -231,7 +605,8 @@ paths:
           description: Message created
   /v1/conversations/{id}/call:
     post:
-      summary: Start an outbound call for the conversation lead using the configured telephony provider
+      tags: [Messaging]
+      summary: Start an outbound telephony call to the conversation lead
       parameters:
         - in: path
           name: id
@@ -243,7 +618,8 @@ paths:
           description: Outbound call initiated
   /v1/conversations/{id}/read:
     post:
-      summary: Mark all visible messages in a conversation as read for the current user
+      tags: [Messaging]
+      summary: Mark all visible conversation messages as read
       parameters:
         - in: path
           name: id
@@ -255,7 +631,8 @@ paths:
           description: Read receipts updated
   /v1/messages/{id}/reactions:
     post:
-      summary: Toggle a reaction on a message for the current user
+      tags: [Messaging]
+      summary: Toggle a reaction on a conversation message
       parameters:
         - in: path
           name: id
@@ -265,22 +642,68 @@ paths:
       responses:
         "200":
           description: Reaction state updated
-  /v1/users/team:
+
+  /v1/channels:
     get:
-      summary: List tenant members and pending invitations
+      tags: [Channels]
+      summary: List channels for the current tenant
       responses:
         "200":
-          description: Team workspace state
-  /v1/users/team/invitations:
+          description: Channel list
     post:
-      summary: Invite a new team member via email
+      tags: [Channels]
+      summary: Create a channel
       responses:
         "201":
-          description: Invitation created and email requested
-  /v1/users/team/members/{userId}/role:
-    patch:
-      summary: Update a tenant team member role
+          description: Channel created
+  /v1/channels/{channelId}:
+    get:
+      tags: [Channels]
+      summary: Get channel details and membership
       parameters:
+        - in: path
+          name: channelId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Channel detail
+    patch:
+      tags: [Channels]
+      summary: Update channel metadata or archive state
+      parameters:
+        - in: path
+          name: channelId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Channel updated
+  /v1/channels/{channelId}/members:
+    post:
+      tags: [Channels]
+      summary: Add a member to a channel
+      parameters:
+        - in: path
+          name: channelId
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Member added
+  /v1/channels/{channelId}/members/{userId}:
+    delete:
+      tags: [Channels]
+      summary: Remove a member from a channel
+      parameters:
+        - in: path
+          name: channelId
+          required: true
+          schema:
+            type: string
         - in: path
           name: userId
           required: true
@@ -288,10 +711,447 @@ paths:
             type: string
       responses:
         "200":
-          description: Team member updated
-  /v1/audit-logs:
+          description: Member removed
+  /v1/channels/{channelId}/messages:
     get:
-      summary: List tenant audit logs
+      tags: [Channels]
+      summary: List messages in a channel
+      parameters:
+        - in: path
+          name: channelId
+          required: true
+          schema:
+            type: string
       responses:
         "200":
-          description: Audit log list
+          description: Channel messages
+    post:
+      tags: [Channels]
+      summary: Send a message to a channel
+      parameters:
+        - in: path
+          name: channelId
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Channel message created
+  /v1/channels/{channelId}/messages/{messageId}/reactions:
+    post:
+      tags: [Channels]
+      summary: Toggle a reaction on a channel message
+      parameters:
+        - in: path
+          name: channelId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: messageId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Channel message reaction updated
+
+  /v1/calls/sessions:
+    post:
+      tags: [Calling]
+      summary: Create a call session
+      responses:
+        "201":
+          description: Call session created
+    get:
+      tags: [Calling]
+      summary: List call sessions for the current tenant
+      responses:
+        "200":
+          description: Call session list
+  /v1/calls/sessions/{sessionId}:
+    get:
+      tags: [Calling]
+      summary: Get call session details
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Call session detail
+    patch:
+      tags: [Calling]
+      summary: Update call session status
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Call session updated
+  /v1/calls/sessions/{sessionId}/participants:
+    post:
+      tags: [Calling]
+      summary: Add a participant to a call session
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Participant added
+  /v1/calls/sessions/{sessionId}/participants/{userId}:
+    patch:
+      tags: [Calling]
+      summary: Update participant mute or hold state
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Participant updated
+    delete:
+      tags: [Calling]
+      summary: Remove a participant from a call session
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Participant removed
+  /v1/calls/history:
+    get:
+      tags: [Calling]
+      summary: List completed calls for the current tenant
+      responses:
+        "200":
+          description: Completed call history
+  /v1/calls/sessions/{sessionId}/telemetry:
+    post:
+      tags: [Calling]
+      summary: Record a call telemetry event
+      parameters:
+        - in: path
+          name: sessionId
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Telemetry recorded
+
+  /v1/feed:
+    get:
+      tags: [Feed]
+      summary: List feed posts visible to the current user
+      responses:
+        "200":
+          description: Feed post list
+    post:
+      tags: [Feed]
+      summary: Create a feed post
+      responses:
+        "201":
+          description: Post created
+  /v1/feed/{postId}:
+    get:
+      tags: [Feed]
+      summary: Get a feed post with comments and reactions
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Post detail
+    patch:
+      tags: [Feed]
+      summary: Update a feed post
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Post updated
+    delete:
+      tags: [Feed]
+      summary: Delete a feed post
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Post deleted
+  /v1/feed/{postId}/comments:
+    post:
+      tags: [Feed]
+      summary: Add a comment to a post
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Comment created
+  /v1/feed/{postId}/comments/{commentId}:
+    delete:
+      tags: [Feed]
+      summary: Delete a post comment
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: commentId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Comment deleted
+  /v1/feed/{postId}/reactions:
+    post:
+      tags: [Feed]
+      summary: Toggle a reaction on a feed post
+      parameters:
+        - in: path
+          name: postId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Post reaction updated
+
+  /v1/moderation:
+    get:
+      tags: [Moderation]
+      summary: List moderation reports
+      responses:
+        "200":
+          description: Moderation report list
+    post:
+      tags: [Moderation]
+      summary: Create a moderation report
+      responses:
+        "201":
+          description: Moderation report created
+  /v1/moderation/{reportId}:
+    get:
+      tags: [Moderation]
+      summary: Get moderation report details
+      parameters:
+        - in: path
+          name: reportId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Moderation report detail
+    patch:
+      tags: [Moderation]
+      summary: Update moderation report status
+      parameters:
+        - in: path
+          name: reportId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Moderation report updated
+
+  /v1/compliance/exports:
+    get:
+      tags: [Compliance]
+      summary: List compliance export requests
+      responses:
+        "200":
+          description: Compliance export list
+    post:
+      tags: [Compliance]
+      summary: Request a new compliance export
+      responses:
+        "201":
+          description: Export requested
+  /v1/compliance/exports/{exportId}:
+    get:
+      tags: [Compliance]
+      summary: Get compliance export details
+      parameters:
+        - in: path
+          name: exportId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Export detail
+    patch:
+      tags: [Compliance]
+      summary: Update export status, storage metadata, or download URL
+      parameters:
+        - in: path
+          name: exportId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Export updated
+  /v1/compliance/exports/{exportId}/download:
+    get:
+      tags: [Compliance]
+      summary: Resolve the published download URL for a completed export
+      parameters:
+        - in: path
+          name: exportId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Export download resolution
+
+  /v1/ai/config:
+    get:
+      tags: [AI]
+      summary: List AI provider configurations for the current tenant
+      responses:
+        "200":
+          description: AI configuration list
+  /v1/ai/config/{key}:
+    put:
+      tags: [AI]
+      summary: Create or update a tenant AI configuration
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: AI configuration upserted
+    delete:
+      tags: [AI]
+      summary: Delete a tenant AI configuration
+      parameters:
+        - in: path
+          name: key
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: AI configuration deleted
+  /v1/ai/chat:
+    post:
+      tags: [AI]
+      summary: Run the tenant chatbot
+      responses:
+        "200":
+          description: Chatbot response
+  /v1/ai/summarize:
+    post:
+      tags: [AI]
+      summary: Summarize a conversation, channel, or provided text input
+      responses:
+        "200":
+          description: Summary response
+  /v1/ai/moderate:
+    post:
+      tags: [AI]
+      summary: Run AI-assisted moderation against supplied content
+      responses:
+        "200":
+          description: Moderation response
+  /v1/ai/assist:
+    post:
+      tags: [AI]
+      summary: Run assistant orchestration for agents
+      responses:
+        "200":
+          description: Assistant response
+  /v1/ai/interactions:
+    get:
+      tags: [AI]
+      summary: List AI interactions for the tenant
+      responses:
+        "200":
+          description: AI interaction list
+  /v1/ai/voice-bot:
+    post:
+      tags: [AI]
+      summary: Run the voice bot extension point
+      responses:
+        "200":
+          description: Voice bot response
+
+  /v1/widget/session:
+    post:
+      tags: [Widget]
+      summary: Create a public widget session and issue a visitor token
+      security: []
+      responses:
+        "201":
+          description: Widget session created
+  /v1/widget/conversations/{id}/messages:
+    post:
+      tags: [Widget]
+      summary: Send a visitor message into a widget conversation
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Visitor message created
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: x-api-key

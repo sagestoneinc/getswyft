@@ -8,6 +8,7 @@ export function requestContextMiddleware(req, _res, next) {
     requestId: req.header("x-request-id") || crypto.randomUUID(),
     tenantId: null,
     userId: null,
+    apiKeyId: null,
     roles: [],
     permissions: [],
   };
@@ -22,6 +23,7 @@ export function extendRequestContext(req, patch) {
       requestId: crypto.randomUUID(),
       tenantId: null,
       userId: null,
+      apiKeyId: null,
       roles: [],
       permissions: [],
     };

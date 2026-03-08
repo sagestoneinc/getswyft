@@ -4,6 +4,11 @@ import { getPrismaClient } from "../../lib/db.js";
 import { recordAnalyticsEvent } from "../../lib/analytics.js";
 import { writeAuditLog } from "../../lib/audit.js";
 import {
+  generateTenantApiKeyValue,
+  maskApiKeyPrefix,
+  normalizeApiKeyPermissions,
+} from "../../lib/api-keys.js";
+import {
   SUPPORTED_WEBHOOK_EVENT_TYPES,
   dispatchTenantWebhookEvent,
   sanitizeWebhookEventTypes,
@@ -18,6 +23,9 @@ const MANAGED_ROLE_KEYS = ["tenant_admin", "agent"];
 const ROUTING_MODE_VALUES = ["manual", "first_available", "round_robin"];
 const TIME_PATTERN = /^\d{2}:\d{2}$/;
 const TENANT_SLUG_MAX_LENGTH = 48;
+const HEX_COLOR_PATTERN = /^#?[0-9a-fA-F]{6}$/;
+const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const DOMAIN_PATTERN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
 const DEFAULT_FEATURE_FLAGS = [
   {
     key: "phase1_foundations",
@@ -38,12 +46,66 @@ function serializeTenantBase(tenant, branding, featureFlags) {
     slug: tenant.slug,
     name: tenant.name,
     status: tenant.status,
-    branding,
-    featureFlags: featureFlags.map((flag) => ({
-      key: flag.key,
-      enabled: flag.enabled,
-      config: flag.config,
-    })),
+    branding: serializeBranding(branding),
+    featureFlags: featureFlags.map(serializeFeatureFlag),
+  };
+}
+
+function serializeBranding(branding) {
+  if (!branding) {
+    return null;
+  }
+
+  return {
+    id: branding.id,
+    tenantId: branding.tenantId,
+    primaryColor: branding.primaryColor,
+    logoUrl: branding.logoUrl,
+    supportEmail: branding.supportEmail,
+    createdAt: branding.createdAt,
+    updatedAt: branding.updatedAt,
+  };
+}
+
+function serializeFeatureFlag(flag) {
+  return {
+    key: flag.key,
+    enabled: flag.enabled,
+    config: flag.config,
+    createdAt: flag.createdAt,
+    updatedAt: flag.updatedAt,
+  };
+}
+
+function serializeTenantDomain(domain) {
+  return {
+    id: domain.id,
+    domain: domain.domain,
+    isPrimary: domain.isPrimary,
+    createdAt: domain.createdAt,
+  };
+}
+
+function serializeTenantApiKey(apiKey) {
+  return {
+    id: apiKey.id,
+    name: apiKey.name,
+    keyPrefix: apiKey.keyPrefix,
+    keyHint: maskApiKeyPrefix(apiKey.keyPrefix),
+    permissions: apiKey.permissions,
+    isActive: !apiKey.disabledAt,
+    lastUsedAt: apiKey.lastUsedAt,
+    lastUsedIp: apiKey.lastUsedIp,
+    disabledAt: apiKey.disabledAt,
+    createdAt: apiKey.createdAt,
+    updatedAt: apiKey.updatedAt,
+    createdBy: apiKey.createdByUser
+      ? {
+          id: apiKey.createdByUser.id,
+          email: apiKey.createdByUser.email,
+          displayName: apiKey.createdByUser.displayName || null,
+        }
+      : null,
   };
 }
 
@@ -206,6 +268,81 @@ function assertValidWebhookUrl(url) {
   }
 }
 
+function assertValidHttpUrl(url) {
+  return assertValidWebhookUrl(url);
+}
+
+function assertValidEmail(value) {
+  return BASIC_EMAIL_PATTERN.test(String(value || "").trim());
+}
+
+function normalizeHexColor(value) {
+  const trimmed = String(value || "").trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (!HEX_COLOR_PATTERN.test(trimmed)) {
+    return null;
+  }
+
+  return trimmed.startsWith("#") ? trimmed : `#${trimmed}`;
+}
+
+function normalizeDomainValue(value) {
+  const normalized = String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/+$/, "");
+
+  return normalized;
+}
+
+function assertValidDomain(domain) {
+  return DOMAIN_PATTERN.test(normalizeDomainValue(domain));
+}
+
+async function expireTenantInvitations(prisma, tenantId) {
+  await prisma.tenantInvitation.updateMany({
+    where: {
+      tenantId,
+      status: "PENDING",
+      expiresAt: {
+        lte: new Date(),
+      },
+    },
+    data: {
+      status: "EXPIRED",
+    },
+  });
+}
+
+async function resolvePermissionKeys(prisma, permissions, { required = false } = {}) {
+  const normalized = normalizeApiKeyPermissions(permissions);
+  if (!normalized.length) {
+    return required ? null : [];
+  }
+
+  const rows = await prisma.permission.findMany({
+    where: {
+      key: {
+        in: normalized,
+      },
+    },
+    select: {
+      key: true,
+    },
+  });
+
+  const resolved = rows.map((row) => row.key);
+  if (resolved.length !== normalized.length) {
+    return null;
+  }
+
+  return normalized;
+}
+
 function normalizeTenantSlug(value) {
   const slug = String(value || "")
     .trim()
@@ -298,7 +435,8 @@ tenantRouter.post("/", requireAuth, async (req, res, next) => {
       });
     }
 
-    if (requestedPrimaryColor && !/^#?[0-9a-fA-F]{6}$/.test(requestedPrimaryColor)) {
+    const primaryColor = requestedPrimaryColor ? normalizeHexColor(requestedPrimaryColor) : "#14b8a6";
+    if (!primaryColor) {
       return res.status(400).json({
         ok: false,
         error: "primaryColor must be a valid 6-digit hex value",
@@ -306,11 +444,12 @@ tenantRouter.post("/", requireAuth, async (req, res, next) => {
     }
 
     const supportEmail = requestedSupportEmail || req.auth.user.email;
-    const primaryColor = requestedPrimaryColor
-      ? requestedPrimaryColor.startsWith("#")
-        ? requestedPrimaryColor
-        : `#${requestedPrimaryColor}`
-      : "#14b8a6";
+    if (supportEmail && !assertValidEmail(supportEmail)) {
+      return res.status(400).json({
+        ok: false,
+        error: "supportEmail must be a valid email address",
+      });
+    }
 
     const created = await prisma.$transaction(async (tx) => {
       const tenant = await tx.tenant.create({
@@ -663,6 +802,842 @@ tenantRouter.patch("/current/settings", requireAuth, requireTenant, requirePermi
       ok: true,
       settings: serializeRoutingSettings(settings, fallbackCandidates),
       fallbackCandidates,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.get("/current/branding", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const branding = await prisma.tenantBranding.findUnique({
+      where: {
+        tenantId: req.tenant.id,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      branding: serializeBranding(branding),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.patch("/current/branding", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const data = {};
+
+    if (req.body?.primaryColor !== undefined) {
+      if (!req.body.primaryColor) {
+        data.primaryColor = null;
+      } else {
+        const primaryColor = normalizeHexColor(req.body.primaryColor);
+        if (!primaryColor) {
+          return res.status(400).json({
+            ok: false,
+            error: "primaryColor must be a valid 6-digit hex value",
+          });
+        }
+
+        data.primaryColor = primaryColor;
+      }
+    }
+
+    if (req.body?.logoUrl !== undefined) {
+      const logoUrl = String(req.body.logoUrl || "").trim();
+      if (logoUrl && !assertValidHttpUrl(logoUrl)) {
+        return res.status(400).json({
+          ok: false,
+          error: "logoUrl must be a valid http or https URL",
+        });
+      }
+
+      data.logoUrl = logoUrl || null;
+    }
+
+    if (req.body?.supportEmail !== undefined) {
+      const supportEmail = String(req.body.supportEmail || "").trim().toLowerCase();
+      if (supportEmail && !assertValidEmail(supportEmail)) {
+        return res.status(400).json({
+          ok: false,
+          error: "supportEmail must be a valid email address",
+        });
+      }
+
+      data.supportEmail = supportEmail || null;
+    }
+
+    if (!Object.keys(data).length) {
+      return res.status(400).json({
+        ok: false,
+        error: "No supported branding changes were provided",
+      });
+    }
+
+    const branding = await prisma.tenantBranding.upsert({
+      where: {
+        tenantId: req.tenant.id,
+      },
+      update: data,
+      create: {
+        tenantId: req.tenant.id,
+        ...data,
+      },
+    });
+
+    await Promise.all([
+      writeAuditLog(req, {
+        action: "tenant.branding_updated",
+        entityType: "tenant_branding",
+        entityId: branding.id,
+        metadata: {
+          keys: Object.keys(data),
+        },
+      }),
+      recordAnalyticsEvent(req, {
+        eventName: "tenant.branding_updated",
+        eventCategory: "tenant",
+        metadata: {
+          keys: Object.keys(data),
+        },
+      }),
+    ]);
+
+    return res.json({
+      ok: true,
+      branding: serializeBranding(branding),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.get("/current/feature-flags", requireAuth, requireTenant, requirePermission("featureflag.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const featureFlags = await prisma.tenantFeatureFlag.findMany({
+      where: {
+        tenantId: req.tenant.id,
+      },
+      orderBy: {
+        key: "asc",
+      },
+    });
+
+    return res.json({
+      ok: true,
+      featureFlags: featureFlags.map(serializeFeatureFlag),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.post("/current/feature-flags", requireAuth, requireTenant, requirePermission("featureflag.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const key = String(req.body?.key || "").trim();
+    const enabled = req.body?.enabled !== undefined ? Boolean(req.body.enabled) : false;
+    const config = req.body?.config === undefined ? null : req.body.config;
+
+    if (!key || !/^[a-z0-9._-]{2,64}$/i.test(key)) {
+      return res.status(400).json({
+        ok: false,
+        error: "key must be 2-64 characters and use only letters, numbers, dots, underscores, or dashes",
+      });
+    }
+
+    const existingFlag = await prisma.tenantFeatureFlag.findUnique({
+      where: {
+        tenantId_key: {
+          tenantId: req.tenant.id,
+          key,
+        },
+      },
+    });
+
+    if (existingFlag) {
+      return res.status(409).json({
+        ok: false,
+        error: "A feature flag with that key already exists for this tenant",
+      });
+    }
+
+    const featureFlag = await prisma.tenantFeatureFlag.create({
+      data: {
+        tenantId: req.tenant.id,
+        key,
+        enabled,
+        config,
+      },
+    });
+
+    await Promise.all([
+      writeAuditLog(req, {
+        action: "tenant.feature_flag_created",
+        entityType: "tenant_feature_flag",
+        entityId: featureFlag.id,
+        metadata: {
+          key,
+          enabled,
+        },
+      }),
+      recordAnalyticsEvent(req, {
+        eventName: "tenant.feature_flag_created",
+        eventCategory: "tenant",
+        metadata: {
+          key,
+          enabled,
+        },
+      }),
+    ]);
+
+    return res.status(201).json({
+      ok: true,
+      featureFlag: serializeFeatureFlag(featureFlag),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.patch("/current/feature-flags/:key", requireAuth, requireTenant, requirePermission("featureflag.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const key = String(req.params.key || "").trim();
+    const data = {};
+
+    const existingFlag = await prisma.tenantFeatureFlag.findUnique({
+      where: {
+        tenantId_key: {
+          tenantId: req.tenant.id,
+          key,
+        },
+      },
+    });
+
+    if (!existingFlag) {
+      return res.status(404).json({
+        ok: false,
+        error: "Feature flag not found",
+      });
+    }
+
+    if (req.body?.enabled !== undefined) {
+      data.enabled = Boolean(req.body.enabled);
+    }
+
+    if (req.body?.config !== undefined) {
+      data.config = req.body.config;
+    }
+
+    if (!Object.keys(data).length) {
+      return res.status(400).json({
+        ok: false,
+        error: "No supported feature flag changes were provided",
+      });
+    }
+
+    const featureFlag = await prisma.tenantFeatureFlag.update({
+      where: {
+        id: existingFlag.id,
+      },
+      data,
+    });
+
+    await writeAuditLog(req, {
+      action: "tenant.feature_flag_updated",
+      entityType: "tenant_feature_flag",
+      entityId: featureFlag.id,
+      metadata: {
+        key,
+        keys: Object.keys(data),
+      },
+    });
+
+    return res.json({
+      ok: true,
+      featureFlag: serializeFeatureFlag(featureFlag),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.delete("/current/feature-flags/:key", requireAuth, requireTenant, requirePermission("featureflag.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const key = String(req.params.key || "").trim();
+
+    const existingFlag = await prisma.tenantFeatureFlag.findUnique({
+      where: {
+        tenantId_key: {
+          tenantId: req.tenant.id,
+          key,
+        },
+      },
+    });
+
+    if (!existingFlag) {
+      return res.status(404).json({
+        ok: false,
+        error: "Feature flag not found",
+      });
+    }
+
+    await prisma.tenantFeatureFlag.delete({
+      where: {
+        id: existingFlag.id,
+      },
+    });
+
+    await writeAuditLog(req, {
+      action: "tenant.feature_flag_deleted",
+      entityType: "tenant_feature_flag",
+      entityId: existingFlag.id,
+      metadata: {
+        key,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      deletedKey: key,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.get("/current/domains", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const domains = await prisma.tenantDomain.findMany({
+      where: {
+        tenantId: req.tenant.id,
+      },
+      orderBy: [
+        { isPrimary: "desc" },
+        { createdAt: "asc" },
+      ],
+    });
+
+    return res.json({
+      ok: true,
+      domains: domains.map(serializeTenantDomain),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.post("/current/domains", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const domainValue = normalizeDomainValue(req.body?.domain);
+    const requestedPrimary = Boolean(req.body?.isPrimary);
+
+    if (!domainValue || !assertValidDomain(domainValue)) {
+      return res.status(400).json({
+        ok: false,
+        error: "domain must be a valid hostname",
+      });
+    }
+
+    const [existingTenantDomains, existingDomain] = await Promise.all([
+      prisma.tenantDomain.findMany({
+        where: {
+          tenantId: req.tenant.id,
+        },
+        orderBy: {
+          createdAt: "asc",
+        },
+      }),
+      prisma.tenantDomain.findUnique({
+        where: {
+          domain: domainValue,
+        },
+      }),
+    ]);
+
+    if (existingDomain) {
+      return res.status(409).json({
+        ok: false,
+        error: "That domain is already assigned to a tenant",
+      });
+    }
+
+    const isPrimary = requestedPrimary || existingTenantDomains.length === 0;
+    const domain = await prisma.$transaction(async (tx) => {
+      if (isPrimary) {
+        await tx.tenantDomain.updateMany({
+          where: {
+            tenantId: req.tenant.id,
+          },
+          data: {
+            isPrimary: false,
+          },
+        });
+      }
+
+      return tx.tenantDomain.create({
+        data: {
+          tenantId: req.tenant.id,
+          domain: domainValue,
+          isPrimary,
+        },
+      });
+    });
+
+    await writeAuditLog(req, {
+      action: "tenant.domain_created",
+      entityType: "tenant_domain",
+      entityId: domain.id,
+      metadata: {
+        domain: domain.domain,
+        isPrimary: domain.isPrimary,
+      },
+    });
+
+    return res.status(201).json({
+      ok: true,
+      domain: serializeTenantDomain(domain),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.patch("/current/domains/:domainId", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const existingDomain = await prisma.tenantDomain.findFirst({
+      where: {
+        id: req.params.domainId,
+        tenantId: req.tenant.id,
+      },
+    });
+
+    if (!existingDomain) {
+      return res.status(404).json({
+        ok: false,
+        error: "Tenant domain not found",
+      });
+    }
+
+    const data = {};
+
+    if (req.body?.domain !== undefined) {
+      const domainValue = normalizeDomainValue(req.body.domain);
+      if (!domainValue || !assertValidDomain(domainValue)) {
+        return res.status(400).json({
+          ok: false,
+          error: "domain must be a valid hostname",
+        });
+      }
+
+      const conflictingDomain = await prisma.tenantDomain.findUnique({
+        where: {
+          domain: domainValue,
+        },
+      });
+
+      if (conflictingDomain && conflictingDomain.id !== existingDomain.id) {
+        return res.status(409).json({
+          ok: false,
+          error: "That domain is already assigned to a tenant",
+        });
+      }
+
+      data.domain = domainValue;
+    }
+
+    if (req.body?.isPrimary !== undefined) {
+      const requestedPrimary = Boolean(req.body.isPrimary);
+      if (!requestedPrimary && existingDomain.isPrimary) {
+        return res.status(400).json({
+          ok: false,
+          error: "A primary domain cannot be unset without promoting another domain first",
+        });
+      }
+
+      data.isPrimary = requestedPrimary;
+    }
+
+    if (!Object.keys(data).length) {
+      return res.status(400).json({
+        ok: false,
+        error: "No supported domain changes were provided",
+      });
+    }
+
+    const domain = await prisma.$transaction(async (tx) => {
+      if (data.isPrimary) {
+        await tx.tenantDomain.updateMany({
+          where: {
+            tenantId: req.tenant.id,
+          },
+          data: {
+            isPrimary: false,
+          },
+        });
+      }
+
+      return tx.tenantDomain.update({
+        where: {
+          id: existingDomain.id,
+        },
+        data,
+      });
+    });
+
+    await writeAuditLog(req, {
+      action: "tenant.domain_updated",
+      entityType: "tenant_domain",
+      entityId: domain.id,
+      metadata: {
+        keys: Object.keys(data),
+        domain: domain.domain,
+        isPrimary: domain.isPrimary,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      domain: serializeTenantDomain(domain),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.delete("/current/domains/:domainId", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const existingDomain = await prisma.tenantDomain.findFirst({
+      where: {
+        id: req.params.domainId,
+        tenantId: req.tenant.id,
+      },
+    });
+
+    if (!existingDomain) {
+      return res.status(404).json({
+        ok: false,
+        error: "Tenant domain not found",
+      });
+    }
+
+    await prisma.$transaction(async (tx) => {
+      await tx.tenantDomain.delete({
+        where: {
+          id: existingDomain.id,
+        },
+      });
+
+      if (existingDomain.isPrimary) {
+        const nextPrimary = await tx.tenantDomain.findFirst({
+          where: {
+            tenantId: req.tenant.id,
+          },
+          orderBy: {
+            createdAt: "asc",
+          },
+        });
+
+        if (nextPrimary) {
+          await tx.tenantDomain.update({
+            where: {
+              id: nextPrimary.id,
+            },
+            data: {
+              isPrimary: true,
+            },
+          });
+        }
+      }
+    });
+
+    await writeAuditLog(req, {
+      action: "tenant.domain_deleted",
+      entityType: "tenant_domain",
+      entityId: existingDomain.id,
+      metadata: {
+        domain: existingDomain.domain,
+        wasPrimary: existingDomain.isPrimary,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      deletedId: existingDomain.id,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.get("/current/api-keys", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const apiKeys = await prisma.tenantApiKey.findMany({
+      where: {
+        tenantId: req.tenant.id,
+      },
+      include: {
+        createdByUser: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return res.json({
+      ok: true,
+      apiKeys: apiKeys.map(serializeTenantApiKey),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.post("/current/api-keys", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const name = String(req.body?.name || "").trim();
+
+    if (!name) {
+      return res.status(400).json({
+        ok: false,
+        error: "name is required",
+      });
+    }
+
+    const permissions = await resolvePermissionKeys(prisma, req.body?.permissions, {
+      required: true,
+    });
+    if (!permissions) {
+      return res.status(400).json({
+        ok: false,
+        error: "permissions must be a non-empty array of valid permission keys",
+      });
+    }
+
+    const { rawKey, keyPrefix, secretHash } = generateTenantApiKeyValue();
+    const apiKey = await prisma.tenantApiKey.create({
+      data: {
+        tenantId: req.tenant.id,
+        createdByUserId: req.auth.user.id,
+        name,
+        keyPrefix,
+        secretHash,
+        permissions,
+      },
+      include: {
+        createdByUser: true,
+      },
+    });
+
+    await writeAuditLog(req, {
+      action: "tenant.api_key_created",
+      entityType: "tenant_api_key",
+      entityId: apiKey.id,
+      metadata: {
+        name,
+        permissions,
+      },
+    });
+
+    return res.status(201).json({
+      ok: true,
+      apiKey: serializeTenantApiKey(apiKey),
+      token: rawKey,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.patch("/current/api-keys/:apiKeyId", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const existingApiKey = await prisma.tenantApiKey.findFirst({
+      where: {
+        id: req.params.apiKeyId,
+        tenantId: req.tenant.id,
+      },
+      include: {
+        createdByUser: true,
+      },
+    });
+
+    if (!existingApiKey) {
+      return res.status(404).json({
+        ok: false,
+        error: "API key not found",
+      });
+    }
+
+    const data = {};
+
+    if (req.body?.name !== undefined) {
+      const name = String(req.body.name || "").trim();
+      if (!name) {
+        return res.status(400).json({
+          ok: false,
+          error: "name cannot be empty",
+        });
+      }
+
+      data.name = name;
+    }
+
+    if (req.body?.permissions !== undefined) {
+      const permissions = await resolvePermissionKeys(prisma, req.body.permissions, {
+        required: true,
+      });
+      if (!permissions) {
+        return res.status(400).json({
+          ok: false,
+          error: "permissions must be a non-empty array of valid permission keys",
+        });
+      }
+
+      data.permissions = permissions;
+    }
+
+    if (req.body?.isActive !== undefined) {
+      data.disabledAt = Boolean(req.body.isActive) ? null : new Date();
+    }
+
+    if (!Object.keys(data).length) {
+      return res.status(400).json({
+        ok: false,
+        error: "No supported API key changes were provided",
+      });
+    }
+
+    const apiKey = await prisma.tenantApiKey.update({
+      where: {
+        id: existingApiKey.id,
+      },
+      data,
+      include: {
+        createdByUser: true,
+      },
+    });
+
+    await writeAuditLog(req, {
+      action: "tenant.api_key_updated",
+      entityType: "tenant_api_key",
+      entityId: apiKey.id,
+      metadata: {
+        keys: Object.keys(data),
+      },
+    });
+
+    return res.json({
+      ok: true,
+      apiKey: serializeTenantApiKey(apiKey),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.post("/current/api-keys/:apiKeyId/rotate", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const existingApiKey = await prisma.tenantApiKey.findFirst({
+      where: {
+        id: req.params.apiKeyId,
+        tenantId: req.tenant.id,
+      },
+      include: {
+        createdByUser: true,
+      },
+    });
+
+    if (!existingApiKey) {
+      return res.status(404).json({
+        ok: false,
+        error: "API key not found",
+      });
+    }
+
+    const { rawKey, keyPrefix, secretHash } = generateTenantApiKeyValue();
+    const apiKey = await prisma.tenantApiKey.update({
+      where: {
+        id: existingApiKey.id,
+      },
+      data: {
+        keyPrefix,
+        secretHash,
+        disabledAt: null,
+      },
+      include: {
+        createdByUser: true,
+      },
+    });
+
+    await writeAuditLog(req, {
+      action: "tenant.api_key_rotated",
+      entityType: "tenant_api_key",
+      entityId: apiKey.id,
+      metadata: {
+        name: apiKey.name,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      apiKey: serializeTenantApiKey(apiKey),
+      token: rawKey,
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+tenantRouter.delete("/current/api-keys/:apiKeyId", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const existingApiKey = await prisma.tenantApiKey.findFirst({
+      where: {
+        id: req.params.apiKeyId,
+        tenantId: req.tenant.id,
+      },
+    });
+
+    if (!existingApiKey) {
+      return res.status(404).json({
+        ok: false,
+        error: "API key not found",
+      });
+    }
+
+    await prisma.tenantApiKey.delete({
+      where: {
+        id: existingApiKey.id,
+      },
+    });
+
+    await writeAuditLog(req, {
+      action: "tenant.api_key_deleted",
+      entityType: "tenant_api_key",
+      entityId: existingApiKey.id,
+      metadata: {
+        name: existingApiKey.name,
+      },
+    });
+
+    return res.json({
+      ok: true,
+      deletedId: existingApiKey.id,
     });
   } catch (error) {
     return next(error);

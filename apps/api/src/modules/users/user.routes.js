@@ -61,10 +61,13 @@ function serializeInvitation(invitation) {
     roleKey: invitation.role.key,
     status: invitation.status.toLowerCase(),
     invitedBy: invitation.invitedByUser.displayName || invitation.invitedByUser.email,
+    acceptedBy: invitation.acceptedUser ? invitation.acceptedUser.displayName || invitation.acceptedUser.email : null,
     sentAt: invitation.sentAt,
     expiresAt: invitation.expiresAt,
     acceptedAt: invitation.acceptedAt,
+    revokedAt: invitation.revokedAt,
     createdAt: invitation.createdAt,
+    updatedAt: invitation.updatedAt,
   };
 }
 
@@ -82,6 +85,104 @@ async function resolveManagedRoles(prisma) {
     adminRole: roleMap.get("tenant_admin") || null,
     agentRole: roleMap.get("agent") || null,
   };
+}
+
+async function expireTenantInvitations(prisma, tenantId) {
+  await prisma.tenantInvitation.updateMany({
+    where: {
+      tenantId,
+      status: "PENDING",
+      expiresAt: {
+        lte: new Date(),
+      },
+    },
+    data: {
+      status: "EXPIRED",
+    },
+  });
+}
+
+function buildInviteUrl({ tenantSlug, email, token }) {
+  return `${env.APP_BASE_URL.replace(/\/$/, "")}/login?invite=${token}&tenant=${tenantSlug}&email=${encodeURIComponent(email)}`;
+}
+
+async function createTeamInvitation({ prisma, tenant, inviter, role, email }) {
+  await prisma.tenantInvitation.updateMany({
+    where: {
+      tenantId: tenant.id,
+      email: {
+        equals: email,
+        mode: "insensitive",
+      },
+      status: "PENDING",
+    },
+    data: {
+      status: "REVOKED",
+      revokedAt: new Date(),
+    },
+  });
+
+  const token = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+  const invitation = await prisma.tenantInvitation.create({
+    data: {
+      tenantId: tenant.id,
+      roleId: role.id,
+      invitedByUserId: inviter.id,
+      email,
+      token,
+      expiresAt,
+    },
+    include: {
+      role: true,
+      invitedByUser: true,
+      acceptedUser: true,
+    },
+  });
+
+  await sendTeamInviteEmail({
+    email,
+    tenantName: tenant.name,
+    inviterName: inviter.displayName || inviter.email,
+    inviteUrl: buildInviteUrl({
+      tenantSlug: tenant.slug,
+      email,
+      token,
+    }),
+    roleName: role.key === "tenant_admin" ? "Admin" : "Agent",
+  });
+
+  return prisma.tenantInvitation.update({
+    where: {
+      id: invitation.id,
+    },
+    data: {
+      sentAt: new Date(),
+    },
+    include: {
+      role: true,
+      invitedByUser: true,
+      acceptedUser: true,
+    },
+  });
+}
+
+function normalizeInvitationStatuses(value) {
+  const normalized = Array.from(
+    new Set(
+      String(value || "")
+        .split(",")
+        .map((entry) => entry.trim().toUpperCase())
+        .filter(Boolean),
+    ),
+  );
+
+  if (!normalized.length) {
+    return null;
+  }
+
+  const allowed = ["PENDING", "ACCEPTED", "REVOKED", "EXPIRED"];
+  return normalized.every((status) => allowed.includes(status)) ? normalized : null;
 }
 
 userRouter.get("/me/roles", requireAuth, requireTenant, (req, res) => {
@@ -151,6 +252,8 @@ userRouter.get("/team/assignable", requireAuth, requireTenant, requirePermission
 userRouter.get("/team", requireAuth, requireTenant, requirePermission("user.manage"), async (req, res, next) => {
   try {
     const prisma = getPrismaClient();
+    await expireTenantInvitations(prisma, req.tenant.id);
+
     const [members, pendingInvitations, conversationCounts] = await Promise.all([
       prisma.user.findMany({
         where: {
@@ -240,9 +343,87 @@ userRouter.get("/team", requireAuth, requireTenant, requirePermission("user.mana
   }
 });
 
+userRouter.get("/team/invitations", requireAuth, requireTenant, requirePermission("user.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    await expireTenantInvitations(prisma, req.tenant.id);
+
+    const statuses = req.query.status ? normalizeInvitationStatuses(req.query.status) : null;
+    if (req.query.status && !statuses) {
+      return res.status(400).json({
+        ok: false,
+        error: "status must be a comma-separated list of pending, accepted, revoked, or expired",
+      });
+    }
+
+    const invitations = await prisma.tenantInvitation.findMany({
+      where: {
+        tenantId: req.tenant.id,
+        ...(statuses?.length
+          ? {
+              status: {
+                in: statuses,
+              },
+            }
+          : {}),
+      },
+      include: {
+        role: true,
+        invitedByUser: true,
+        acceptedUser: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return res.json({
+      ok: true,
+      invitations: invitations.map(serializeInvitation),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+userRouter.get("/team/invitations/:invitationId", requireAuth, requireTenant, requirePermission("user.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    await expireTenantInvitations(prisma, req.tenant.id);
+
+    const invitation = await prisma.tenantInvitation.findFirst({
+      where: {
+        id: req.params.invitationId,
+        tenantId: req.tenant.id,
+      },
+      include: {
+        role: true,
+        invitedByUser: true,
+        acceptedUser: true,
+      },
+    });
+
+    if (!invitation) {
+      return res.status(404).json({
+        ok: false,
+        error: "Invitation not found",
+      });
+    }
+
+    return res.json({
+      ok: true,
+      invitation: serializeInvitation(invitation),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
 userRouter.post("/team/invitations", requireAuth, requireTenant, requirePermission("user.manage"), async (req, res, next) => {
   try {
     const prisma = getPrismaClient();
+    await expireTenantInvitations(prisma, req.tenant.id);
+
     const email = String(req.body?.email || "").trim().toLowerCase();
     const requestedRole = String(req.body?.role || "agent").trim().toLowerCase();
 
@@ -292,58 +473,12 @@ userRouter.post("/team/invitations", requireAuth, requireTenant, requirePermissi
       });
     }
 
-    await prisma.tenantInvitation.updateMany({
-      where: {
-        tenantId: req.tenant.id,
-        email: {
-          equals: email,
-          mode: "insensitive",
-        },
-        status: "PENDING",
-      },
-      data: {
-        status: "REVOKED",
-        revokedAt: new Date(),
-      },
-    });
-
-    const token = crypto.randomUUID();
-    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const invitation = await prisma.tenantInvitation.create({
-      data: {
-        tenantId: req.tenant.id,
-        roleId: selectedRole.id,
-        invitedByUserId: req.auth.user.id,
-        email,
-        token,
-        expiresAt,
-      },
-      include: {
-        role: true,
-        invitedByUser: true,
-      },
-    });
-
-    const inviteUrl = `${env.APP_BASE_URL.replace(/\/$/, "")}/login?invite=${token}&tenant=${req.tenant.slug}&email=${encodeURIComponent(email)}`;
-    await sendTeamInviteEmail({
+    const updatedInvitation = await createTeamInvitation({
+      prisma,
+      tenant: req.tenant,
+      inviter: req.auth.user,
+      role: selectedRole,
       email,
-      tenantName: req.tenant.name,
-      inviterName: req.auth.user.displayName || req.auth.user.email,
-      inviteUrl,
-      roleName: requestedRole === "admin" ? "Admin" : "Agent",
-    });
-
-    const updatedInvitation = await prisma.tenantInvitation.update({
-      where: {
-        id: invitation.id,
-      },
-      data: {
-        sentAt: new Date(),
-      },
-      include: {
-        role: true,
-        invitedByUser: true,
-      },
     });
 
     await Promise.all([
@@ -381,6 +516,181 @@ userRouter.post("/team/invitations", requireAuth, requireTenant, requirePermissi
     return res.status(201).json({
       ok: true,
       invitation: serializeInvitation(updatedInvitation),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+userRouter.post("/team/invitations/:invitationId/resend", requireAuth, requireTenant, requirePermission("user.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    await expireTenantInvitations(prisma, req.tenant.id);
+
+    const invitation = await prisma.tenantInvitation.findFirst({
+      where: {
+        id: req.params.invitationId,
+        tenantId: req.tenant.id,
+      },
+      include: {
+        role: true,
+        invitedByUser: true,
+        acceptedUser: true,
+      },
+    });
+
+    if (!invitation) {
+      return res.status(404).json({
+        ok: false,
+        error: "Invitation not found",
+      });
+    }
+
+    if (invitation.status === "ACCEPTED") {
+      return res.status(409).json({
+        ok: false,
+        error: "Accepted invitations cannot be resent",
+      });
+    }
+
+    const resentInvitation = await createTeamInvitation({
+      prisma,
+      tenant: req.tenant,
+      inviter: req.auth.user,
+      role: invitation.role,
+      email: invitation.email,
+    });
+
+    await Promise.all([
+      writeAuditLog(req, {
+        action: "team.invite_resent",
+        entityType: "tenant_invitation",
+        entityId: resentInvitation.id,
+        metadata: {
+          previousInvitationId: invitation.id,
+          email: invitation.email,
+          role: invitation.role.key,
+        },
+      }),
+      recordAnalyticsEvent(req, {
+        eventName: "team.invite_resent",
+        eventCategory: "team",
+        metadata: {
+          previousInvitationId: invitation.id,
+          role: invitation.role.key,
+        },
+      }),
+      dispatchTenantWebhookEvent({
+        tenantId: req.tenant.id,
+        tenantSlug: req.tenant.slug,
+        tenantName: req.tenant.name,
+        eventType: "team.invite_resent",
+        payload: {
+          previousInvitationId: invitation.id,
+          invitationId: resentInvitation.id,
+          email: invitation.email,
+          role: invitation.role.key === "tenant_admin" ? "admin" : "agent",
+        },
+        requestId: req.context?.requestId,
+      }),
+    ]);
+
+    return res.status(201).json({
+      ok: true,
+      invitation: serializeInvitation(resentInvitation),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+userRouter.post("/team/invitations/:invitationId/revoke", requireAuth, requireTenant, requirePermission("user.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    await expireTenantInvitations(prisma, req.tenant.id);
+
+    const invitation = await prisma.tenantInvitation.findFirst({
+      where: {
+        id: req.params.invitationId,
+        tenantId: req.tenant.id,
+      },
+      include: {
+        role: true,
+        invitedByUser: true,
+        acceptedUser: true,
+      },
+    });
+
+    if (!invitation) {
+      return res.status(404).json({
+        ok: false,
+        error: "Invitation not found",
+      });
+    }
+
+    if (invitation.status === "ACCEPTED") {
+      return res.status(409).json({
+        ok: false,
+        error: "Accepted invitations cannot be revoked",
+      });
+    }
+
+    if (invitation.status === "REVOKED") {
+      return res.json({
+        ok: true,
+        invitation: serializeInvitation(invitation),
+      });
+    }
+
+    const revokedInvitation = await prisma.tenantInvitation.update({
+      where: {
+        id: invitation.id,
+      },
+      data: {
+        status: "REVOKED",
+        revokedAt: invitation.revokedAt || new Date(),
+      },
+      include: {
+        role: true,
+        invitedByUser: true,
+        acceptedUser: true,
+      },
+    });
+
+    await Promise.all([
+      writeAuditLog(req, {
+        action: "team.invite_revoked",
+        entityType: "tenant_invitation",
+        entityId: revokedInvitation.id,
+        metadata: {
+          email: revokedInvitation.email,
+          role: revokedInvitation.role.key,
+        },
+      }),
+      recordAnalyticsEvent(req, {
+        eventName: "team.invite_revoked",
+        eventCategory: "team",
+        metadata: {
+          role: revokedInvitation.role.key,
+        },
+      }),
+      dispatchTenantWebhookEvent({
+        tenantId: req.tenant.id,
+        tenantSlug: req.tenant.slug,
+        tenantName: req.tenant.name,
+        eventType: "team.invite_revoked",
+        payload: {
+          invitationId: revokedInvitation.id,
+          email: revokedInvitation.email,
+          role: revokedInvitation.role.key === "tenant_admin" ? "admin" : "agent",
+        },
+        requestId: req.context?.requestId,
+      }),
+    ]);
+
+    return res.json({
+      ok: true,
+      invitation: serializeInvitation(revokedInvitation),
     });
   } catch (error) {
     return next(error);

@@ -27,6 +27,7 @@ function write(level, message, metadata) {
     requestId: context.requestId,
     tenantId: context.tenantId,
     userId: context.userId,
+    apiKeyId: context.apiKeyId,
     ...metadata,
   };
 
