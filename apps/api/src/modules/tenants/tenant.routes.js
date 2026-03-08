@@ -2266,6 +2266,8 @@ tenantRouter.patch(
           currency: "USD",
           activeSeats,
           nextBillingAt: data.nextBillingAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          activeSeats: 1,
+          nextBillingAt: data.nextBillingAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
         update: { ...data, activeSeats },
       });
