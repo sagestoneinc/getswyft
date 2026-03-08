@@ -34,7 +34,7 @@ export function AdminPage() {
   const [tenantSlugDraft, setTenantSlugDraft] = useState("");
   const [tenantActionMessage, setTenantActionMessage] = useState<string | null>(null);
   const [isCreatingTenant, setIsCreatingTenant] = useState(false);
-  const [isDeletingTenantId, setIsDeletingTenantId] = useState<string | null>(null);
+  const [isDeletingTenantSlug, setIsDeletingTenantSlug] = useState<string | null>(null);
   const [isUpdatingMemberId, setIsUpdatingMemberId] = useState<string | null>(null);
   const [memberRoleDrafts, setMemberRoleDrafts] = useState<Record<string, "admin" | "agent">>({});
 
@@ -204,16 +204,16 @@ export function AdminPage() {
       return;
     }
 
-    setIsDeletingTenantId(membership.tenantId);
+    setIsDeletingTenantSlug(membership.tenantSlug);
     setError(null);
     setTenantActionMessage(null);
 
     try {
-      const response = await deleteTenant(membership.tenantId);
+      const response = await deleteTenant(membership.tenantSlug);
       const deletedActiveTenant = membership.tenantSlug === snapshot.activeTenantSlug;
       const nextTenantSlug =
         response.nextActiveTenantSlug ||
-        snapshot.memberships.find((entry) => entry.tenantId !== membership.tenantId)?.tenantSlug ||
+        snapshot.memberships.find((entry) => entry.tenantSlug !== membership.tenantSlug)?.tenantSlug ||
         null;
 
       if (deletedActiveTenant && nextTenantSlug) {
@@ -226,7 +226,7 @@ export function AdminPage() {
     } catch (deleteError) {
       setError(deleteError instanceof Error ? deleteError.message : "Unable to delete tenant");
     } finally {
-      setIsDeletingTenantId(null);
+      setIsDeletingTenantSlug(null);
     }
   }
 
@@ -457,12 +457,12 @@ export function AdminPage() {
 
           <div className="space-y-2">
             {snapshot.memberships.map((membership) => {
-              const deletingThisTenant = isDeletingTenantId === membership.tenantId;
+              const deletingThisTenant = isDeletingTenantSlug === membership.tenantSlug;
               const deletingDisabled = snapshot.memberships.length <= 1 || deletingThisTenant;
 
               return (
                 <div
-                  key={membership.tenantId}
+                  key={membership.tenantSlug}
                   className="rounded-lg border border-border px-3 py-2 flex flex-wrap items-center justify-between gap-2"
                 >
                   <div>

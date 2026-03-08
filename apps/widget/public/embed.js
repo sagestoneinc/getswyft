@@ -19,7 +19,7 @@
     return;
   }
 
-  const workspaceId = script.dataset.workspaceId?.trim();
+  const workspaceId = script.dataset.workspaceSlug?.trim() || script.dataset.workspaceId?.trim();
   const launcherMode = script.dataset.launcher?.trim().toLowerCase() || "bubble";
   const environment = script.dataset.environment?.trim();
   const storageKey = workspaceId ? `swyftup-widget-position:${workspaceId}` : "swyftup-widget-position";
@@ -43,7 +43,7 @@
   }
 
   if (!workspaceId) {
-    console.warn("[SwyftUp widget] Missing data-workspace-id on embed script.");
+    console.warn("[SwyftUp widget] Missing data-workspace-slug on embed script.");
     return;
   }
 
@@ -83,7 +83,7 @@
 
   function buildFrameUrl() {
     const frameUrl = new URL(resolveWidgetBaseUrl(), window.location.href);
-    frameUrl.searchParams.set("workspaceId", workspaceId);
+    frameUrl.searchParams.set("workspaceSlug", workspaceId);
     frameUrl.searchParams.set("embedded", "1");
     frameUrl.searchParams.set("launcher", launcherMode);
     frameUrl.searchParams.set("position", initialPosition);

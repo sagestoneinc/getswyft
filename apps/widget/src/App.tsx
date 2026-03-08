@@ -10,7 +10,7 @@ function getRuntimeContext() {
 
   return {
     tenantId: params.get("tenantId")?.trim() || params.get("workspaceId")?.trim() || "",
-    tenantSlug: params.get("tenantSlug")?.trim() || "",
+    tenantSlug: params.get("tenantSlug")?.trim() || params.get("workspaceSlug")?.trim() || "",
     environment: params.get("env")?.trim() || "production",
     launcher: params.get("launcher")?.trim() || "bubble",
     position: params.get("position")?.trim() || "right",
