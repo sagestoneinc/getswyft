@@ -2146,6 +2146,15 @@ const VALID_BILLING_STATUSES = ["TRIALING", "ACTIVE", "PAST_DUE", "CANCELED"];
 const VALID_INVOICE_STATUSES = ["DRAFT", "OPEN", "PAID", "VOID"];
 
 async function ensureBillingSubscription(prisma, tenantId) {
+  const seatHolders = await prisma.userRole.findMany({
+    where: {
+      tenantId,
+      role: { key: { in: MANAGED_ROLE_KEYS } },
+    },
+    distinct: ["userId"],
+    select: { userId: true },
+  });
+  const activeSeats = seatHolders.length || 1;
   return prisma.billingSubscription.upsert({
     where: { tenantId },
     create: {
@@ -2157,10 +2166,10 @@ async function ensureBillingSubscription(prisma, tenantId) {
       status: "ACTIVE",
       seatPriceCents: 4900,
       currency: "USD",
-      activeSeats: 1,
+      activeSeats,
       nextBillingAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
     },
-    update: {},
+    update: { activeSeats },
   });
 }
 
@@ -2226,6 +2235,34 @@ tenantRouter.patch(
         return res.status(400).json({ ok: false, error: "No supported billing updates were provided" });
       }
 
+      const seatHolders = await prisma.userRole.findMany({
+        where: {
+          tenantId: req.tenant.id,
+          role: { key: { in: MANAGED_ROLE_KEYS } },
+        },
+        distinct: ["userId"],
+        select: { userId: true },
+      });
+      const activeSeats = seatHolders.length || 1;
+      data.activeSeats = activeSeats;
+      const [seatHolders, invoices] = await Promise.all([
+        prisma.userRole.findMany({
+          where: {
+            tenantId: req.tenant.id,
+            role: { key: { in: MANAGED_ROLE_KEYS } },
+          },
+          distinct: ["userId"],
+          select: { userId: true },
+        }),
+        prisma.billingInvoice.findMany({
+          where: { tenantId: req.tenant.id },
+          orderBy: { issuedAt: "desc" },
+          take: 12,
+        }),
+      ]);
+
+      const activeSeats = seatHolders.length || 1;
+
       const subscription = await prisma.billingSubscription.upsert({
         where: { tenantId: req.tenant.id },
         create: {
@@ -2237,16 +2274,13 @@ tenantRouter.patch(
           status: data.status || "ACTIVE",
           seatPriceCents: data.seatPriceCents ?? 4900,
           currency: "USD",
-          activeSeats: 1,
+          activeSeats,
+          nextBillingAt: "nextBillingAt" in data ? data.nextBillingAt : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
           nextBillingAt: data.nextBillingAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          activeSeats: 1,
+          nextBillingAt: data.nextBillingAt ?? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
-        update: data,
-      });
-
-      const invoices = await prisma.billingInvoice.findMany({
-        where: { tenantId: req.tenant.id },
-        orderBy: { issuedAt: "desc" },
-        take: 12,
+        update: { ...data, activeSeats },
       });
 
       await Promise.all([
@@ -2265,7 +2299,7 @@ tenantRouter.patch(
 
       return res.json({
         ok: true,
-        billing: serializeBilling(subscription, invoices, subscription.activeSeats),
+        billing: serializeBilling(subscription, invoices, activeSeats),
       });
     } catch (error) {
       return next(error);
@@ -2332,6 +2366,8 @@ tenantRouter.post(
 
       const now = new Date();
       const invoiceNumber = `INV-${req.tenant.slug.toUpperCase()}-${now.getTime()}-${crypto.randomBytes(4).toString("hex")}`;
+      const randomSuffix = crypto.randomBytes(4).toString("hex").toUpperCase();
+      const invoiceNumber = `INV-${req.tenant.slug.toUpperCase()}-${now.getTime()}-${randomSuffix}`;
 
       const invoice = await prisma.billingInvoice.create({
         data: {
