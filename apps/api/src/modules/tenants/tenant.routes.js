@@ -26,6 +26,27 @@ const TENANT_SLUG_MAX_LENGTH = 48;
 const HEX_COLOR_PATTERN = /^#?[0-9a-fA-F]{6}$/;
 const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMAIN_PATTERN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+
+// ─── SIP trunk password encryption helpers ──────────────────────────────────
+const SIP_ENCRYPTION_ALGORITHM = "aes-256-gcm";
+
+function getSipEncryptionKey() {
+  const secret = process.env.JWT_SECRET || "getswyft-default-encryption-key";
+  return crypto.createHash("sha256").update(secret).digest();
+}
+
+function encryptSipPassword(plaintext) {
+  if (!plaintext) return null;
+  const key = getSipEncryptionKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(SIP_ENCRYPTION_ALGORITHM, key, iv);
+  let encrypted = cipher.update(plaintext, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  const tag = cipher.getAuthTag().toString("hex");
+  return `${iv.toString("hex")}:${tag}:${encrypted}`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const DEFAULT_FEATURE_FLAGS = [
   {
     key: "phase1_foundations",
@@ -2275,7 +2296,7 @@ tenantRouter.post("/current/addons/sip-trunks", requireAuth, requireTenant, requ
         port,
         transport,
         username: req.body?.username ? String(req.body.username).trim() : null,
-        password: req.body?.password ? String(req.body.password) : null,
+        password: req.body?.password ? encryptSipPassword(String(req.body.password)) : null,
         realm: req.body?.realm ? String(req.body.realm).trim() : null,
         outboundProxy: req.body?.outboundProxy ? String(req.body.outboundProxy).trim() : null,
         status: "ACTIVE",
@@ -2343,7 +2364,7 @@ tenantRouter.patch("/current/addons/sip-trunks/:sipTrunkId", requireAuth, requir
       data.username = req.body.username ? String(req.body.username).trim() : null;
     }
     if (req.body?.password !== undefined) {
-      data.password = req.body.password ? String(req.body.password) : null;
+      data.password = req.body.password ? encryptSipPassword(String(req.body.password)) : null;
     }
     if (req.body?.realm !== undefined) {
       data.realm = req.body.realm ? String(req.body.realm).trim() : null;
@@ -2444,6 +2465,7 @@ function serializeSipTrunk(record) {
     port: record.port,
     transport: record.transport,
     username: record.username,
+    hasPassword: !!record.password,
     realm: record.realm,
     outboundProxy: record.outboundProxy,
     status: record.status.toLowerCase(),

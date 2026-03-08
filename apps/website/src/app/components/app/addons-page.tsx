@@ -365,6 +365,7 @@ export function AddonsPage() {
                       value={sipPassword}
                       onChange={(e) => setSipPassword(e.target.value)}
                       placeholder="••••••••"
+                      autoComplete="new-password"
                       className="w-full rounded-lg border border-border bg-white px-3 py-2 text-sm text-primary"
                     />
                   </div>

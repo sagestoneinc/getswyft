@@ -237,6 +237,7 @@ export type TenantSipTrunk = {
   port: number;
   transport: string;
   username: string | null;
+  hasPassword: boolean;
   realm: string | null;
   outboundProxy: string | null;
   status: "active" | "disabled";
