@@ -61,9 +61,6 @@ CREATE TABLE "TenantSipTrunk" (
 );
 
 -- CreateIndex
-CREATE UNIQUE INDEX "TenantPhoneNumber_tenantId_phoneNumber_status_key" ON "TenantPhoneNumber"("tenantId", "phoneNumber", "status");
-
--- CreateIndex
 CREATE INDEX "TenantPhoneNumber_tenantId_status_idx" ON "TenantPhoneNumber"("tenantId", "status");
 
 -- CreateIndex
