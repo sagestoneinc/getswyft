@@ -7,6 +7,7 @@ import { env } from "../../config/env.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { requireTenant } from "../../middleware/tenant.js";
+import { createLiveKitToken, isLiveKitConfigured, getLiveKitUrl } from "../../lib/livekit.js";
 
 const DEFAULT_PAGE_LIMIT = 50;
 const MAX_PAGE_LIMIT = 100;
@@ -694,6 +695,98 @@ callingRouter.post(
       return res.status(201).json({
         ok: true,
         telemetry,
+      });
+    } catch (error) {
+      return next(error);
+    }
+  },
+);
+
+// POST /sessions/:sessionId/token – Generate a LiveKit access token for a call participant
+callingRouter.post(
+  "/sessions/:sessionId/token",
+  requireAuth,
+  requireTenant,
+  requirePermission("conversation.write"),
+  async (req, res, next) => {
+    try {
+      if (!isLiveKitConfigured()) {
+        return res.status(503).json({
+          ok: false,
+          error: "Voice/video signaling is not configured. Set LIVEKIT_URL, LIVEKIT_API_KEY, and LIVEKIT_API_SECRET.",
+        });
+      }
+
+      const prisma = getPrismaClient();
+      const sessionId = String(req.params.sessionId);
+
+      const session = await prisma.callSession.findFirst({
+        where: {
+          id: sessionId,
+          tenantId: req.tenant.id,
+        },
+      });
+
+      if (!session) {
+        return res.status(404).json({
+          ok: false,
+          error: "Call session not found",
+        });
+      }
+
+      if (session.status === "ENDED") {
+        return res.status(400).json({
+          ok: false,
+          error: "Cannot join an ended call session",
+        });
+      }
+
+      const roomName = session.roomName || `${req.tenant.slug}-${session.id}`;
+      const participantIdentity = `user:${req.auth.user.id}`;
+      const participantName = req.auth.user.displayName || req.auth.user.email || req.auth.user.id;
+
+      const token = await createLiveKitToken({
+        roomName,
+        participantIdentity,
+        participantName,
+        canPublish: true,
+        canSubscribe: true,
+      });
+
+      await prisma.callParticipant.upsert({
+        where: {
+          callSessionId_userId: {
+            callSessionId: session.id,
+            userId: req.auth.user.id,
+          },
+        },
+        create: {
+          callSessionId: session.id,
+          userId: req.auth.user.id,
+          joinedAt: new Date(),
+        },
+        update: {},
+      });
+      await Promise.all([
+        writeAuditLog(req, {
+          action: "call_session.token_generated",
+          entityType: "call_session",
+          entityId: session.id,
+          metadata: { roomName, callType: session.callType },
+        }),
+        recordAnalyticsEvent(req, {
+          eventName: "call_session.token_generated",
+          eventCategory: "calling",
+          metadata: { callSessionId: session.id, callType: session.callType },
+        }),
+      ]);
+
+      return res.json({
+        ok: true,
+        token,
+        livekitUrl: getLiveKitUrl(),
+        roomName,
+        participantIdentity,
       });
     } catch (error) {
       return next(error);

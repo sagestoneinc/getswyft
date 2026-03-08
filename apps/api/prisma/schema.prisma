@@ -81,6 +81,16 @@ enum BillingInvoiceStatus {
   VOID
 }
 
+enum PhoneNumberStatus {
+  ACTIVE
+  RELEASED
+}
+
+enum SipTrunkStatus {
+  ACTIVE
+  DISABLED
+}
+
 enum NotificationDeviceProvider {
   FCM
 }
@@ -115,6 +125,8 @@ model Tenant {
   webhookDeliveries WebhookDelivery[]
   billingSubscription BillingSubscription?
   billingInvoices   BillingInvoice[]
+  phoneNumbers      TenantPhoneNumber[]
+  sipTrunks         TenantSipTrunk[]
   notificationDevices NotificationDevice[]
   channels          Channel[]
   callSessions      CallSession[]
@@ -487,22 +499,31 @@ model WebhookDelivery {
 }
 
 model BillingSubscription {
-  id             String                    @id @default(cuid())
-  tenantId       String                    @unique
-  provider       String                    @default("manual")
-  planKey        String                    @default("professional")
-  planName       String                    @default("Professional")
-  interval       BillingInterval           @default(MONTHLY)
-  status         BillingSubscriptionStatus @default(ACTIVE)
-  seatPriceCents Int                       @default(4900)
-  currency       String                    @default("USD")
-  activeSeats    Int                       @default(1)
-  nextBillingAt  DateTime?
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
+  id                      String                    @id @default(cuid())
+  tenantId                String                    @unique
+  provider                String                    @default("manual")
+  paddleCustomerId        String?
+  paddleSubscriptionId    String?
+  braintreeCustomerId     String?
+  braintreeSubscriptionId String?
+  planKey                 String                    @default("professional")
+  planName                String                    @default("Professional")
+  interval                BillingInterval           @default(MONTHLY)
+  status                  BillingSubscriptionStatus @default(ACTIVE)
+  seatPriceCents          Int                       @default(4900)
+  currency                String                    @default("USD")
+  activeSeats             Int                       @default(1)
+  nextBillingAt           DateTime?
+  createdAt               DateTime                  @default(now())
+  updatedAt               DateTime                  @updatedAt
 
   tenant   Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   invoices BillingInvoice[]
+
+  @@index([paddleCustomerId])
+  @@index([paddleSubscriptionId])
+  @@index([braintreeCustomerId])
+  @@index([braintreeSubscriptionId])
 }
 
 model BillingInvoice {
@@ -525,6 +546,47 @@ model BillingInvoice {
 
   @@index([tenantId, issuedAt])
   @@index([subscriptionId, issuedAt])
+}
+
+model TenantPhoneNumber {
+  id            String            @id @default(cuid())
+  tenantId      String
+  phoneNumber   String
+  label         String?
+  provider      String            @default("manual")
+  capabilities  Json?
+  status        PhoneNumberStatus @default(ACTIVE)
+  monthlyCostCents Int            @default(100)
+  currency      String            @default("USD")
+  provisionedAt DateTime          @default(now())
+  releasedAt    DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@unique([tenantId, phoneNumber, status])
+  @@index([tenantId, status])
+}
+
+model TenantSipTrunk {
+  id                String         @id @default(cuid())
+  tenantId          String
+  name              String
+  host              String
+  port              Int            @default(5060)
+  transport         String         @default("tls")
+  username          String?
+  password          String?
+  realm             String?
+  outboundProxy     String?
+  status            SipTrunkStatus @default(ACTIVE)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  tenant Tenant @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@index([tenantId, status])
 }
 
 model Notification {

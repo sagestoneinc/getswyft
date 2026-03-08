@@ -26,6 +26,32 @@ const TENANT_SLUG_MAX_LENGTH = 48;
 const HEX_COLOR_PATTERN = /^#?[0-9a-fA-F]{6}$/;
 const BASIC_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const DOMAIN_PATTERN = /^(?=.{1,253}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/i;
+
+// ─── SIP trunk password encryption helpers ──────────────────────────────────
+const SIP_ENCRYPTION_ALGORITHM = "aes-256-gcm";
+
+function getSipEncryptionKey() {
+  const secret = process.env.SIP_ENCRYPTION_KEY;
+  if (!secret) {
+    throw new Error(
+      "SIP_ENCRYPTION_KEY environment variable is required for SIP trunk password encryption"
+    );
+  }
+  return crypto.createHash("sha256").update(secret).digest();
+}
+
+function encryptSipPassword(plaintext) {
+  if (!plaintext) return null;
+  const key = getSipEncryptionKey();
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(SIP_ENCRYPTION_ALGORITHM, key, iv);
+  let encrypted = cipher.update(plaintext, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  const tag = cipher.getAuthTag().toString("hex");
+  return `${iv.toString("hex")}:${tag}:${encrypted}`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 const DEFAULT_FEATURE_FLAGS = [
   {
     key: "phase1_foundations",
@@ -161,6 +187,10 @@ function serializeBilling(subscription, invoices, activeSeats) {
   const subscriptionValue = subscription
     ? {
         provider: subscription.provider,
+        paddleCustomerId: subscription.paddleCustomerId || null,
+        paddleSubscriptionId: subscription.paddleSubscriptionId || null,
+        braintreeCustomerId: subscription.braintreeCustomerId || null,
+        braintreeSubscriptionId: subscription.braintreeSubscriptionId || null,
         planKey: subscription.planKey,
         planName: subscription.planName,
         interval: subscription.interval.toLowerCase(),
@@ -553,20 +583,20 @@ tenantRouter.post("/", requireAuth, async (req, res, next) => {
   }
 });
 
-tenantRouter.delete("/:tenantId", requireAuth, async (req, res, next) => {
+tenantRouter.delete("/:tenantSlug", requireAuth, async (req, res, next) => {
   try {
     const prisma = getPrismaClient();
-    const tenantId = String(req.params?.tenantId || "").trim();
+    const tenantSlug = String(req.params?.tenantSlug || "").trim();
 
-    if (!tenantId) {
+    if (!tenantSlug) {
       return res.status(400).json({
         ok: false,
-        error: "tenantId is required",
+        error: "tenantSlug is required",
       });
     }
 
     const memberships = req.auth.memberships || [];
-    const targetMembership = memberships.find((membership) => membership.tenantId === tenantId);
+    const targetMembership = memberships.find((membership) => membership.tenantSlug === tenantSlug);
     if (!targetMembership) {
       return res.status(403).json({
         ok: false,
@@ -581,7 +611,7 @@ tenantRouter.delete("/:tenantId", requireAuth, async (req, res, next) => {
       });
     }
 
-    const remainingMemberships = memberships.filter((membership) => membership.tenantId !== tenantId);
+    const remainingMemberships = memberships.filter((membership) => membership.tenantSlug !== tenantSlug);
     if (!remainingMemberships.length) {
       return res.status(400).json({
         ok: false,
@@ -589,23 +619,9 @@ tenantRouter.delete("/:tenantId", requireAuth, async (req, res, next) => {
       });
     }
 
-    const directRoleAssignments = await prisma.userRole.count({
-      where: {
-        tenantId,
-        userId: req.auth.user.id,
-      },
-    });
-
-    if (!directRoleAssignments) {
-      return res.status(403).json({
-        ok: false,
-        error: "No active role assignment found for this tenant",
-      });
-    }
-
     const tenant = await prisma.tenant.findUnique({
       where: {
-        id: tenantId,
+        slug: tenantSlug,
       },
       select: {
         id: true,
@@ -618,6 +634,20 @@ tenantRouter.delete("/:tenantId", requireAuth, async (req, res, next) => {
       return res.status(404).json({
         ok: false,
         error: "Tenant not found",
+      });
+    }
+
+    const directRoleAssignments = await prisma.userRole.count({
+      where: {
+        tenantId: tenant.id,
+        userId: req.auth.user.id,
+      },
+    });
+
+    if (!directRoleAssignments) {
+      return res.status(403).json({
+        ok: false,
+        error: "No active role assignment found for this tenant",
       });
     }
 
@@ -2440,3 +2470,368 @@ tenantRouter.patch(
     }
   },
 );
+// ─── Add-ons: Phone Numbers ─────────────────────────────────────────────────
+
+// GET /current/addons – Overview of add-ons for the tenant
+tenantRouter.get("/current/addons", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+    const [phoneNumbers, sipTrunks] = await Promise.all([
+      prisma.tenantPhoneNumber.findMany({
+        where: { tenantId: req.tenant.id, status: "ACTIVE" },
+        orderBy: { provisionedAt: "desc" },
+      }),
+      prisma.tenantSipTrunk.findMany({
+        where: { tenantId: req.tenant.id, status: "ACTIVE" },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    return res.json({
+      ok: true,
+      addons: {
+        phoneNumbers: phoneNumbers.map(serializePhoneNumber),
+        sipTrunks: sipTrunks.map(serializeSipTrunk),
+      },
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// POST /current/addons/phone-numbers – Provision a phone number
+tenantRouter.post("/current/addons/phone-numbers", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+
+    const phoneNumber = String(req.body?.phoneNumber || "").trim();
+    const label = req.body?.label ? String(req.body.label).trim() : null;
+
+    if (!phoneNumber) {
+      return res.status(400).json({ ok: false, error: "phoneNumber is required" });
+    }
+
+    if (!/^\+[1-9]\d{1,14}$/.test(phoneNumber)) {
+      return res.status(400).json({ ok: false, error: "phoneNumber must be in E.164 format (e.g. +15551234567)" });
+    }
+
+    const existing = await prisma.tenantPhoneNumber.findFirst({
+      where: { tenantId: req.tenant.id, phoneNumber, status: "ACTIVE" },
+    });
+
+    if (existing) {
+      return res.status(409).json({ ok: false, error: "This phone number is already provisioned for your workspace" });
+    }
+
+    // Re-activate a previously released row if one exists, otherwise create new
+    const released = await prisma.tenantPhoneNumber.findFirst({
+      where: { tenantId: req.tenant.id, phoneNumber, status: "RELEASED" },
+      orderBy: { releasedAt: "desc" },
+    });
+
+    const record = released
+      ? await prisma.tenantPhoneNumber.update({
+          where: { id: released.id },
+          data: {
+            label,
+            capabilities: req.body?.capabilities || { voice: true, sms: true },
+            status: "ACTIVE",
+            provisionedAt: new Date(),
+            releasedAt: null,
+          },
+        })
+      : await prisma.tenantPhoneNumber.create({
+          data: {
+            tenantId: req.tenant.id,
+            phoneNumber,
+            label,
+            provider: "manual",
+            capabilities: req.body?.capabilities || { voice: true, sms: true },
+            status: "ACTIVE",
+            monthlyCostCents: 100,
+            currency: "USD",
+            provisionedAt: new Date(),
+          },
+        });
+
+    await Promise.all([
+      writeAuditLog(req, {
+        action: "addon.phone_number.provisioned",
+        entityType: "phone_number",
+        entityId: record.id,
+        metadata: { phoneNumber },
+      }),
+      recordAnalyticsEvent(req, {
+        eventName: "addon.phone_number.provisioned",
+        eventCategory: "addons",
+        metadata: { phoneNumberId: record.id },
+      }),
+    ]);
+
+    return res.status(201).json({
+      ok: true,
+      phoneNumber: serializePhoneNumber(record),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// DELETE /current/addons/phone-numbers/:phoneNumberId – Release a phone number
+tenantRouter.delete("/current/addons/phone-numbers/:phoneNumberId", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+
+    const record = await prisma.tenantPhoneNumber.findFirst({
+      where: { id: req.params.phoneNumberId, tenantId: req.tenant.id, status: "ACTIVE" },
+    });
+
+    if (!record) {
+      return res.status(404).json({ ok: false, error: "Phone number not found" });
+    }
+
+    await prisma.tenantPhoneNumber.update({
+      where: { id: record.id },
+      data: { status: "RELEASED", releasedAt: new Date() },
+    });
+
+    await Promise.all([
+      writeAuditLog(req, {
+        action: "addon.phone_number.released",
+        entityType: "phone_number",
+        entityId: record.id,
+        metadata: { phoneNumber: record.phoneNumber },
+      }),
+      recordAnalyticsEvent(req, {
+        eventName: "addon.phone_number.released",
+        eventCategory: "addons",
+        metadata: { phoneNumberId: record.id },
+      }),
+    ]);
+
+    return res.json({ ok: true, releasedId: record.id });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// ─── Add-ons: SIP Trunks ────────────────────────────────────────────────────
+
+// POST /current/addons/sip-trunks – Add a SIP trunk configuration
+tenantRouter.post("/current/addons/sip-trunks", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+
+    const name = String(req.body?.name || "").trim();
+    const host = String(req.body?.host || "").trim();
+    const port = Number(req.body?.port) || 5060;
+    const transport = String(req.body?.transport || "tls").toLowerCase();
+
+    if (!name) {
+      return res.status(400).json({ ok: false, error: "name is required" });
+    }
+
+    if (!host) {
+      return res.status(400).json({ ok: false, error: "host is required" });
+    }
+
+    if (!["udp", "tcp", "tls"].includes(transport)) {
+      return res.status(400).json({ ok: false, error: "transport must be udp, tcp, or tls" });
+    }
+
+    if (port < 1 || port > 65535) {
+      return res.status(400).json({ ok: false, error: "port must be between 1 and 65535" });
+    }
+
+    const record = await prisma.tenantSipTrunk.create({
+      data: {
+        tenantId: req.tenant.id,
+        name,
+        host,
+        port,
+        transport,
+        username: req.body?.username ? String(req.body.username).trim() : null,
+        password: req.body?.password ? encryptSipPassword(String(req.body.password)) : null,
+        realm: req.body?.realm ? String(req.body.realm).trim() : null,
+        outboundProxy: req.body?.outboundProxy ? String(req.body.outboundProxy).trim() : null,
+        status: "ACTIVE",
+      },
+    });
+
+    await Promise.all([
+      writeAuditLog(req, {
+        action: "addon.sip_trunk.created",
+        entityType: "sip_trunk",
+        entityId: record.id,
+        metadata: { name, host },
+      }),
+      recordAnalyticsEvent(req, {
+        eventName: "addon.sip_trunk.created",
+        eventCategory: "addons",
+        metadata: { sipTrunkId: record.id },
+      }),
+    ]);
+
+    return res.status(201).json({
+      ok: true,
+      sipTrunk: serializeSipTrunk(record),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// PATCH /current/addons/sip-trunks/:sipTrunkId – Update a SIP trunk
+tenantRouter.patch("/current/addons/sip-trunks/:sipTrunkId", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+
+    const record = await prisma.tenantSipTrunk.findFirst({
+      where: { id: req.params.sipTrunkId, tenantId: req.tenant.id },
+    });
+
+    if (!record) {
+      return res.status(404).json({ ok: false, error: "SIP trunk not found" });
+    }
+
+    const data = {};
+    if (req.body?.name !== undefined) {
+      const name = String(req.body.name).trim();
+      if (!name) {
+        return res.status(400).json({ ok: false, error: "name must not be empty" });
+      }
+      data.name = name;
+    }
+    if (req.body?.host !== undefined) {
+      const host = String(req.body.host).trim();
+      if (!host) {
+        return res.status(400).json({ ok: false, error: "host must not be empty" });
+      }
+      data.host = host;
+    }
+    if (req.body?.port !== undefined) {
+      const port = Number(req.body.port);
+      if (port < 1 || port > 65535) {
+        return res.status(400).json({ ok: false, error: "port must be between 1 and 65535" });
+      }
+      data.port = port;
+    }
+    if (req.body?.transport !== undefined) {
+      const transport = String(req.body.transport).toLowerCase();
+      if (!["udp", "tcp", "tls"].includes(transport)) {
+        return res.status(400).json({ ok: false, error: "transport must be udp, tcp, or tls" });
+      }
+      data.transport = transport;
+    }
+    if (req.body?.username !== undefined) {
+      data.username = req.body.username ? String(req.body.username).trim() : null;
+    }
+    if (req.body?.password !== undefined) {
+      data.password = req.body.password ? encryptSipPassword(String(req.body.password)) : null;
+    }
+    if (req.body?.realm !== undefined) {
+      data.realm = req.body.realm ? String(req.body.realm).trim() : null;
+    }
+    if (req.body?.outboundProxy !== undefined) {
+      data.outboundProxy = req.body.outboundProxy ? String(req.body.outboundProxy).trim() : null;
+    }
+    if (req.body?.status !== undefined) {
+      const status = String(req.body.status).toUpperCase();
+      if (!["ACTIVE", "DISABLED"].includes(status)) {
+        return res.status(400).json({ ok: false, error: "status must be ACTIVE or DISABLED" });
+      }
+      data.status = status;
+    }
+
+    const updated = await prisma.tenantSipTrunk.update({
+      where: { id: record.id },
+      data,
+    });
+
+    await Promise.all([
+      writeAuditLog(req, {
+        action: "addon.sip_trunk.updated",
+        entityType: "sip_trunk",
+        entityId: record.id,
+        metadata: { updatedFields: Object.keys(data) },
+      }),
+      recordAnalyticsEvent(req, {
+        eventName: "addon.sip_trunk.updated",
+        eventCategory: "addons",
+        metadata: { sipTrunkId: record.id },
+      }),
+    ]);
+
+    return res.json({
+      ok: true,
+      sipTrunk: serializeSipTrunk(updated),
+    });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+// DELETE /current/addons/sip-trunks/:sipTrunkId – Remove a SIP trunk
+tenantRouter.delete("/current/addons/sip-trunks/:sipTrunkId", requireAuth, requireTenant, requirePermission("tenant.manage"), async (req, res, next) => {
+  try {
+    const prisma = getPrismaClient();
+
+    const record = await prisma.tenantSipTrunk.findFirst({
+      where: { id: req.params.sipTrunkId, tenantId: req.tenant.id },
+    });
+
+    if (!record) {
+      return res.status(404).json({ ok: false, error: "SIP trunk not found" });
+    }
+
+    await prisma.tenantSipTrunk.delete({ where: { id: record.id } });
+
+    await Promise.all([
+      writeAuditLog(req, {
+        action: "addon.sip_trunk.deleted",
+        entityType: "sip_trunk",
+        entityId: record.id,
+        metadata: { name: record.name },
+      }),
+      recordAnalyticsEvent(req, {
+        eventName: "addon.sip_trunk.deleted",
+        eventCategory: "addons",
+        metadata: { sipTrunkId: record.id },
+      }),
+    ]);
+
+    return res.json({ ok: true, deletedId: record.id });
+  } catch (error) {
+    return next(error);
+  }
+});
+
+function serializePhoneNumber(record) {
+  return {
+    id: record.id,
+    phoneNumber: record.phoneNumber,
+    label: record.label,
+    provider: record.provider,
+    capabilities: record.capabilities,
+    status: record.status.toLowerCase(),
+    monthlyCostCents: record.monthlyCostCents,
+    currency: record.currency,
+    provisionedAt: record.provisionedAt,
+  };
+}
+
+function serializeSipTrunk(record) {
+  return {
+    id: record.id,
+    name: record.name,
+    host: record.host,
+    port: record.port,
+    transport: record.transport,
+    username: record.username,
+    hasPassword: !!record.password,
+    realm: record.realm,
+    outboundProxy: record.outboundProxy,
+    status: record.status.toLowerCase(),
+    createdAt: record.createdAt,
+  };
+}

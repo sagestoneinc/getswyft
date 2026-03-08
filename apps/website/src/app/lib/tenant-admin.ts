@@ -52,6 +52,10 @@ export type WebhookDeliveryDetails = {
 
 export type BillingSubscription = {
   provider: string;
+  paddleCustomerId: string | null;
+  paddleSubscriptionId: string | null;
+  braintreeCustomerId: string | null;
+  braintreeSubscriptionId: string | null;
   planKey: string;
   planName: string;
   interval: "monthly" | "yearly";
@@ -111,13 +115,13 @@ export async function createTenant(payload: {
   }>("/v1/tenants", payload);
 }
 
-export async function deleteTenant(tenantId: string) {
+export async function deleteTenant(tenantSlug: string) {
   return apiClient.delete<{
     ok: boolean;
     tenant: DeletedTenant;
     deletedByUserId: string;
     nextActiveTenantSlug: string | null;
-  }>(`/v1/tenants/${tenantId}`);
+  }>(`/v1/tenants/${tenantSlug}`);
 }
 
 export async function getTenantSettings() {
@@ -210,6 +214,106 @@ export async function getBillingWorkspace() {
       invoices: BillingInvoice[];
     };
   }>("/v1/tenants/current/billing");
+}
+
+// ─── Add-ons ────────────────────────────────────────────────────────────────
+
+export type TenantPhoneNumber = {
+  id: string;
+  phoneNumber: string;
+  label: string | null;
+  provider: string;
+  capabilities: { voice?: boolean; sms?: boolean } | null;
+  status: "active" | "released";
+  monthlyCostCents: number;
+  currency: string;
+  provisionedAt: string;
+};
+
+export type TenantSipTrunk = {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  transport: string;
+  username: string | null;
+  hasPassword: boolean;
+  realm: string | null;
+  outboundProxy: string | null;
+  status: "active" | "disabled";
+  createdAt: string;
+};
+
+export type AddonsResponse = {
+  phoneNumbers: TenantPhoneNumber[];
+  sipTrunks: TenantSipTrunk[];
+};
+
+export async function getAddons() {
+  return apiClient.get<{
+    ok: boolean;
+    addons: AddonsResponse;
+  }>("/v1/tenants/current/addons");
+}
+
+export async function provisionPhoneNumber(payload: {
+  phoneNumber: string;
+  label?: string;
+}) {
+  return apiClient.post<{
+    ok: boolean;
+    phoneNumber: TenantPhoneNumber;
+  }>("/v1/tenants/current/addons/phone-numbers", payload);
+}
+
+export async function releasePhoneNumber(phoneNumberId: string) {
+  return apiClient.delete<{
+    ok: boolean;
+    releasedId: string;
+  }>(`/v1/tenants/current/addons/phone-numbers/${phoneNumberId}`);
+}
+
+export async function createSipTrunk(payload: {
+  name: string;
+  host: string;
+  port?: number;
+  transport?: string;
+  username?: string;
+  password?: string;
+  realm?: string;
+  outboundProxy?: string;
+}) {
+  return apiClient.post<{
+    ok: boolean;
+    sipTrunk: TenantSipTrunk;
+  }>("/v1/tenants/current/addons/sip-trunks", payload);
+}
+
+export async function updateSipTrunk(
+  sipTrunkId: string,
+  payload: {
+    name?: string;
+    host?: string;
+    port?: number;
+    transport?: string;
+    username?: string;
+    password?: string;
+    realm?: string;
+    outboundProxy?: string;
+    status?: "active" | "disabled";
+  },
+) {
+  return apiClient.patch<{
+    ok: boolean;
+    sipTrunk: TenantSipTrunk;
+  }>(`/v1/tenants/current/addons/sip-trunks/${sipTrunkId}`, payload);
+}
+
+export async function deleteSipTrunk(sipTrunkId: string) {
+  return apiClient.delete<{
+    ok: boolean;
+    deletedId: string;
+  }>(`/v1/tenants/current/addons/sip-trunks/${sipTrunkId}`);
 }
 
 export function formatCurrency(cents: number, currency = "USD") {
