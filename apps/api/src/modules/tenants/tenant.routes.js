@@ -2331,7 +2331,7 @@ tenantRouter.post(
       const subscription = await ensureBillingSubscription(prisma, req.tenant.id);
 
       const now = new Date();
-      const invoiceNumber = `INV-${req.tenant.slug.toUpperCase()}-${now.getTime()}`;
+      const invoiceNumber = `INV-${req.tenant.slug.toUpperCase()}-${now.getTime()}-${crypto.randomBytes(4).toString("hex")}`;
 
       const invoice = await prisma.billingInvoice.create({
         data: {
