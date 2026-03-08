@@ -52,6 +52,8 @@ export type WebhookDeliveryDetails = {
 
 export type BillingSubscription = {
   provider: string;
+  paddleCustomerId: string | null;
+  paddleSubscriptionId: string | null;
   planKey: string;
   planName: string;
   interval: "monthly" | "yearly";

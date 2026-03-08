@@ -52,6 +52,12 @@ const rawEnvSchema = z.object({
   TELNYX_MESSAGING_PROFILE_ID: z.string().optional(),
   TELNYX_FROM_NUMBER: z.string().optional(),
 
+  BILLING_PROVIDER: z.enum(["manual", "paddle"]).default("manual"),
+  PADDLE_API_KEY: z.string().optional(),
+  PADDLE_WEBHOOK_SECRET: z.string().optional(),
+  PADDLE_ENV: z.enum(["sandbox", "production"]).default("sandbox"),
+  PADDLE_PRICE_ID: z.string().optional(),
+
   OPENAI_API_KEY: z.string().optional(),
   OPENAI_BASE_URL: z.string().optional(),
   OPENAI_MODEL: z.string().optional(),

@@ -22,6 +22,7 @@ import { moderationRouter } from "./modules/moderation/moderation.routes.js";
 import { complianceRouter } from "./modules/compliance/compliance.routes.js";
 import { aiRouter } from "./modules/ai/ai.routes.js";
 import { widgetRouter } from "./modules/widget/widget.routes.js";
+import { billingRouter } from "./modules/billing/billing.routes.js";
 
 export function createApp() {
   const app = express();
@@ -118,6 +119,7 @@ export function createApp() {
   app.use("/v1/moderation", moderationRouter);
   app.use("/v1/compliance", complianceRouter);
   app.use("/v1/ai", aiRouter);
+  app.use("/v1/billing", billingRouter);
 
   app.use((error, req, res, _next) => {
     const statusCode = error.statusCode || 500;

@@ -161,6 +161,8 @@ function serializeBilling(subscription, invoices, activeSeats) {
   const subscriptionValue = subscription
     ? {
         provider: subscription.provider,
+        paddleCustomerId: subscription.paddleCustomerId || null,
+        paddleSubscriptionId: subscription.paddleSubscriptionId || null,
         planKey: subscription.planKey,
         planName: subscription.planName,
         interval: subscription.interval.toLowerCase(),
