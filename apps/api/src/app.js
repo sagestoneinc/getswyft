@@ -33,7 +33,13 @@ export function createApp() {
       credentials: true,
     })
   );
-  app.use(express.json({ limit: "2mb" }));
+  app.use(express.json({
+    limit: "2mb",
+    verify: (req, _res, buf) => {
+      req.rawBody = buf.toString();
+    },
+  }));
+  app.use(express.urlencoded({ extended: true }));
   app.use(requestContextMiddleware);
   app.use(requestMonitorMiddleware);
   app.use((req, res, next) => {

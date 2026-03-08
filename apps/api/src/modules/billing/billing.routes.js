@@ -21,7 +21,7 @@ const DEFAULT_PLAN_KEY = "professional";
 billingRouter.post("/paddle-webhook", async (req, res, next) => {
   try {
     const signature = req.headers["paddle-signature"] || "";
-    const rawBody = JSON.stringify(req.body);
+    const rawBody = req.rawBody || JSON.stringify(req.body);
 
     const isValid = verifyPaddleWebhookSignature(rawBody, signature);
     if (!isValid) {

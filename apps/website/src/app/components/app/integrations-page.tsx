@@ -51,7 +51,7 @@ export function IntegrationsPage() {
   const [envCopyStatus, setEnvCopyStatus] = useState<CopyStatus>("idle");
   const [embedCopyStatus, setEmbedCopyStatus] = useState<CopyStatus>("idle");
 
-  const workspaceId = tenant?.slug || "<workspace-slug>";
+  const workspaceSlug = tenant?.slug || "<workspace-slug>";
   const widgetScriptUrl =
     (import.meta.env.VITE_SWYFT_WIDGET_SCRIPT_URL as string | undefined) || "https://widget.getswyftup.com/embed.js";
   const widgetLauncher = (import.meta.env.VITE_SWYFT_WIDGET_LAUNCHER as string | undefined) || "bubble";
@@ -69,12 +69,12 @@ export function IntegrationsPage() {
     () =>
       [
         `VITE_SWYFT_WIDGET_SCRIPT_URL=${widgetScriptUrl}`,
-        `VITE_SWYFT_WIDGET_WORKSPACE_SLUG=${workspaceId}`,
+        `VITE_SWYFT_WIDGET_WORKSPACE_SLUG=${workspaceSlug}`,
         `VITE_SWYFT_WIDGET_LAUNCHER=${widgetLauncher}`,
         `VITE_SWYFT_WIDGET_ENV=${widgetEnvironment}`,
         `VITE_SWYFT_WIDGET_POSITION=${widgetPosition}`,
       ].join("\n"),
-    [widgetEnvironment, widgetLauncher, widgetPosition, widgetScriptUrl, workspaceId],
+    [widgetEnvironment, widgetLauncher, widgetPosition, widgetScriptUrl, workspaceSlug],
   );
 
   const embedSnippet = useMemo(
@@ -84,13 +84,13 @@ export function IntegrationsPage() {
         "  async",
         `  src="${widgetScriptUrl}"`,
         '  data-swyft-widget-script="true"',
-        `  data-workspace-slug="${workspaceId}"`,
+        `  data-workspace-slug="${workspaceSlug}"`,
         `  data-launcher="${widgetLauncher}"`,
         `  data-environment="${widgetEnvironment}"`,
         `  data-position="${widgetPosition === "left" ? "bottom-left" : "bottom-right"}"`,
         "></script>",
       ].join("\n"),
-    [widgetEnvironment, widgetLauncher, widgetPosition, widgetScriptUrl, workspaceId],
+    [widgetEnvironment, widgetLauncher, widgetPosition, widgetScriptUrl, workspaceSlug],
   );
 
   return (
