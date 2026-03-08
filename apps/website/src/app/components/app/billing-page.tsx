@@ -103,10 +103,16 @@ export function BillingPage() {
 
           <div className="bg-white rounded-xl border border-border p-6 mb-6">
             <h2 className="text-lg text-primary mb-4 flex items-center gap-2" style={{ fontWeight: 600 }}>
-              <CreditCard className="w-5 h-5 text-accent" /> Payment Notes
+              <CreditCard className="w-5 h-5 text-accent" /> Payment
             </h2>
             <div className="p-4 rounded-lg bg-muted/40 text-sm text-muted-foreground">
-              Billing is currently tracked as a tenant snapshot while payment processor wiring is completed. This gives you real plan and invoice state now without blocking the rest of the platform rollout.
+              {subscription.provider === "paddle" ? (
+                <>Billing is managed through Paddle. Subscription and invoice data sync automatically via webhooks.</>
+              ) : subscription.provider === "braintree" ? (
+                <>Billing is managed through Braintree. Subscription and invoice data sync automatically via webhooks.</>
+              ) : (
+                <>Billing is currently tracked as a tenant snapshot while payment processor wiring is completed. This gives you real plan and invoice state now without blocking the rest of the platform rollout.</>
+              )}
             </div>
           </div>
 

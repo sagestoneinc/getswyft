@@ -161,6 +161,10 @@ function serializeBilling(subscription, invoices, activeSeats) {
   const subscriptionValue = subscription
     ? {
         provider: subscription.provider,
+        paddleCustomerId: subscription.paddleCustomerId || null,
+        paddleSubscriptionId: subscription.paddleSubscriptionId || null,
+        braintreeCustomerId: subscription.braintreeCustomerId || null,
+        braintreeSubscriptionId: subscription.braintreeSubscriptionId || null,
         planKey: subscription.planKey,
         planName: subscription.planName,
         interval: subscription.interval.toLowerCase(),
@@ -553,20 +557,20 @@ tenantRouter.post("/", requireAuth, async (req, res, next) => {
   }
 });
 
-tenantRouter.delete("/:tenantId", requireAuth, async (req, res, next) => {
+tenantRouter.delete("/:tenantSlug", requireAuth, async (req, res, next) => {
   try {
     const prisma = getPrismaClient();
-    const tenantId = String(req.params?.tenantId || "").trim();
+    const tenantSlug = String(req.params?.tenantSlug || "").trim();
 
-    if (!tenantId) {
+    if (!tenantSlug) {
       return res.status(400).json({
         ok: false,
-        error: "tenantId is required",
+        error: "tenantSlug is required",
       });
     }
 
     const memberships = req.auth.memberships || [];
-    const targetMembership = memberships.find((membership) => membership.tenantId === tenantId);
+    const targetMembership = memberships.find((membership) => membership.tenantSlug === tenantSlug);
     if (!targetMembership) {
       return res.status(403).json({
         ok: false,
@@ -581,7 +585,7 @@ tenantRouter.delete("/:tenantId", requireAuth, async (req, res, next) => {
       });
     }
 
-    const remainingMemberships = memberships.filter((membership) => membership.tenantId !== tenantId);
+    const remainingMemberships = memberships.filter((membership) => membership.tenantSlug !== tenantSlug);
     if (!remainingMemberships.length) {
       return res.status(400).json({
         ok: false,
@@ -589,23 +593,9 @@ tenantRouter.delete("/:tenantId", requireAuth, async (req, res, next) => {
       });
     }
 
-    const directRoleAssignments = await prisma.userRole.count({
-      where: {
-        tenantId,
-        userId: req.auth.user.id,
-      },
-    });
-
-    if (!directRoleAssignments) {
-      return res.status(403).json({
-        ok: false,
-        error: "No active role assignment found for this tenant",
-      });
-    }
-
     const tenant = await prisma.tenant.findUnique({
       where: {
-        id: tenantId,
+        slug: tenantSlug,
       },
       select: {
         id: true,
@@ -618,6 +608,20 @@ tenantRouter.delete("/:tenantId", requireAuth, async (req, res, next) => {
       return res.status(404).json({
         ok: false,
         error: "Tenant not found",
+      });
+    }
+
+    const directRoleAssignments = await prisma.userRole.count({
+      where: {
+        tenantId: tenant.id,
+        userId: req.auth.user.id,
+      },
+    });
+
+    if (!directRoleAssignments) {
+      return res.status(403).json({
+        ok: false,
+        error: "No active role assignment found for this tenant",
       });
     }
 

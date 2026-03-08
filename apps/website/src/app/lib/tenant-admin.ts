@@ -52,6 +52,10 @@ export type WebhookDeliveryDetails = {
 
 export type BillingSubscription = {
   provider: string;
+  paddleCustomerId: string | null;
+  paddleSubscriptionId: string | null;
+  braintreeCustomerId: string | null;
+  braintreeSubscriptionId: string | null;
   planKey: string;
   planName: string;
   interval: "monthly" | "yearly";
@@ -111,13 +115,13 @@ export async function createTenant(payload: {
   }>("/v1/tenants", payload);
 }
 
-export async function deleteTenant(tenantId: string) {
+export async function deleteTenant(tenantSlug: string) {
   return apiClient.delete<{
     ok: boolean;
     tenant: DeletedTenant;
     deletedByUserId: string;
     nextActiveTenantSlug: string | null;
-  }>(`/v1/tenants/${tenantId}`);
+  }>(`/v1/tenants/${tenantSlug}`);
 }
 
 export async function getTenantSettings() {

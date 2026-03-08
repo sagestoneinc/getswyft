@@ -61,17 +61,17 @@ describe("tenant deletion", () => {
       createMembership("tenant_beta", "beta", ["tenant.manage", "conversation.read"]),
     ]);
 
-    userRoleCountMock.mockResolvedValueOnce(1);
     tenantFindUniqueMock.mockResolvedValueOnce({
       id: "tenant_alpha",
       slug: "alpha",
       name: "Alpha",
     });
+    userRoleCountMock.mockResolvedValueOnce(1);
     tenantDeleteMock.mockResolvedValueOnce({
       id: "tenant_alpha",
     });
 
-    const response = await request(app).delete("/v1/tenants/tenant_alpha");
+    const response = await request(app).delete("/v1/tenants/alpha");
 
     expect(response.status).toBe(200);
     expect(response.body.ok).toBe(true);
@@ -81,6 +81,16 @@ describe("tenant deletion", () => {
       name: "Alpha",
     });
     expect(response.body.nextActiveTenantSlug).toBe("beta");
+    expect(tenantFindUniqueMock).toHaveBeenCalledWith({
+      where: {
+        slug: "alpha",
+      },
+      select: {
+        id: true,
+        slug: true,
+        name: true,
+      },
+    });
     expect(userRoleCountMock).toHaveBeenCalledWith({
       where: {
         tenantId: "tenant_alpha",
@@ -97,7 +107,7 @@ describe("tenant deletion", () => {
   it("blocks deletion when it is the user's only tenant membership", async () => {
     const app = createTestApp([createMembership("tenant_alpha", "alpha", ["tenant.manage"])]);
 
-    const response = await request(app).delete("/v1/tenants/tenant_alpha");
+    const response = await request(app).delete("/v1/tenants/alpha");
 
     expect(response.status).toBe(400);
     expect(response.body.ok).toBe(false);
@@ -112,7 +122,7 @@ describe("tenant deletion", () => {
       createMembership("tenant_beta", "beta", ["tenant.manage"]),
     ]);
 
-    const response = await request(app).delete("/v1/tenants/tenant_alpha");
+    const response = await request(app).delete("/v1/tenants/alpha");
 
     expect(response.status).toBe(403);
     expect(response.body.ok).toBe(false);

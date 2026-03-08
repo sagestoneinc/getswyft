@@ -19,10 +19,12 @@
     return;
   }
 
-  const workspaceId = script.dataset.workspaceId?.trim();
+  const workspaceSlug = script.dataset.workspaceSlug?.trim() || "";
+  const workspaceIdFallback = script.dataset.workspaceId?.trim() || "";
+  const workspaceIdentifier = workspaceSlug || workspaceIdFallback;
   const launcherMode = script.dataset.launcher?.trim().toLowerCase() || "bubble";
   const environment = script.dataset.environment?.trim();
-  const storageKey = workspaceId ? `swyftup-widget-position:${workspaceId}` : "swyftup-widget-position";
+  const storageKey = workspaceIdentifier ? `swyftup-widget-position:${workspaceIdentifier}` : "swyftup-widget-position";
 
   function normalizePosition(value) {
     const normalized = String(value || "")
@@ -42,8 +44,8 @@
     return "right";
   }
 
-  if (!workspaceId) {
-    console.warn("[SwyftUp widget] Missing data-workspace-id on embed script.");
+  if (!workspaceIdentifier) {
+    console.warn("[SwyftUp widget] Missing data-workspace-slug on embed script.");
     return;
   }
 
@@ -83,7 +85,11 @@
 
   function buildFrameUrl() {
     const frameUrl = new URL(resolveWidgetBaseUrl(), window.location.href);
-    frameUrl.searchParams.set("workspaceId", workspaceId);
+    if (workspaceSlug) {
+      frameUrl.searchParams.set("workspaceSlug", workspaceSlug);
+    } else {
+      frameUrl.searchParams.set("workspaceId", workspaceIdFallback);
+    }
     frameUrl.searchParams.set("embedded", "1");
     frameUrl.searchParams.set("launcher", launcherMode);
     frameUrl.searchParams.set("position", initialPosition);
