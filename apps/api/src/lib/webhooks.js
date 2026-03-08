@@ -47,7 +47,7 @@ function sleep(ms) {
 
 /**
  * Attempts a single HTTP delivery of the webhook payload.
- * Returns { ok, statusCode, responseBody } — never throws.
+ * Returns { ok, retryable, statusCode, responseBody, durationMs } — never throws.
  */
 async function attemptDelivery(endpoint, rawBody, { eventType, deliveryId, requestId }) {
   const startedAt = Date.now();
