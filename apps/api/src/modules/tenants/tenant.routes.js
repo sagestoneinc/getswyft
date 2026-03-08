@@ -2193,6 +2193,7 @@ tenantRouter.post("/current/addons/phone-numbers", requireAuth, requireTenant, r
     // Re-activate a previously released row if one exists, otherwise create new
     const released = await prisma.tenantPhoneNumber.findFirst({
       where: { tenantId: req.tenant.id, phoneNumber, status: "RELEASED" },
+      orderBy: { releasedAt: "desc" },
     });
 
     const record = released
