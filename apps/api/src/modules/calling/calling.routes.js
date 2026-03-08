@@ -657,25 +657,20 @@ callingRouter.post(
         canSubscribe: true,
       });
 
-      const existingParticipant = await prisma.callParticipant.findUnique({
+      await prisma.callParticipant.upsert({
         where: {
           callSessionId_userId: {
             callSessionId: session.id,
             userId: req.auth.user.id,
           },
         },
+        create: {
+          callSessionId: session.id,
+          userId: req.auth.user.id,
+          joinedAt: new Date(),
+        },
+        update: {},
       });
-
-      if (!existingParticipant) {
-        await prisma.callParticipant.create({
-          data: {
-            callSessionId: session.id,
-            userId: req.auth.user.id,
-            joinedAt: new Date(),
-          },
-        });
-      }
-
       await Promise.all([
         writeAuditLog(req, {
           action: "call_session.token_generated",
