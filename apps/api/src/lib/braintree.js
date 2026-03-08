@@ -151,5 +151,10 @@ export function parseBraintreeAmount(amount) {
     return 0;
   }
 
-  return Math.round(Number(amount) * 100);
+  const parsed = Number(amount);
+  if (Number.isNaN(parsed)) {
+    return 0;
+  }
+
+  return Math.round(parsed * 100);
 }

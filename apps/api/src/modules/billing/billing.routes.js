@@ -16,6 +16,8 @@ import {
 
 export const billingRouter = Router();
 
+const DEFAULT_PLAN_KEY = "professional";
+
 billingRouter.post("/paddle-webhook", async (req, res, next) => {
   try {
     const signature = req.headers["paddle-signature"] || "";
@@ -268,7 +270,13 @@ billingRouter.post("/braintree-webhook", async (req, res, next) => {
 
     let notification;
     try {
-      notification = typeof payload === "string" ? JSON.parse(Buffer.from(payload, "base64").toString("utf8")) : payload;
+      if (typeof payload === "string" && /^[A-Za-z0-9+/=]+$/.test(payload)) {
+        notification = JSON.parse(Buffer.from(payload, "base64").toString("utf8"));
+      } else if (typeof payload === "string") {
+        notification = JSON.parse(payload);
+      } else {
+        notification = payload;
+      }
     } catch {
       notification = req.body;
     }
@@ -311,7 +319,7 @@ async function resolveBraintreeTenant(prisma, subject) {
   const tenantId = customFields.tenant_id;
 
   if (tenantId) {
-    return { tenantId, braintreeSubscriptionId, subscription };
+    return { tenantId, braintreeSubscriptionId, subscription, customFields };
   }
 
   if (braintreeSubscriptionId) {
@@ -321,15 +329,15 @@ async function resolveBraintreeTenant(prisma, subject) {
     });
 
     if (existing) {
-      return { tenantId: existing.tenantId, braintreeSubscriptionId, subscription };
+      return { tenantId: existing.tenantId, braintreeSubscriptionId, subscription, customFields };
     }
   }
 
-  return { tenantId: null, braintreeSubscriptionId, subscription };
+  return { tenantId: null, braintreeSubscriptionId, subscription, customFields };
 }
 
 async function handleBraintreeSubscriptionActive(prisma, subject, req) {
-  const { tenantId, braintreeSubscriptionId, subscription } = await resolveBraintreeTenant(prisma, subject);
+  const { tenantId, braintreeSubscriptionId, subscription, customFields } = await resolveBraintreeTenant(prisma, subject);
 
   if (!tenantId) {
     logger.warn("braintree_webhook_no_tenant_id", { braintreeSubscriptionId });
@@ -351,14 +359,15 @@ async function handleBraintreeSubscriptionActive(prisma, subject, req) {
   const nextBillingDate = subscription?.nextBillingDate
     ? new Date(subscription.nextBillingDate)
     : null;
-  const planId = subscription?.planId || "professional";
+  const planId = subscription?.planId || DEFAULT_PLAN_KEY;
+  const customerId = subscription?.merchantAccountId || customFields.customer_id || null;
 
   await prisma.billingSubscription.upsert({
     where: { tenantId },
     update: {
       provider: "braintree",
       braintreeSubscriptionId,
-      braintreeCustomerId: subscription?.paymentMethodToken || null,
+      braintreeCustomerId: customerId,
       status,
       seatPriceCents: priceCents || 4900,
       nextBillingAt: nextBillingDate,
@@ -368,8 +377,8 @@ async function handleBraintreeSubscriptionActive(prisma, subject, req) {
       tenantId,
       provider: "braintree",
       braintreeSubscriptionId,
-      braintreeCustomerId: subscription?.paymentMethodToken || null,
-      planKey: "professional",
+      braintreeCustomerId: customerId,
+      planKey: DEFAULT_PLAN_KEY,
       planName: planId,
       interval: "MONTHLY",
       status,
@@ -486,7 +495,12 @@ async function handleBraintreeSubscriptionCharged(prisma, subject, req) {
 
   const amountCents = parseBraintreeAmount(latestTransaction.amount);
   const currency = latestTransaction.currencyIsoCode || "USD";
-  const invoiceNumber = `BT-${(latestTransaction.id || braintreeSubscriptionId || "").slice(-8).toUpperCase()}`;
+  const transactionSuffix = (latestTransaction.id || braintreeSubscriptionId || Date.now().toString()).slice(-8).toUpperCase();
+  const invoiceNumber = `BT-${transactionSuffix}`;
+
+  if (!transactionSuffix) {
+    return;
+  }
 
   const existingInvoice = await prisma.billingInvoice.findUnique({
     where: { invoiceNumber },
@@ -498,6 +512,11 @@ async function handleBraintreeSubscriptionCharged(prisma, subject, req) {
 
   const billingPeriod = subscription?.currentBillingCycle;
   const now = new Date();
+  const periodStartDate = subscription?.firstBillingDate
+    ? new Date(subscription.firstBillingDate)
+    : subscription?.billingPeriodStartDate
+      ? new Date(subscription.billingPeriodStartDate)
+      : billingPeriod ? now : null;
 
   await prisma.billingInvoice.create({
     data: {
@@ -508,7 +527,7 @@ async function handleBraintreeSubscriptionCharged(prisma, subject, req) {
       amountCents,
       currency,
       issuedAt: now,
-      periodStart: billingPeriod ? now : null,
+      periodStart: periodStartDate,
       periodEnd: subscription?.nextBillingDate ? new Date(subscription.nextBillingDate) : null,
       paidAt: now,
       hostedUrl: null,

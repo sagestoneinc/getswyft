@@ -37,6 +37,7 @@ describe("braintree helpers", () => {
       expect(parseBraintreeAmount(null)).toBe(0);
       expect(parseBraintreeAmount(undefined)).toBe(0);
       expect(parseBraintreeAmount("")).toBe(0);
+      expect(parseBraintreeAmount("abc")).toBe(0);
     });
   });
 
