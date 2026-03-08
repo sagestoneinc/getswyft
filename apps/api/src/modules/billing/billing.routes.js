@@ -60,7 +60,7 @@ async function handleSubscriptionEvent(prisma, data, req) {
 
   const firstItem = data.items?.[0];
   const unitPriceCents = firstItem?.price?.unit_price?.amount
-    ? Math.round(Number(firstItem.price.unit_price.amount) / 100)
+    ? Math.round(Number(firstItem.price.unit_price.amount))
     : 4900;
   const currency = firstItem?.price?.unit_price?.currency_code || "USD";
   const quantity = firstItem?.quantity || 1;
@@ -195,7 +195,7 @@ async function handleTransactionCompleted(prisma, data, req) {
   }
 
   const totalAmount = data.details?.totals?.total
-    ? Math.round(Number(data.details.totals.total) / 100)
+    ? Math.round(Number(data.details.totals.total))
     : 0;
   const currency = data.currency_code || "USD";
 
