@@ -27,6 +27,7 @@
 | `AUTH_AUDIENCE` | — | Expected JWT audience claim |
 | `AUTH_JWKS_URI` | — | JWKS endpoint URL (auto-derived from issuer when omitted) |
 | `SUPABASE_URL` | — | Supabase project URL (when `AUTH_PROVIDER=supabase`) |
+| `JWT_SECRET` | — | Shared secret for internal widget visitor tokens |
 | `SUPABASE_DB_URL` | — | Supabase Postgres connection string used by `db:sync` and `supabase:migrate` |
 | `SUPABASE_DB_FORCE_IPV4` | `true` | Force IPv4 DNS lookup for Supabase migration connectivity |
 | `SUPABASE_DB_URL_IPV4` | — | Optional IPv4-safe Supabase Postgres URL override |
@@ -80,6 +81,24 @@
 | `TELNYX_CONNECTION_ID` | — | Telnyx connection ID for outbound calls |
 | `TELNYX_MESSAGING_PROFILE_ID` | — | Telnyx messaging profile ID |
 | `TELNYX_FROM_NUMBER` | — | Outbound caller ID phone number |
+
+### AI runtime
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OPENAI_API_KEY` | — | Default OpenAI-compatible API key for tenant AI workloads |
+| `OPENAI_BASE_URL` | `https://api.openai.com/v1` | Override for OpenAI-compatible base URL |
+| `OPENAI_MODEL` | `gpt-4o-mini` | Default model when tenant config does not specify one |
+| `AI_HTTP_TIMEOUT_MS` | `30000` | Timeout for outbound AI provider calls |
+
+### Rate limiting
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `RATE_LIMIT_WINDOW_MS` | `60000` | Sliding window used for in-memory API rate limiting |
+| `RATE_LIMIT_MAX` | `300` | Max requests per window for unauthenticated/general traffic |
+| `RATE_LIMIT_AUTH_MAX` | `120` | Max requests per window for authenticated traffic |
+| `RATE_LIMIT_WIDGET_MAX` | `30` | Max requests per window for public widget endpoints |
 
 ## Website (`apps/website`)
 
@@ -140,4 +159,4 @@
 |----------|---------|-------------|
 | `VITE_API_BASE_URL` | — | Backend API base URL |
 | `VITE_WS_BASE_URL` | — | WebSocket base URL |
-| `VITE_SOCKET_TOKEN` | — | Pre-shared token for socket authentication |
+| `VITE_SOCKET_TOKEN` | — | Optional pre-shared token for non-visitor socket authentication |

@@ -10,12 +10,14 @@ export interface ChatMessage {
 }
 
 interface UseChatOptions {
-  tenantId: string;
+  tenantId?: string;
+  tenantSlug?: string;
   lead: Record<string, unknown>;
   listing: Record<string, unknown>;
+  enabled?: boolean;
 }
 
-export function useChat({ tenantId, lead, listing }: UseChatOptions) {
+export function useChat({ tenantId, tenantSlug, lead, listing, enabled = true }: UseChatOptions) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -25,6 +27,17 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
   const initializedRef = useRef(false);
 
   useEffect(() => {
+    if (!enabled) {
+      initializedRef.current = false;
+      visitorJwtRef.current = null;
+      conversationIdRef.current = null;
+      setMessages([]);
+      setConnected(false);
+      setAfterHours(false);
+      setError(null);
+      return;
+    }
+
     if (initializedRef.current) return;
     initializedRef.current = true;
 
@@ -32,7 +45,7 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
 
     async function init() {
       try {
-        const resp = await createSession(tenantId, lead, listing);
+        const resp = await createSession(tenantId, tenantSlug, lead, listing);
 
         if (cancelled) return;
 
@@ -57,11 +70,13 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
           if (cancelled) return;
 
           if (evt.type === "conversation.history") {
-            const historyPayload = evt.payload as { messages: Array<{ id: string; text: string; senderType: string; createdAt: string }> };
+            const historyPayload = evt.payload as {
+              messages: Array<{ id: string; text?: string; body?: string; senderType: string; createdAt: string }>;
+            };
             setMessages(
               historyPayload.messages.map((m) => ({
                 id: m.id,
-                body: m.text,
+                body: m.text || m.body || "",
                 sender: m.senderType === "visitor" ? "visitor" as const : "agent" as const,
                 timestamp: m.createdAt,
               }))
@@ -69,7 +84,14 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
           }
 
           if (evt.type === "message.created") {
-            const msg = evt.payload as { id: string; text: string; senderType: string; createdAt: string; clientMsgId?: string };
+            const msg = evt.payload as {
+              id: string;
+              text?: string;
+              body?: string;
+              senderType: string;
+              createdAt: string;
+              clientMsgId?: string;
+            };
             setMessages((prev) => {
               if (prev.some((m) => m.id === msg.id)) return prev;
               if (msg.clientMsgId && prev.some((m) => m.id === msg.clientMsgId)) {
@@ -81,7 +103,7 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
                 ...prev,
                 {
                   id: msg.id,
-                  body: msg.text,
+                  body: msg.text || msg.body || "",
                   sender: msg.senderType === "visitor" ? "visitor" as const : "agent" as const,
                   timestamp: msg.createdAt,
                 },
@@ -102,7 +124,7 @@ export function useChat({ tenantId, lead, listing }: UseChatOptions) {
       cancelled = true;
       disconnectSocket();
     };
-  }, [tenantId, lead, listing]);
+  }, [enabled, tenantId, tenantSlug, lead, listing]);
 
   const send = useCallback(async (body: string) => {
     const jwt = visitorJwtRef.current;

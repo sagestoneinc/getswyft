@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Bot, Loader2, Plus, RefreshCw, Trash2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { deleteAiConfig, listAiConfigs, upsertAiConfig, type AIConfigItem } from "../../lib/operations";
 
-const defaultConfigText = '{\n  "model": "gpt-4o-mini",\n  "temperature": 0.2\n}';
+const defaultConfigText =
+  '{\n  "model": "gpt-4o-mini",\n  "temperature": 0.2,\n  "systemPrompt": "Keep replies concise, calm, and helpful."\n}';
 
 function prettyJson(value: unknown) {
   try {

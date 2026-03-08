@@ -1,7 +1,11 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+const API_URL =
+  import.meta.env.VITE_API_URL ||
+  import.meta.env.VITE_API_BASE_URL ||
+  "http://localhost:3000";
 
 export interface SessionPayload {
-  tenantId: string;
+  tenantId?: string;
+  tenantSlug?: string;
   lead: Record<string, unknown>;
   listing: Record<string, unknown>;
   pageUrl: string;
@@ -15,7 +19,8 @@ export interface SessionResponse {
 }
 
 export async function createSession(
-  tenantId: string,
+  tenantId: string | undefined,
+  tenantSlug: string | undefined,
   lead: Record<string, unknown>,
   listing: Record<string, unknown>,
 ): Promise<SessionResponse> {
@@ -24,6 +29,7 @@ export async function createSession(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       tenantId,
+      tenantSlug,
       lead,
       listing: { ...listing, url: listing.url || window.location.href },
       pageUrl: window.location.href,
@@ -44,14 +50,14 @@ export async function sendMessage(
   clientMsgId: string,
 ): Promise<void> {
   const res = await fetch(
-    `${API_URL}/v1/conversations/${encodeURIComponent(conversationId)}/messages`,
+    `${API_URL}/v1/widget/conversations/${encodeURIComponent(conversationId)}/messages`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${visitorJwt}`,
       },
-      body: JSON.stringify({ text: body, clientMsgId }),
+      body: JSON.stringify({ body, clientMsgId }),
     },
   );
 

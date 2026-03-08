@@ -2,7 +2,7 @@
 
 ## Summary
 
-Getswyft supports file attachments in conversation messages, allowing visitors and agents to share documents, images, and other files during a chat. The file upload system uses presigned URLs for secure, direct-to-storage uploads and supports two storage backends: Amazon S3 (production) and local filesystem (development). All upload endpoints are mounted at `/v1/storage`.
+Getswyft supports file attachments in conversation messages, allowing agents to share documents, images, and other files during a chat today. Visitor-side widget uploads are planned as a follow-up. The file upload system uses presigned URLs for secure, direct-to-storage uploads and supports two storage backends: Amazon S3 (production) and local filesystem (development). All upload endpoints are mounted at `/v1/storage`.
 
 ## Who Can Use This
 
@@ -69,7 +69,7 @@ The file upload system provides the following capabilities:
 
 ## Permissions Required
 
-- **`conversation.write`** permission is required to use the upload endpoints. This permission is granted automatically to authenticated visitors (via `visitorJwt`) and agents (via `agentJwt`) who are participants in the conversation.
+- **`conversation.write`** permission is required to use the upload endpoints. This is currently available for authenticated agent sessions. Visitor-side widget uploads are planned for a follow-up release.
 - Unauthenticated users cannot upload files.
 
 ## Common Issues

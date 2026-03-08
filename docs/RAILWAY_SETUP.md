@@ -68,7 +68,8 @@ fields in the Railway dashboard.
 |----------|-------------|
 | `DATABASE_URL` | PostgreSQL connection string (Railway provides this when you add a Postgres plugin) |
 | `SUPABASE_DB_URL` | Supabase Postgres connection string (required for `db:sync` and Supabase SQL migrations) |
-| `JWT_SECRET` | Secret used to sign auth tokens |
+| `JWT_SECRET` | Secret used to sign internal widget visitor tokens |
+| `OPENAI_API_KEY` | Default OpenAI-compatible API key for tenant AI workloads |
 | `CORS_ORIGINS` | Comma-separated allowed origins (e.g. `https://agent.example.com,https://widget.example.com`) |
 | `PORT` | *(set automatically by Railway)* |
 

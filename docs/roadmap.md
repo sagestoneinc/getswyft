@@ -32,7 +32,7 @@ Development is organized into six phases. Each phase builds on the previous one.
 | Feature | Status | Notes |
 |---------|--------|-------|
 | Outbound calls | ✅ | Telnyx integration with dev fallback logging |
-| Voice / video signaling | ✅ | CallSession model with LiveKit room name generation, voice/video call types (`/v1/calls/sessions`) |
+| Voice / video signaling | ⚠️ | CallSession signaling, call types, and room naming are live; full LiveKit media transport is still pending |
 | Call state | ✅ | CallSession with RINGING/ANSWERED/BUSY/FAILED/ENDED status tracking, duration calculation |
 | UI controls | ✅ | Participant state management — mute, hold per participant (`/v1/calls/sessions/:id/participants/:userId`) |
 | Reconnect logic | ✅ | Participant join/leave tracking with timestamps for reconnection support |
@@ -55,7 +55,7 @@ Development is organized into six phases. Each phase builds on the previous one.
 | Analytics | ✅ | Event tracking and summary aggregation |
 | Feature flags | ✅ | Per-tenant feature flags with JSON config |
 | Webhooks | ✅ | HMAC-signed delivery with retries, logs, and test delivery |
-| Billing | ✅ | Subscription and invoice models (processor integration pending) |
+| Billing | ⚠️ | Subscription and invoice models are live; payment processor integration is still pending |
 | Admin dashboard | ✅ | Tenant settings, team management, billing, webhooks, moderation, and compliance in one admin surface |
 | Moderation | ✅ | Content moderation reports with status workflow (OPEN → REVIEWING → RESOLVED/DISMISSED) (`/v1/moderation`) |
 | Compliance hooks | ✅ | Data export requests with status tracking (PENDING → PROCESSING → COMPLETED/FAILED) (`/v1/compliance/exports`) |
@@ -65,8 +65,8 @@ Development is organized into six phases. Each phase builds on the previous one.
 | Feature | Status | Notes |
 |---------|--------|-------|
 | AI config | ✅ | Per-tenant AI provider configuration with CRUD (`/v1/ai/config`) |
-| Chatbot | ✅ | Chatbot endpoint with tenant AI config check and interaction logging (`/v1/ai/chat`) |
+| Chatbot | ✅ | Chatbot endpoint with tenant AI config, provider execution, and interaction logging (`/v1/ai/chat`) |
 | Assistant orchestration | ✅ | AI-assisted agent workflows with conversation/channel context (`/v1/ai/assist`) |
-| Summarization | ✅ | Conversation and channel message summarization with auto-input loading (`/v1/ai/summarize`) |
-| Moderation AI | ✅ | Automated content screening endpoint with flagging support (`/v1/ai/moderate`) |
-| Voice bot extension points | ✅ | Voice bot interaction endpoint with call session context (`/v1/ai/voice-bot`) |
+| Summarization | ✅ | Conversation and channel message summarization with provider execution (`/v1/ai/summarize`) |
+| Moderation AI | ✅ | Automated content screening endpoint with provider-backed flagging support (`/v1/ai/moderate`) |
+| Voice bot extension points | ✅ | Voice bot interaction endpoint with call session context and provider execution (`/v1/ai/voice-bot`) |

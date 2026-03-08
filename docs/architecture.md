@@ -32,6 +32,7 @@ Each domain is encapsulated in its own route module under `src/modules/`:
 | Module | Mount point | Description |
 |--------|------------|-------------|
 | `auth` | `/v1/auth` | Returns the current user context (`/me`) |
+| `widget` | `/v1/widget` | Public visitor session creation and visitor-scoped messaging |
 | `tenants` | `/v1/tenants` | Tenant settings, branding, feature flags, routing config, webhooks, billing |
 | `users` | `/v1/users` | Team management, invitations, role assignment, assignable members |
 | `messaging` | `/v1` | Conversations, messages, reactions, read receipts, attachments, outbound calls |
@@ -173,7 +174,6 @@ Development follows a six-phase plan. See [roadmap.md](roadmap.md) for the full 
 - Dev auth bypass gated behind `DEV_AUTH_BYPASS=true` (disabled in production)
 
 ### Not yet implemented
-- Rate limiting (infrastructure present, enforcement pending)
 - CSRF protection
 - API key authentication for external integrations
 

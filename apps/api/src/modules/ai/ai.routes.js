@@ -2,6 +2,7 @@ import { Router } from "express";
 import { getPrismaClient } from "../../lib/db.js";
 import { writeAuditLog } from "../../lib/audit.js";
 import { recordAnalyticsEvent } from "../../lib/analytics.js";
+import { runAiTask } from "../../lib/ai-runtime.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
 import { requireTenant } from "../../middleware/tenant.js";
@@ -187,8 +188,17 @@ aiRouter.post(
         });
       }
 
-      const output =
-        "AI response placeholder — connect your provider in tenant AI config";
+      const aiResult = await runAiTask({
+        provider: config.provider,
+        config: config.config,
+        task: "chat",
+        input,
+        metadata: {
+          conversationId: conversationId || null,
+          channelId: channelId || null,
+          ...(metadata && typeof metadata === "object" ? metadata : {}),
+        },
+      });
 
       const interaction = await prisma.aIInteraction.create({
         data: {
@@ -198,8 +208,11 @@ aiRouter.post(
           conversationId: conversationId || null,
           channelId: channelId || null,
           input,
-          output,
+          output: aiResult.output,
+          model: aiResult.model,
           provider: config.provider,
+          tokensUsed: aiResult.tokensUsed,
+          durationMs: aiResult.durationMs,
           metadata: metadata || null,
         },
       });
@@ -218,7 +231,7 @@ aiRouter.post(
         }),
       ]);
 
-      return res.json({ ok: true, output, interaction });
+      return res.json({ ok: true, output: aiResult.output, interaction });
     } catch (error) {
       return next(error);
     }
@@ -279,8 +292,16 @@ aiRouter.post(
         });
       }
 
-      const output =
-        "AI summary placeholder — connect your provider in tenant AI config";
+      const aiResult = await runAiTask({
+        provider: config.provider,
+        config: config.config,
+        task: "summarize",
+        input: inputText,
+        metadata: {
+          conversationId: conversationId || null,
+          channelId: channelId || null,
+        },
+      });
 
       const interaction = await prisma.aIInteraction.create({
         data: {
@@ -290,8 +311,11 @@ aiRouter.post(
           conversationId: conversationId || null,
           channelId: channelId || null,
           input: inputText,
-          output,
+          output: aiResult.output,
+          model: aiResult.model,
           provider: config.provider,
+          tokensUsed: aiResult.tokensUsed,
+          durationMs: aiResult.durationMs,
         },
       });
 
@@ -309,7 +333,7 @@ aiRouter.post(
         }),
       ]);
 
-      return res.json({ ok: true, output, interaction });
+      return res.json({ ok: true, output: aiResult.output, interaction });
     } catch (error) {
       return next(error);
     }
@@ -344,7 +368,16 @@ aiRouter.post(
         });
       }
 
-      const output = "Content moderation placeholder";
+      const aiResult = await runAiTask({
+        provider: config.provider,
+        config: config.config,
+        task: "moderate",
+        input: content,
+        metadata: {
+          targetType: targetType || null,
+          targetId: targetId || null,
+        },
+      });
 
       const interaction = await prisma.aIInteraction.create({
         data: {
@@ -352,8 +385,11 @@ aiRouter.post(
           userId: req.auth?.user?.id || null,
           type: "MODERATION",
           input: content,
-          output,
+          output: aiResult.output,
+          model: aiResult.model,
           provider: config.provider,
+          tokensUsed: aiResult.tokensUsed,
+          durationMs: aiResult.durationMs,
           metadata: { targetType: targetType || null, targetId: targetId || null },
         },
       });
@@ -374,9 +410,10 @@ aiRouter.post(
 
       return res.json({
         ok: true,
-        flagged: false,
-        categories: [],
-        output,
+        flagged: aiResult.flagged,
+        categories: aiResult.categories,
+        output: aiResult.output,
+        reason: aiResult.reason,
         interaction,
       });
     } catch (error) {
@@ -410,8 +447,17 @@ aiRouter.post(
         });
       }
 
-      const output =
-        "Assistant suggestion placeholder — connect your provider in tenant AI config";
+      const aiResult = await runAiTask({
+        provider: config.provider,
+        config: config.config,
+        task: "assist",
+        input,
+        metadata: {
+          conversationId: conversationId || null,
+          channelId: channelId || null,
+          ...(metadata && typeof metadata === "object" ? metadata : {}),
+        },
+      });
 
       const interaction = await prisma.aIInteraction.create({
         data: {
@@ -421,8 +467,11 @@ aiRouter.post(
           conversationId: conversationId || null,
           channelId: channelId || null,
           input,
-          output,
+          output: aiResult.output,
+          model: aiResult.model,
           provider: config.provider,
+          tokensUsed: aiResult.tokensUsed,
+          durationMs: aiResult.durationMs,
           metadata: metadata || null,
         },
       });
@@ -441,7 +490,7 @@ aiRouter.post(
         }),
       ]);
 
-      return res.json({ ok: true, output, interaction });
+      return res.json({ ok: true, output: aiResult.output, interaction });
     } catch (error) {
       return next(error);
     }
@@ -508,8 +557,16 @@ aiRouter.post(
         });
       }
 
-      const output =
-        "Voice bot response placeholder — connect your provider in tenant AI config";
+      const aiResult = await runAiTask({
+        provider: config.provider,
+        config: config.config,
+        task: "voice_bot",
+        input,
+        metadata: {
+          callSessionId: callSessionId || null,
+          ...(metadata && typeof metadata === "object" ? metadata : {}),
+        },
+      });
 
       const interaction = await prisma.aIInteraction.create({
         data: {
@@ -517,8 +574,11 @@ aiRouter.post(
           userId: req.auth?.user?.id || null,
           type: "VOICE_BOT",
           input,
-          output,
+          output: aiResult.output,
+          model: aiResult.model,
           provider: config.provider,
+          tokensUsed: aiResult.tokensUsed,
+          durationMs: aiResult.durationMs,
           metadata: {
             ...(metadata || {}),
             callSessionId: callSessionId || null,
@@ -540,7 +600,7 @@ aiRouter.post(
         }),
       ]);
 
-      return res.json({ ok: true, output, interaction });
+      return res.json({ ok: true, output: aiResult.output, interaction });
     } catch (error) {
       return next(error);
     }

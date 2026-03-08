@@ -17,7 +17,7 @@ There are three distinct authentication flows:
 
 1. **Website login page** — The primary login for dashboard users. Supports email/password, Google SSO, and Azure/Microsoft SSO.
 2. **Agent console login** — A separate login page specifically for agents, supporting email and password authentication.
-3. **Widget visitor sessions** — When a visitor interacts with the chat widget on a property listing, a session is created automatically. No manual login is required. **Note:** The dedicated `POST /v1/widget/session` endpoint is not yet implemented; the widget currently bootstraps sessions through the existing authentication and conversation creation endpoints.
+3. **Widget visitor sessions** — When a visitor interacts with the chat widget on a property listing, a session is created automatically through `POST /v1/widget/session`. No manual login is required.
 
 ## Key Functions / Actions Available
 
@@ -29,7 +29,7 @@ There are three distinct authentication flows:
 - Enable "Remember me" to persist the session
 - View current user info, tenant, roles, and permissions via `GET /v1/auth/me`
 - View and update user profile via `GET /v1/auth/profile` and `PATCH /v1/auth/profile`
-- Create a visitor session through the widget (session endpoint not yet implemented; see [Widget](widget.md))
+- Create a visitor session through the widget and receive a visitor-scoped token (see [Widget](widget.md))
 
 ## Step-by-Step How to Use It
 

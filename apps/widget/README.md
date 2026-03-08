@@ -2,7 +2,7 @@
 
 React + TypeScript embeddable visitor widget, built with Vite.
 
-The widget is embedded on real estate listing pages to allow site visitors to start conversations with agents. It connects to the Getswyft API and WebSocket server for real-time messaging.
+The widget is embedded on real estate listing pages to allow site visitors to start conversations with agents. It connects to the Getswyft API for visitor session creation and to the WebSocket server for real-time messaging.
 
 ## Tech stack
 
@@ -45,7 +45,7 @@ pnpm -C apps/widget lint
 |----------|-------------|
 | `VITE_API_BASE_URL` | Backend API base URL |
 | `VITE_WS_BASE_URL` | WebSocket base URL |
-| `VITE_SOCKET_TOKEN` | Pre-shared token for socket authentication |
+| `VITE_SOCKET_TOKEN` | Optional pre-shared token for non-visitor runtime checks |
 
 ## Marketing Site Embed
 

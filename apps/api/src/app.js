@@ -4,6 +4,7 @@ import { env } from "./config/env.js";
 import { logger } from "./lib/logger.js";
 import { requestContextMiddleware } from "./lib/request-context.js";
 import { requestMonitor, requestMonitorMiddleware } from "./lib/request-monitor.js";
+import { authenticatedRateLimit, generalRateLimit } from "./lib/rate-limit.js";
 import { authenticateRequest } from "./middleware/auth.js";
 import { resolveTenant } from "./middleware/tenant.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -20,6 +21,7 @@ import { feedRouter } from "./modules/feed/feed.routes.js";
 import { moderationRouter } from "./modules/moderation/moderation.routes.js";
 import { complianceRouter } from "./modules/compliance/compliance.routes.js";
 import { aiRouter } from "./modules/ai/ai.routes.js";
+import { widgetRouter } from "./modules/widget/widget.routes.js";
 
 export function createApp() {
   const app = express();
@@ -33,6 +35,13 @@ export function createApp() {
   app.use(express.json({ limit: "2mb" }));
   app.use(requestContextMiddleware);
   app.use(requestMonitorMiddleware);
+  app.use((req, res, next) => {
+    if (req.path.startsWith("/health")) {
+      return next();
+    }
+
+    return generalRateLimit(req, res, next);
+  });
 
   app.use((req, res, next) => {
     res.setHeader("x-request-id", req.context.requestId);
@@ -40,6 +49,13 @@ export function createApp() {
   });
 
   app.use(authenticateRequest);
+  app.use((req, res, next) => {
+    if (!req.auth?.isAuthenticated) {
+      return next();
+    }
+
+    return authenticatedRateLimit(req, res, next);
+  });
   app.use(resolveTenant);
 
   app.get("/", (_req, res) => {
@@ -88,6 +104,7 @@ export function createApp() {
   });
 
   app.use("/v1/auth", authRouter);
+  app.use("/v1/widget", widgetRouter);
   app.use("/v1/tenants", tenantRouter);
   app.use("/v1/users", userRouter);
   app.use("/v1/notifications", notificationRouter);

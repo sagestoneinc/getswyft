@@ -5,6 +5,7 @@ import { recordAnalyticsEvent } from "../../lib/analytics.js";
 import { writeAuditLog } from "../../lib/audit.js";
 import { createUserNotification } from "../../lib/push.js";
 import { startOutboundCall } from "../../lib/telephony.js";
+import { emitConversationMessage } from "../../lib/socket-events.js";
 import { dispatchTenantWebhookEvent } from "../../lib/webhooks.js";
 import { requireAuth } from "../../middleware/auth.js";
 import { requirePermission } from "../../middleware/rbac.js";
@@ -746,6 +747,15 @@ messagingRouter.post(
         requestId: req.context?.requestId,
       }),
     ]);
+
+    const io = req.app.get("io");
+    if (io) {
+      emitConversationMessage(io, {
+        tenantId: req.tenant.id,
+        conversationId: conversation.id,
+        message,
+      });
+    }
 
     if (conversation.assignedUserId && conversation.assignedUserId !== req.auth.user.id) {
       await createUserNotification({

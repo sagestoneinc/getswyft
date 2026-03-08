@@ -20,6 +20,7 @@ const rawEnvSchema = z.object({
   AUTH_AUDIENCE: z.string().optional(),
   AUTH_JWKS_URI: z.string().optional(),
   SUPABASE_URL: z.string().optional(),
+  JWT_SECRET: z.string().optional(),
   DEV_AUTH_BYPASS: z.string().default("false"),
   DEV_DEFAULT_TENANT_SLUG: z.string().default("default"),
 
@@ -50,6 +51,16 @@ const rawEnvSchema = z.object({
   TELNYX_CONNECTION_ID: z.string().optional(),
   TELNYX_MESSAGING_PROFILE_ID: z.string().optional(),
   TELNYX_FROM_NUMBER: z.string().optional(),
+
+  OPENAI_API_KEY: z.string().optional(),
+  OPENAI_BASE_URL: z.string().optional(),
+  OPENAI_MODEL: z.string().optional(),
+  AI_HTTP_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
+
+  RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(60000),
+  RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
+  RATE_LIMIT_AUTH_MAX: z.coerce.number().int().positive().default(120),
+  RATE_LIMIT_WIDGET_MAX: z.coerce.number().int().positive().default(30),
 });
 
 const parsed = rawEnvSchema.parse(process.env);

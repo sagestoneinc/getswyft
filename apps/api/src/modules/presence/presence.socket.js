@@ -2,7 +2,14 @@ import { env } from "../../config/env.js";
 import { loadAccessContextFromClaims } from "../../lib/access-context.js";
 import { verifyAccessToken } from "../../lib/auth-tokens.js";
 import { getPrismaClient } from "../../lib/db.js";
+import { isVisitorClaims, verifyInternalAccessToken } from "../../lib/internal-tokens.js";
 import { logger } from "../../lib/logger.js";
+import {
+  emitConversationHistory,
+  emitConversationMessage,
+  getConversationRoom,
+  serializeRealtimeConversationMessage,
+} from "../../lib/socket-events.js";
 
 function safeAck(callback, payload) {
   if (typeof callback === "function") {
@@ -16,17 +23,6 @@ function normalizePresenceStatus(status) {
     return value;
   }
   return "ONLINE";
-}
-
-function serializeSocketMessage(message) {
-  return {
-    id: message.id,
-    conversationId: message.conversationId,
-    tenantId: message.conversation?.tenantId,
-    sender: message.senderType === "AGENT" ? "agent" : message.senderType === "SYSTEM" ? "system" : "visitor",
-    body: message.body,
-    createdAt: message.createdAt instanceof Date ? message.createdAt.toISOString() : message.createdAt,
-  };
 }
 
 function hasSocketPermission(auth, permission) {
@@ -71,13 +67,56 @@ function resolveSocketTenant(access, socket) {
   return access.memberships[0] || null;
 }
 
+function isVisitorSocket(auth) {
+  return auth?.kind === "visitor";
+}
+
+function canAccessConversation(auth, conversationId) {
+  if (!isVisitorSocket(auth)) {
+    return true;
+  }
+
+  return auth.visitor?.conversationId === conversationId;
+}
+
 export function registerPresenceSocket(io) {
   const prisma = getPrismaClient();
 
   io.use(async (socket, next) => {
     try {
       const token = getTokenFromSocket(socket);
-      const claims = token
+      let claims = null;
+      let visitorClaims = null;
+
+      if (token) {
+        try {
+          visitorClaims = await verifyInternalAccessToken(token);
+        } catch {
+          visitorClaims = null;
+        }
+      }
+
+      if (visitorClaims && isVisitorClaims(visitorClaims)) {
+        socket.data.auth = {
+          kind: "visitor",
+          claims: visitorClaims,
+          user: null,
+          memberships: [],
+          tenant: {
+            tenantId: visitorClaims.tenant_id,
+            tenantSlug: null,
+            permissions: ["conversation.read", "conversation.write"],
+          },
+          visitor: {
+            conversationId: visitorClaims.conversation_id,
+            displayName: visitorClaims.lead_name || "Visitor",
+          },
+        };
+
+        return next();
+      }
+
+      claims = token
         ? await verifyAccessToken(token)
         : env.DEV_AUTH_BYPASS
           ? getDevClaims(socket)
@@ -97,6 +136,7 @@ export function registerPresenceSocket(io) {
       }
 
       socket.data.auth = {
+        kind: "user",
         claims,
         user: access.user,
         memberships: access.memberships,
@@ -112,53 +152,59 @@ export function registerPresenceSocket(io) {
   io.on("connection", async (socket) => {
     const auth = socket.data.auth;
     const tenantRoom = `tenant:${auth.tenant.tenantId}:presence`;
-    const userRoom = `tenant:${auth.tenant.tenantId}:user:${auth.user.id}`;
+    const userRoom = auth.user ? `tenant:${auth.tenant.tenantId}:user:${auth.user.id}` : null;
 
-    socket.join(tenantRoom);
-    socket.join(userRoom);
+    if (!isVisitorSocket(auth)) {
+      socket.join(tenantRoom);
+      if (userRoom) {
+        socket.join(userRoom);
+      }
+    }
 
     socket.emit("auth:ready", {
       socketId: socket.id,
-      userId: auth.user.id,
+      userId: auth.user?.id || null,
       tenantId: auth.tenant.tenantId,
       tenantSlug: auth.tenant.tenantSlug,
       connectedAt: new Date().toISOString(),
     });
 
-    try {
-      await prisma.presenceSession.upsert({
-        where: {
-          tenantId_userId_connectionId: {
+    if (!isVisitorSocket(auth)) {
+      try {
+        await prisma.presenceSession.upsert({
+          where: {
+            tenantId_userId_connectionId: {
+              tenantId: auth.tenant.tenantId,
+              userId: auth.user.id,
+              connectionId: socket.id,
+            },
+          },
+          create: {
             tenantId: auth.tenant.tenantId,
             userId: auth.user.id,
             connectionId: socket.id,
+            status: "ONLINE",
+            metadata: {
+              source: "socket",
+            },
           },
-        },
-        create: {
-          tenantId: auth.tenant.tenantId,
-          userId: auth.user.id,
-          connectionId: socket.id,
-          status: "ONLINE",
-          metadata: {
-            source: "socket",
+          update: {
+            status: "ONLINE",
+            lastSeenAt: new Date(),
           },
-        },
-        update: {
-          status: "ONLINE",
-          lastSeenAt: new Date(),
-        },
-      });
-    } catch (error) {
-      logger.warn("presence_upsert_failed", { error: error.message });
-    }
+        });
+      } catch (error) {
+        logger.warn("presence_upsert_failed", { error: error.message });
+      }
 
-    io.to(tenantRoom).emit("presence:update", {
-      userId: auth.user.id,
-      tenantId: auth.tenant.tenantId,
-      status: "ONLINE",
-      socketId: socket.id,
-      updatedAt: new Date().toISOString(),
-    });
+      io.to(tenantRoom).emit("presence:update", {
+        userId: auth.user.id,
+        tenantId: auth.tenant.tenantId,
+        status: "ONLINE",
+        socketId: socket.id,
+        updatedAt: new Date().toISOString(),
+      });
+    }
 
     socket.on("presence:subscribe", ({ userIds } = {}, callback) => {
       safeAck(callback, {
@@ -169,6 +215,11 @@ export function registerPresenceSocket(io) {
     });
 
     socket.on("presence:update", async (payload = {}, callback) => {
+      if (isVisitorSocket(auth)) {
+        safeAck(callback, { ok: false, error: "Visitors cannot update presence" });
+        return;
+      }
+
       const status = normalizePresenceStatus(payload.status);
 
       try {
@@ -200,7 +251,7 @@ export function registerPresenceSocket(io) {
       safeAck(callback, { ok: true, ...event });
     });
 
-    socket.on("conversation:join", async ({ conversationId }, callback) => {
+    async function joinConversationHandler(conversationId, callback) {
       if (!hasSocketPermission(auth, "conversation.read")) {
         safeAck(callback, { ok: false, error: "Missing permission: conversation.read" });
         return;
@@ -208,6 +259,11 @@ export function registerPresenceSocket(io) {
 
       if (!conversationId || typeof conversationId !== "string") {
         safeAck(callback, { ok: false, error: "conversationId is required" });
+        return;
+      }
+
+      if (!canAccessConversation(auth, conversationId)) {
+        safeAck(callback, { ok: false, error: "Conversation access denied" });
         return;
       }
 
@@ -226,7 +282,7 @@ export function registerPresenceSocket(io) {
         return;
       }
 
-      const room = `tenant:${auth.tenant.tenantId}:conversation:${conversationId}`;
+      const room = getConversationRoom(auth.tenant.tenantId, conversationId);
       socket.join(room);
 
       const history = await prisma.conversationMessage.findMany({
@@ -253,8 +309,24 @@ export function registerPresenceSocket(io) {
         ok: true,
         tenantId: auth.tenant.tenantId,
         conversationId,
-        history: history.map(serializeSocketMessage),
+        history: history.map(serializeRealtimeConversationMessage),
       });
+
+      emitConversationHistory(io, {
+        tenantId: auth.tenant.tenantId,
+        conversationId,
+        messages: history,
+      });
+    }
+
+    socket.on("conversation:join", ({ conversationId }, callback) => {
+      void joinConversationHandler(conversationId, callback);
+    });
+
+    socket.on("join", (conversationId, callback) => {
+      const normalizedConversationId =
+        typeof conversationId === "string" ? conversationId : conversationId?.conversationId;
+      void joinConversationHandler(normalizedConversationId, callback);
     });
 
     socket.on("conversation:leave", ({ conversationId }, callback) => {
@@ -276,6 +348,11 @@ export function registerPresenceSocket(io) {
 
       if (!conversationId || typeof conversationId !== "string") {
         safeAck(callback, { ok: false, error: "conversationId is required" });
+        return;
+      }
+
+      if (!canAccessConversation(auth, conversationId)) {
+        safeAck(callback, { ok: false, error: "Conversation access denied" });
         return;
       }
 
@@ -302,7 +379,13 @@ export function registerPresenceSocket(io) {
       safeAck(callback, {
         ok: true,
         conversationId,
-        history: history.map(serializeSocketMessage),
+        history: history.map(serializeRealtimeConversationMessage),
+      });
+
+      emitConversationHistory(io, {
+        tenantId: auth.tenant.tenantId,
+        conversationId,
+        messages: history,
       });
     });
 
@@ -317,6 +400,11 @@ export function registerPresenceSocket(io) {
 
       if (!conversationId || typeof conversationId !== "string") {
         safeAck(callback, { ok: false, error: "conversationId is required" });
+        return;
+      }
+
+      if (!canAccessConversation(auth, conversationId)) {
+        safeAck(callback, { ok: false, error: "Conversation access denied" });
         return;
       }
 
@@ -344,8 +432,8 @@ export function registerPresenceSocket(io) {
         const message = await tx.conversationMessage.create({
           data: {
             conversationId,
-            senderType: "AGENT",
-            senderUserId: auth.user.id,
+            senderType: isVisitorSocket(auth) ? "VISITOR" : "AGENT",
+            senderUserId: isVisitorSocket(auth) ? null : auth.user.id,
             body,
           },
           include: {
@@ -357,14 +445,16 @@ export function registerPresenceSocket(io) {
           },
         });
 
-        await tx.messageReceipt.create({
-          data: {
-            messageId: message.id,
-            userId: auth.user.id,
-            deliveredAt: new Date(),
-            readAt: new Date(),
-          },
-        });
+        if (!isVisitorSocket(auth)) {
+          await tx.messageReceipt.create({
+            data: {
+              messageId: message.id,
+              userId: auth.user.id,
+              deliveredAt: new Date(),
+              readAt: new Date(),
+            },
+          });
+        }
 
         await tx.conversation.update({
           where: {
@@ -372,7 +462,7 @@ export function registerPresenceSocket(io) {
           },
           data: {
             status: "OPEN",
-            assignedUserId: auth.user.id,
+            assignedUserId: isVisitorSocket(auth) ? undefined : auth.user.id,
             lastMessagePreview: body,
             lastMessageAt: message.createdAt,
           },
@@ -381,11 +471,12 @@ export function registerPresenceSocket(io) {
         return message;
       });
 
-      const room = `tenant:${auth.tenant.tenantId}:conversation:${conversationId}`;
-      const message = serializeSocketMessage(createdMessage);
-
-      io.to(room).emit("message:new", message);
-      safeAck(callback, { ok: true, message });
+      emitConversationMessage(io, {
+        tenantId: auth.tenant.tenantId,
+        conversationId,
+        message: createdMessage,
+      });
+      safeAck(callback, { ok: true, message: serializeRealtimeConversationMessage(createdMessage) });
     });
 
     function handleTyping(isTyping, { conversationId, channelId } = {}, callback) {
@@ -403,7 +494,9 @@ export function registerPresenceSocket(io) {
         ? `tenant:${auth.tenant.tenantId}:conversation:${conversationId}`
         : `tenant:${auth.tenant.tenantId}:channel:${channelId}`;
 
-      const displayName = auth.user.displayName || auth.user.email;
+      const displayName = isVisitorSocket(auth)
+        ? auth.visitor.displayName
+        : auth.user.displayName || auth.user.email;
 
       socket.to(room).emit("typing:update", {
         userId: auth.user.id,
@@ -462,6 +555,10 @@ export function registerPresenceSocket(io) {
     });
 
     socket.on("disconnect", async () => {
+      if (isVisitorSocket(auth)) {
+        return;
+      }
+
       try {
         await prisma.presenceSession.updateMany({
           where: {

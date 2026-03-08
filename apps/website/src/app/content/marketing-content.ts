@@ -1464,13 +1464,13 @@ export const marketingPages: Record<string, MarketingPage> = {
             title: "CRM sync",
             description: "Keep contacts, owners, summaries, and lifecycle changes aligned with tools like HubSpot, Salesforce, Pipedrive, or Zoho.",
             icon: "integrations",
-            meta: "Placeholder connector set",
+            meta: "Popular CRM pattern",
           },
           {
             title: "Helpdesk workflows",
             description: "Send conversation context into support tools such as Zendesk or Freshdesk when teams need a longer service trail.",
             icon: "help",
-            meta: "Placeholder connector set",
+            meta: "Popular support pattern",
           },
           {
             title: "Team collaboration",
@@ -1862,7 +1862,7 @@ export const marketingPages: Record<string, MarketingPage> = {
           },
           {
             title: "SDKs",
-            description: "Placeholder support for JavaScript, Node, Python, and PHP quickstarts with auth and webhook helpers.",
+            description: "Starter guidance for JavaScript, Node, Python, and PHP integrations with auth, events, and webhook helpers.",
             icon: "code",
             meta: "SDK starter kit",
           },
