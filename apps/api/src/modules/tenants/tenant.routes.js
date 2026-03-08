@@ -2226,6 +2226,17 @@ tenantRouter.patch(
         return res.status(400).json({ ok: false, error: "No supported billing updates were provided" });
       }
 
+      const seatHolders = await prisma.userRole.findMany({
+        where: {
+          tenantId: req.tenant.id,
+          role: { key: { in: MANAGED_ROLE_KEYS } },
+        },
+        distinct: ["userId"],
+        select: { userId: true },
+      });
+      const activeSeats = seatHolders.length || 1;
+      data.activeSeats = activeSeats;
+
       const subscription = await prisma.billingSubscription.upsert({
         where: { tenantId: req.tenant.id },
         create: {
@@ -2237,7 +2248,7 @@ tenantRouter.patch(
           status: data.status || "ACTIVE",
           seatPriceCents: data.seatPriceCents ?? 4900,
           currency: "USD",
-          activeSeats: 1,
+          activeSeats,
           nextBillingAt: data.nextBillingAt || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         },
         update: data,
@@ -2265,7 +2276,7 @@ tenantRouter.patch(
 
       return res.json({
         ok: true,
-        billing: serializeBilling(subscription, invoices, subscription.activeSeats),
+        billing: serializeBilling(subscription, invoices, activeSeats),
       });
     } catch (error) {
       return next(error);
