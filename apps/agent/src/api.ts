@@ -1,165 +1,216 @@
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3000";
+import { apiClient } from "./api-client";
 
-export async function loginAgent(email: string, password: string) {
-  const res = await fetch(`${API_URL}/v1/agent/login`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ email, password }),
-  });
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({ error: "Login failed" }));
-    throw new Error(err.error ?? "Login failed");
-  }
-  return res.json() as Promise<{
-    agentJwt: string;
-    agentId: string;
-    tenantId: string;
+export type ConversationTab = "unassigned" | "mine" | "closed";
+
+export type AuthMembership = {
+  tenantId: string;
+  tenantSlug: string;
+  tenantName: string;
+  roleKeys: string[];
+  permissions: string[];
+};
+
+export type AuthContext = {
+  ok: boolean;
+  user: {
+    id: string;
+    externalAuthId: string;
+    email: string;
+    displayName: string | null;
+  };
+  tenant: {
+    id: string;
+    slug: string;
     name: string;
+  };
+  roles: string[];
+  permissions: string[];
+};
+
+export type ConversationSummary = {
+  id: string;
+  status: ConversationTab | "assigned";
+  workflowStatus: "open" | "closed";
+  assignedTo: string | null;
+  assignedUserId: string | null;
+  afterHours: boolean;
+  notes: string;
+  unreadCount: number;
+  lastMessage: string;
+  lastMessageAt: string;
+  lead: {
+    name: string;
+    email: string | null;
+    phone: string | null;
+    source: string | null;
+    utm?: string | null;
+  };
+  listing: {
+    address: string;
+    price: string;
+    beds: number | null;
+    baths: number | null;
+    sqft: number | null;
+    mls: string | null;
+  };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type ConversationMessage = {
+  id: string;
+  body: string;
+  sender: "agent" | "visitor" | "system";
+  senderType: "agent" | "visitor" | "system";
+  senderName: string;
+  createdAt: string;
+  updatedAt: string;
+  parentMessageId: string | null;
+  readByCurrentUser: boolean;
+  readCount: number;
+  reactions: Array<{
+    emoji: string;
+    count: number;
+    reacted: boolean;
   }>;
-}
+  attachments: Array<{
+    id: string;
+    storageKey: string;
+    filename: string;
+    contentType: string | null;
+    sizeBytes: number | null;
+    createdAt: string;
+  }>;
+};
 
-export async function fetchAgentMe(token: string) {
-  const res = await fetch(`${API_URL}/v1/agent/me`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error("Failed to fetch agent info");
-  return res.json() as Promise<{ agentId: string; tenantId: string; name: string; email: string }>;
-}
-
-export async function fetchConversations(token: string, params?: { status?: string; assigned?: string }) {
-  const qs = new URLSearchParams();
-  if (params?.status) qs.set("status", params.status);
-  if (params?.assigned) qs.set("assigned", params.assigned);
-  const res = await fetch(`${API_URL}/v1/agent/conversations?${qs.toString()}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error("Failed to fetch conversations");
-  return res.json() as Promise<Conversation[]>;
-}
-
-export async function fetchMessages(token: string, conversationId: string) {
-  const res = await fetch(
-    `${API_URL}/v1/agent/conversations/${encodeURIComponent(conversationId)}/messages`,
-    { headers: { Authorization: `Bearer ${token}` } },
-  );
-  if (!res.ok) throw new Error("Failed to fetch messages");
-  return res.json() as Promise<Message[]>;
-}
-
-export async function postMessage(
-  token: string,
-  conversationId: string,
-  text: string,
-) {
-  const clientMsgId = crypto.randomUUID();
-  const res = await fetch(
-    `${API_URL}/v1/conversations/${encodeURIComponent(conversationId)}/messages`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ text, clientMsgId }),
-    },
-  );
-  if (!res.ok) throw new Error("Failed to send message");
-  return res.json() as Promise<Message>;
-}
-
-export async function assignConversation(token: string, conversationId: string, agentId: string) {
-  const res = await fetch(
-    `${API_URL}/v1/agent/conversations/${encodeURIComponent(conversationId)}/assign`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ agentId }),
-    },
-  );
-  if (!res.ok) throw new Error("Failed to assign conversation");
-  return res.json() as Promise<Conversation>;
-}
-
-export async function closeConversation(token: string, conversationId: string) {
-  const res = await fetch(
-    `${API_URL}/v1/agent/conversations/${encodeURIComponent(conversationId)}/close`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    },
-  );
-  if (!res.ok) throw new Error("Failed to close conversation");
-  return res.json();
-}
-
-export async function reopenConversation(token: string, conversationId: string) {
-  const res = await fetch(
-    `${API_URL}/v1/agent/conversations/${encodeURIComponent(conversationId)}/reopen`,
-    {
-      method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
-    },
-  );
-  if (!res.ok) throw new Error("Failed to reopen conversation");
-  return res.json();
-}
-
-export async function fetchRoutingSettings(token: string) {
-  const res = await fetch(`${API_URL}/v1/settings/routing`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error("Failed to fetch routing settings");
-  return res.json() as Promise<RoutingSettings>;
-}
-
-export async function updateRoutingSettings(token: string, data: Partial<RoutingSettings>) {
-  const res = await fetch(`${API_URL}/v1/settings/routing`, {
-    method: "PUT",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${token}`,
-    },
-    body: JSON.stringify(data),
-  });
-  if (!res.ok) throw new Error("Failed to update routing settings");
-  return res.json() as Promise<RoutingSettings>;
-}
-
-export interface Message {
+export type RealtimeConversationMessage = {
   id: string;
   conversationId: string;
-  senderType: string;
-  senderId: string;
-  text: string | null;
-  clientMsgId: string | null;
+  text?: string | null;
+  body?: string | null;
+  sender?: "agent" | "visitor" | "system";
+  senderType: "agent" | "visitor" | "system";
   createdAt: string;
-}
+  clientMsgId?: string | null;
+};
 
-export interface Conversation {
-  id: string;
-  tenantId: string;
-  status: string;
-  assignedAgentId: string | null;
-  context: Record<string, unknown>;
-  createdAt: string;
-  source: string;
-  afterHours: boolean;
-  leadName: string | null;
-  leadEmail: string | null;
-  leadPhone: string | null;
-  assignedAgent: { id: string; name: string; email: string } | null;
-  messages: Message[];
-}
-
-export interface RoutingSettings {
-  id: string;
-  tenantId: string;
-  mode: string;
+export type TenantRoutingSettings = {
+  routingMode: "manual" | "first_available" | "round_robin";
+  officeHoursEnabled: boolean;
   timezone: string;
-  officeHours: Record<string, { start: string; end: string }>;
-  fallbackAgentId: string | null;
-  lastAssignedAgentId: string | null;
+  officeHoursStart: string;
+  officeHoursEnd: string;
+  afterHoursMessage: string;
+  fallbackUserId: string | null;
+  fallbackUserName: string | null;
+};
+
+export type FallbackCandidate = {
+  id: string;
+  name: string;
+  email: string;
+  role: "admin" | "agent";
+  roleKeys: string[];
+};
+
+type ConversationListResponse = {
+  ok: boolean;
+  counts: Record<ConversationTab, number>;
+  conversations: ConversationSummary[];
+};
+
+type ConversationMessagesResponse = {
+  ok: boolean;
+  messages: ConversationMessage[];
+};
+
+type ConversationMessageResponse = {
+  ok: boolean;
+  message: ConversationMessage;
+};
+
+export function formatSocketMessage(message: RealtimeConversationMessage): ConversationMessage {
+  const body = message.body || message.text || "";
+  const senderType = message.senderType || message.sender || "system";
+  const senderName =
+    senderType === "visitor" ? "Visitor" : senderType === "agent" ? "Agent" : "System";
+
+  return {
+    id: message.id,
+    body,
+    sender: message.sender || senderType,
+    senderType,
+    senderName,
+    createdAt: message.createdAt,
+    updatedAt: message.createdAt,
+    parentMessageId: null,
+    readByCurrentUser: senderType === "agent",
+    readCount: senderType === "agent" ? 1 : 0,
+    reactions: [],
+    attachments: [],
+  };
+}
+
+export async function fetchAuthContext() {
+  return apiClient.get<AuthContext>("/v1/auth/me");
+}
+
+export async function fetchMemberships() {
+  return apiClient.get<{
+    ok: boolean;
+    activeTenant: AuthMembership | null;
+    memberships: AuthMembership[];
+  }>("/v1/auth/memberships");
+}
+
+export async function fetchConversations(status: ConversationTab) {
+  return apiClient.get<ConversationListResponse>(`/v1/conversations?status=${status}`);
+}
+
+export async function fetchMessages(conversationId: string) {
+  return apiClient.get<ConversationMessagesResponse>(`/v1/conversations/${conversationId}/messages`);
+}
+
+export async function postMessage(conversationId: string, body: string) {
+  return apiClient.post<ConversationMessageResponse>(`/v1/conversations/${conversationId}/messages`, {
+    body,
+  });
+}
+
+export async function assignConversationToMe(conversationId: string) {
+  return apiClient.patch<{ ok: boolean; conversation: ConversationSummary }>(`/v1/conversations/${conversationId}`, {
+    assignToMe: true,
+  });
+}
+
+export async function closeConversation(conversationId: string) {
+  return apiClient.patch<{ ok: boolean; conversation: ConversationSummary }>(`/v1/conversations/${conversationId}`, {
+    status: "closed",
+  });
+}
+
+export async function reopenConversation(conversationId: string) {
+  return apiClient.patch<{ ok: boolean; conversation: ConversationSummary }>(`/v1/conversations/${conversationId}`, {
+    status: "open",
+  });
+}
+
+export async function markConversationRead(conversationId: string) {
+  return apiClient.post<{ ok: boolean; updatedCount: number; readAt: string }>(`/v1/conversations/${conversationId}/read`, {});
+}
+
+export async function fetchRoutingSettings() {
+  return apiClient.get<{
+    ok: boolean;
+    settings: TenantRoutingSettings;
+    fallbackCandidates: FallbackCandidate[];
+  }>("/v1/tenants/current/settings");
+}
+
+export async function updateRoutingSettings(data: Partial<TenantRoutingSettings>) {
+  return apiClient.patch<{
+    ok: boolean;
+    settings: TenantRoutingSettings;
+    fallbackCandidates: FallbackCandidate[];
+  }>("/v1/tenants/current/settings", data);
 }

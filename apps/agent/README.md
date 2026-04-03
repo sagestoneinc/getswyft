@@ -1,8 +1,8 @@
 # Getswyft Agent Console
 
-React + TypeScript runtime shell for the agent-facing console, built with Vite.
+React + TypeScript standalone console for agent-facing inbox work.
 
-The agent console connects to the Getswyft API and WebSocket server to provide real-time conversation management for support agents.
+The agent console now uses the same auth provider configuration as the main website and talks directly to the current `/v1` tenant-aware API and Socket.IO realtime layer.
 
 ## Tech stack
 
@@ -45,4 +45,14 @@ pnpm -C apps/agent lint
 |----------|-------------|
 | `VITE_API_BASE_URL` | Backend API base URL |
 | `VITE_WS_BASE_URL` | WebSocket base URL |
-| `VITE_SOCKET_TOKEN` | Pre-shared token for socket authentication |
+| `VITE_AUTH_PROVIDER` | `supabase` or `keycloak` |
+| `VITE_SUPABASE_URL` | Supabase project URL when using Supabase auth |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon key when using Supabase auth |
+| `VITE_KEYCLOAK_URL` | Keycloak server URL when using Keycloak |
+| `VITE_KEYCLOAK_REALM` | Keycloak realm |
+| `VITE_KEYCLOAK_CLIENT_ID` | Keycloak client ID |
+| `VITE_DEV_AUTH_BYPASS` | Local-only auth bypass toggle |
+| `VITE_DEV_USER_ID` | Local bypass user id |
+| `VITE_DEV_USER_EMAIL` | Local bypass email |
+| `VITE_DEV_USER_NAME` | Local bypass display name |
+| `VITE_DEV_TENANT_SLUG` | Local bypass tenant slug |
