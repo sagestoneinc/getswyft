@@ -4,6 +4,7 @@ import { Eye, EyeOff, Loader2, MailCheck } from "lucide-react";
 import { useAuth } from "../../providers/auth-provider";
 import { BrandLogo } from "../brand/logo";
 import { usePageSeo } from "../../lib/seo";
+import { formatAuthError } from "../../lib/auth-errors";
 import { getSupabaseClient, isSupabaseConfigured } from "../../lib/supabase";
 
 export function LoginPage() {
@@ -65,7 +66,7 @@ export function LoginPage() {
     try {
       await login("/app", supportsPasswordAuth ? { email, password } : undefined);
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Unable to sign in");
+      setAuthError(formatAuthError(error, "Unable to sign in"));
       setSubmitting(false);
       return;
     }
@@ -85,7 +86,7 @@ export function LoginPage() {
       await requestPasswordReset(email);
       setForgotMessage("Password reset instructions were sent if that email exists.");
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Unable to request a password reset");
+      setAuthError(formatAuthError(error, "Unable to request a password reset"));
     } finally {
       setSubmitting(false);
     }
@@ -100,7 +101,7 @@ export function LoginPage() {
     try {
       await loginWithSocialProvider(provider, "/app");
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Unable to sign in with social login");
+      setAuthError(formatAuthError(error, "Unable to sign in with social login"));
       setSocialLoadingProvider(null);
     }
   }
@@ -141,7 +142,7 @@ export function LoginPage() {
       setNewPassword("");
       setConfirmPassword("");
     } catch (error) {
-      setAuthError(error instanceof Error ? error.message : "Unable to reset password");
+      setAuthError(formatAuthError(error, "Unable to reset password"));
     } finally {
       setSubmitting(false);
     }

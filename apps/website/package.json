@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build && node ./scripts/prerender-marketing.mjs",
+    "build": "node ./scripts/validate-auth-env.mjs && vite build && node ./scripts/prerender-marketing.mjs",
     "lint": "eslint .",
     "prerender": "node ./scripts/prerender-marketing.mjs",
     "test": "vitest run",

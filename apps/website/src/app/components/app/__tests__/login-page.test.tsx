@@ -119,6 +119,25 @@ describe("LoginPage", () => {
     expect(authMocks.login).toHaveBeenCalledTimes(2);
   });
 
+  it("shows a friendly message when the sign-in service is unreachable", async () => {
+    authMocks.login.mockRejectedValueOnce(new Error("fetch failed"));
+    renderLogin();
+
+    fireEvent.change(screen.getAllByPlaceholderText("agent@brokerage.com").at(-1) as HTMLElement, {
+      target: { value: "agent.one@getswyftup.com" },
+    });
+    fireEvent.change(screen.getAllByPlaceholderText("Enter your password").at(-1) as HTMLElement, {
+      target: { value: "Password#1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByText("The sign-in service is temporarily unreachable. Please try again in a few minutes."),
+      ).toBeInTheDocument(),
+    );
+  });
+
   it("completes password reset mode with Supabase updateUser", async () => {
     renderLogin("/login?mode=reset");
 
