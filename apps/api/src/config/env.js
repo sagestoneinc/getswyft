@@ -25,10 +25,13 @@ const rawEnvSchema = z.object({
   DEV_DEFAULT_TENANT_SLUG: z.string().default("default"),
 
   APP_BASE_URL: z.string().default("http://localhost:5173"),
-  EMAIL_PROVIDER: z.enum(["log", "resend"]).default("log"),
+  EMAIL_PROVIDER: z.enum(["log", "resend", "mailgun"]).default("log"),
   EMAIL_FROM: z.string().default("Getswyft <onboarding@example.com>"),
   EMAIL_REPLY_TO: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  MAILGUN_API_KEY: z.string().optional(),
+  MAILGUN_DOMAIN: z.string().optional(),
+  MAILGUN_BASE_URL: z.string().default("https://api.mailgun.net"),
 
   STORAGE_PROVIDER: z.enum(["s3", "local"]).default("local"),
   S3_BUCKET_NAME: z.string().optional(),

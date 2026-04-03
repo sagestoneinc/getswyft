@@ -173,6 +173,76 @@ async function sendWithResend(payload) {
   };
 }
 
+function appendMailgunTag(formData, tag) {
+  if (!tag || typeof tag !== "object") {
+    return;
+  }
+
+  if (tag.name && tag.value) {
+    formData.append("o:tag", `${tag.name}:${tag.value}`);
+    return;
+  }
+
+  if (tag.name) {
+    formData.append("o:tag", String(tag.name));
+  }
+}
+
+async function sendWithMailgun(payload) {
+  if (!env.MAILGUN_API_KEY) {
+    throw new Error("MAILGUN_API_KEY is required when EMAIL_PROVIDER=mailgun");
+  }
+
+  if (!env.MAILGUN_DOMAIN) {
+    throw new Error("MAILGUN_DOMAIN is required when EMAIL_PROVIDER=mailgun");
+  }
+
+  const baseUrl = normalizeUrl(env.MAILGUN_BASE_URL || "https://api.mailgun.net").replace(/\/$/, "");
+  const requestUrl = `${baseUrl}/v3/${encodeURIComponent(env.MAILGUN_DOMAIN)}/messages`;
+
+  const formData = new URLSearchParams();
+  formData.append("from", env.EMAIL_FROM);
+  formData.append("subject", payload.subject);
+  formData.append("text", payload.text || "");
+
+  if (payload.html) {
+    formData.append("html", payload.html);
+  }
+
+  for (const recipient of payload.to || []) {
+    formData.append("to", recipient);
+  }
+
+  if (env.EMAIL_REPLY_TO) {
+    formData.append("h:Reply-To", env.EMAIL_REPLY_TO);
+  }
+
+  for (const tag of payload.tags || []) {
+    appendMailgunTag(formData, tag);
+  }
+
+  const credentials = Buffer.from(`api:${env.MAILGUN_API_KEY}`).toString("base64");
+  const response = await fetch(requestUrl, {
+    method: "POST",
+    headers: {
+      Authorization: `Basic ${credentials}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: formData.toString(),
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.text().catch(() => "");
+    throw new Error(`Mailgun request failed with ${response.status}: ${errorBody}`);
+  }
+
+  const result = await response.json().catch(() => ({}));
+  return {
+    provider: "mailgun",
+    messageId: result.id || null,
+  };
+}
+
 async function sendWithLog(payload) {
   logger.info("email_log_delivery", {
     provider: "log",
@@ -190,6 +260,9 @@ async function sendWithLog(payload) {
 export async function sendEmail(payload) {
   if (env.EMAIL_PROVIDER === "resend") {
     return sendWithResend(payload);
+  }
+  if (env.EMAIL_PROVIDER === "mailgun") {
+    return sendWithMailgun(payload);
   }
 
   return sendWithLog(payload);
