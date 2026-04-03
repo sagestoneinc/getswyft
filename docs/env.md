@@ -39,10 +39,13 @@
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `EMAIL_PROVIDER` | `log` | Email provider (`log` for dev console, `resend` for production) |
+| `EMAIL_PROVIDER` | `log` | Email provider (`log` for dev console, `resend` or `mailgun` for production) |
 | `EMAIL_FROM` | — | Sender address for outgoing emails |
 | `EMAIL_REPLY_TO` | — | Reply-to address for outgoing emails |
 | `RESEND_API_KEY` | — | Resend API key (when `EMAIL_PROVIDER=resend`) |
+| `MAILGUN_API_KEY` | — | Mailgun API key (when `EMAIL_PROVIDER=mailgun`) |
+| `MAILGUN_DOMAIN` | — | Mailgun sending domain (when `EMAIL_PROVIDER=mailgun`) |
+| `MAILGUN_BASE_URL` | `https://api.mailgun.net` | Mailgun API base URL (set to EU endpoint if needed) |
 
 ### Storage
 
