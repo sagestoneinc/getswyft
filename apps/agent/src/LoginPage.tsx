@@ -1,11 +1,20 @@
 import { useState, type FormEvent } from "react";
-import { loginAgent } from "./api";
 
 interface Props {
-  onLogin: (token: string, agentId: string) => void;
+  provider: "keycloak" | "supabase";
+  supportsPasswordAuth: boolean;
+  isLoading: boolean;
+  authError: string | null;
+  onLogin: (credentials?: { email: string; password: string }) => Promise<void>;
 }
 
-export default function LoginPage({ onLogin }: Props) {
+export default function LoginPage({
+  provider,
+  supportsPasswordAuth,
+  isLoading,
+  authError,
+  onLogin,
+}: Props) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -16,8 +25,7 @@ export default function LoginPage({ onLogin }: Props) {
     setError("");
     setLoading(true);
     try {
-      const { agentJwt, agentId } = await loginAgent(email, password);
-      onLogin(agentJwt, agentId);
+      await onLogin(supportsPasswordAuth ? { email, password } : undefined);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
     } finally {
@@ -28,29 +36,47 @@ export default function LoginPage({ onLogin }: Props) {
   return (
     <div className="login-page">
       <form onSubmit={handleSubmit} className="login-form">
-        <h1>Agent Login</h1>
-        {error && <p className="error">{error}</p>}
-        <label>
-          Email
-          <input
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-          />
-        </label>
-        <button type="submit" disabled={loading}>
-          {loading ? "Signing in…" : "Sign in"}
-        </button>
+        <p className="eyebrow">Getswyft Agent Console</p>
+        <h1>Stay on the live conversation.</h1>
+        <p className="login-copy">
+          Sign in with the same identity provider your workspace already uses so API calls and realtime updates share one valid session.
+        </p>
+        {(authError || error) && <p className="error">{authError || error}</p>}
+
+        {supportsPasswordAuth ? (
+          <>
+            <label>
+              Email
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="agent@brokerage.com"
+                required
+              />
+            </label>
+            <label>
+              Password
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                required
+              />
+            </label>
+            <button type="submit" disabled={loading || isLoading}>
+              {loading ? "Signing in..." : "Sign in"}
+            </button>
+          </>
+        ) : (
+          <>
+            <div className="provider-pill">Provider: {provider}</div>
+            <button type="submit" disabled={loading || isLoading}>
+              {loading ? "Redirecting..." : "Continue to secure sign in"}
+            </button>
+          </>
+        )}
       </form>
     </div>
   );

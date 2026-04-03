@@ -1,140 +1,152 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { fetchRoutingSettings, updateRoutingSettings, type RoutingSettings } from "./api";
+import {
+  fetchRoutingSettings,
+  updateRoutingSettings,
+  type FallbackCandidate,
+  type TenantRoutingSettings,
+} from "./api";
 
-const DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"] as const;
-
-interface Props {
-  token: string;
-}
-
-export default function RoutingSettingsPage({ token }: Props) {
-  const [settings, setSettings] = useState<RoutingSettings | null>(null);
-  const [mode, setMode] = useState("first_available");
-  const [timezone, setTimezone] = useState("Asia/Manila");
-  const [officeHours, setOfficeHours] = useState<Record<string, { start: string; end: string }>>({});
-  const [fallbackAgentId, setFallbackAgentId] = useState("");
+export default function RoutingSettingsPage() {
+  const [settings, setSettings] = useState<TenantRoutingSettings | null>(null);
+  const [fallbackCandidates, setFallbackCandidates] = useState<FallbackCandidate[]>([]);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    fetchRoutingSettings(token)
-      .then((s) => {
-        setSettings(s);
-        setMode(s.mode);
-        setTimezone(s.timezone);
-        setOfficeHours(s.officeHours || {});
-        setFallbackAgentId(s.fallbackAgentId || "");
+    fetchRoutingSettings()
+      .then((response) => {
+        setSettings(response.settings);
+        setFallbackCandidates(response.fallbackCandidates);
+        setError("");
       })
-      .catch(() => setMessage("Failed to load settings"));
-  }, [token]);
+      .catch((loadError) => {
+        setError(loadError instanceof Error ? loadError.message : "Failed to load routing settings");
+      });
+  }, []);
 
   async function handleSave(e: FormEvent) {
     e.preventDefault();
+    if (!settings) {
+      return;
+    }
+
     setSaving(true);
     setMessage("");
+    setError("");
+
     try {
-      const updated = await updateRoutingSettings(token, {
-        mode,
-        timezone,
-        officeHours,
-        fallbackAgentId: fallbackAgentId || null,
-      });
-      setSettings(updated);
-      setMessage("Settings saved!");
-    } catch {
-      setMessage("Failed to save settings");
+      const response = await updateRoutingSettings(settings);
+      setSettings(response.settings);
+      setFallbackCandidates(response.fallbackCandidates);
+      setMessage("Routing settings saved.");
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Failed to save routing settings");
     } finally {
       setSaving(false);
     }
   }
 
-  function updateDayHours(day: string, field: "start" | "end", value: string) {
-    setOfficeHours((prev) => ({
-      ...prev,
-      [day]: { ...prev[day], [field]: value },
-    }));
-  }
-
-  function toggleDay(day: string, enabled: boolean) {
-    if (enabled) {
-      setOfficeHours((prev) => ({
-        ...prev,
-        [day]: { start: "09:00", end: "18:00" },
-      }));
-    } else {
-      setOfficeHours((prev) => {
-        const next = { ...prev };
-        delete next[day];
-        return next;
-      });
-    }
+  function updateField<K extends keyof TenantRoutingSettings>(field: K, value: TenantRoutingSettings[K]) {
+    setSettings((current) => (current ? { ...current, [field]: value } : current));
   }
 
   if (!settings) {
-    return <div className="settings-page"><p>Loading settings…</p></div>;
+    return (
+      <div className="settings-page">
+        <p>{error || "Loading routing settings..."}</p>
+      </div>
+    );
   }
 
   return (
     <div className="settings-page">
-      <h2>Routing Settings</h2>
+      <div className="settings-header">
+        <div>
+          <p className="eyebrow">Routing</p>
+          <h2>Coverage rules</h2>
+        </div>
+        <p className="settings-copy">Tune how new conversations are routed when the standalone agent console is managing coverage.</p>
+      </div>
       <form onSubmit={handleSave}>
         <label>
           Mode
-          <select value={mode} onChange={(e) => setMode(e.target.value)}>
+          <select
+            value={settings.routingMode}
+            onChange={(e) => updateField("routingMode", e.target.value as TenantRoutingSettings["routingMode"])}
+          >
             <option value="manual">Manual</option>
             <option value="first_available">First Available</option>
             <option value="round_robin">Round Robin</option>
           </select>
         </label>
 
+        <label className="checkbox-row">
+          <input
+            type="checkbox"
+            checked={settings.officeHoursEnabled}
+            onChange={(e) => updateField("officeHoursEnabled", e.target.checked)}
+          />
+          Enforce office hours before routing live chats
+        </label>
+
         <label>
           Timezone
-          <input value={timezone} onChange={(e) => setTimezone(e.target.value)} placeholder="Asia/Manila" />
+          <input
+            value={settings.timezone}
+            onChange={(e) => updateField("timezone", e.target.value)}
+            placeholder="America/New_York"
+          />
         </label>
 
         <label>
-          Fallback Agent ID
-          <input value={fallbackAgentId} onChange={(e) => setFallbackAgentId(e.target.value)} placeholder="Agent ID (optional)" />
+          Office hours start
+          <input
+            type="time"
+            value={settings.officeHoursStart}
+            onChange={(e) => updateField("officeHoursStart", e.target.value)}
+          />
         </label>
 
-        <fieldset>
-          <legend>Office Hours</legend>
-          {DAYS.map((day) => {
-            const enabled = !!officeHours[day];
-            return (
-              <div key={day} className="office-hours-row">
-                <label className="day-toggle">
-                  <input
-                    type="checkbox"
-                    checked={enabled}
-                    onChange={(e) => toggleDay(day, e.target.checked)}
-                  />
-                  {day.charAt(0).toUpperCase() + day.slice(1)}
-                </label>
-                {enabled && (
-                  <>
-                    <input
-                      type="time"
-                      value={officeHours[day]?.start || "09:00"}
-                      onChange={(e) => updateDayHours(day, "start", e.target.value)}
-                    />
-                    <span>to</span>
-                    <input
-                      type="time"
-                      value={officeHours[day]?.end || "18:00"}
-                      onChange={(e) => updateDayHours(day, "end", e.target.value)}
-                    />
-                  </>
-                )}
-              </div>
-            );
-          })}
-        </fieldset>
+        <label>
+          Office hours end
+          <input
+            type="time"
+            value={settings.officeHoursEnd}
+            onChange={(e) => updateField("officeHoursEnd", e.target.value)}
+          />
+        </label>
 
-        {message && <p className={message.includes("Failed") ? "error" : "success"}>{message}</p>}
+        <label>
+          Fallback teammate
+          <select
+            value={settings.fallbackUserId || ""}
+            onChange={(e) => updateField("fallbackUserId", e.target.value || null)}
+          >
+            <option value="">No fallback</option>
+            {fallbackCandidates.map((candidate) => (
+              <option key={candidate.id} value={candidate.id}>
+                {candidate.name} ({candidate.email})
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label>
+          After-hours message
+          <textarea
+            value={settings.afterHoursMessage || ""}
+            onChange={(e) => updateField("afterHoursMessage", e.target.value)}
+            rows={4}
+            placeholder="Thanks for reaching out. We'll follow up as soon as office hours reopen."
+          />
+        </label>
+
+        {error && <p className="error">{error}</p>}
+        {message && <p className="success">{message}</p>}
 
         <button type="submit" disabled={saving}>
-          {saving ? "Saving…" : "Save Settings"}
+          {saving ? "Saving..." : "Save settings"}
         </button>
       </form>
     </div>
