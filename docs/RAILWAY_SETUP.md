@@ -1,30 +1,16 @@
 # Railway Setup
 
-> **Shared monorepo** — do **NOT** set Root Directory to `apps/*`.
-> Always deploy from the **repository root** so that every service can
-> resolve workspace dependencies.
+Deploy each app as a separate Railway service, all pointing at the same repo and branch.
 
----
+## 1. Service strategy
 
-## 1. Project structure
+- **API** uses the repository root `Dockerfile` and root `railway.json`.
+- **Website**, **Agent**, and **Widget** should use the build/start commands below from the repository root.
+- Keep the repo root as the Railway **Root Directory** so workspace installs can resolve correctly.
 
-```
-apps/
-  api/        – Express back-end (Prisma + PostgreSQL)
-  website/    – Vite SPA (tenant management dashboard)
-  agent/      – Vite SPA (agent console)
-  widget/     – Vite SPA (embeddable visitor widget)
-```
+## 2. Build and start commands
 
-Each service is deployed as a separate Railway service inside the **same**
-Railway project, all pointing at the **same** GitHub repo and branch.
-
----
-
-## 2. Build & Start commands
-
-Paste these into each service's **Settings → Build** and **Settings → Start**
-fields in the Railway dashboard.
+Paste these into each service's **Settings → Build** and **Settings → Start** fields.
 
 ### API
 
@@ -32,6 +18,13 @@ fields in the Railway dashboard.
 |-------|---------|
 | Build | `npm run install:ci && npm run build:api` |
 | Start | `npm run migrate:api && npm run start:api` |
+
+### Website
+
+| Field | Command |
+|-------|---------|
+| Build | `npm run install:ci && npm run build:website` |
+| Start | `npm run start:website` |
 
 ### Agent
 
@@ -47,18 +40,7 @@ fields in the Railway dashboard.
 | Build | `npm run install:ci && npm run build:widget` |
 | Start | `npm run start:widget` |
 
-### Website
-
-| Field | Command |
-|-------|---------|
-| Build | `npm run install:ci && npm run build:website` |
-| Start | `npm run start:website` |
-
-> `install:ci` enables corepack, activates the pinned pnpm version, and
-> runs `pnpm install --frozen-lockfile --prod=false` (dev dependencies are
-> needed for Prisma, TypeScript, and Vite builds).
-
----
+`install:ci` enables pnpm in CI mode and runs a frozen workspace install with dev dependencies, which the Prisma/Vite/TypeScript build steps need.
 
 ## 3. Required environment variables
 
@@ -66,105 +48,70 @@ fields in the Railway dashboard.
 
 | Variable | Description |
 |----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string (Railway provides this when you add a Postgres plugin) |
-| `SUPABASE_DB_URL` | Supabase Postgres connection string (required for `db:sync` and Supabase SQL migrations) |
-| `JWT_SECRET` | Secret used to sign internal widget visitor tokens |
-| `OPENAI_API_KEY` | Default OpenAI-compatible API key for tenant AI workloads |
-| `CORS_ORIGINS` | Comma-separated allowed origins (e.g. `https://agent.example.com,https://widget.example.com`) |
-| `PORT` | *(set automatically by Railway)* |
-
-### Agent service
-
-| Variable | Description |
-|----------|-------------|
-| `VITE_API_URL` | Public URL of the API service (e.g. `https://api-production-xxxx.up.railway.app`) |
-| `VITE_WS_URL` | WebSocket URL of the API service (e.g. `wss://api-production-xxxx.up.railway.app`) |
-| `PORT` | *(set automatically by Railway)* |
-
-### Widget service
-
-| Variable | Description |
-|----------|-------------|
-| `VITE_API_URL` | Public URL of the API service |
-| `VITE_WS_URL` | WebSocket URL of the API service |
-| `VITE_TENANT_ID` | Tenant identifier for the widget |
-| `PORT` | *(set automatically by Railway)* |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `SUPABASE_DB_URL` | Supabase Postgres connection string for `db:sync` / SQL migrations |
+| `JWT_SECRET` | Secret used for internal widget visitor tokens |
+| `OPENAI_API_KEY` | Default AI provider key |
+| `CORS_ORIGINS` | Allowed app origins, comma-separated |
+| `SIP_ENCRYPTION_KEY` | Required in production for SIP credential encryption |
+| `TRUST_PROXY` | Set to `true` on Railway so rate limiting and HTTPS detection use the client IP correctly |
+| `PORT` | Set automatically by Railway |
 
 ### Website service
 
 | Variable | Description |
 |----------|-------------|
-| `VITE_API_BASE_URL` | Public URL of the API service (e.g. `https://api-production-xxxx.up.railway.app`) |
-| `VITE_WS_BASE_URL` | WebSocket URL of the API service (e.g. `wss://api-production-xxxx.up.railway.app`) |
-| `VITE_AUTH_PROVIDER` | Auth provider (`keycloak`, `supabase`, or `firebase`) |
-| `PORT` | *(set automatically by Railway)* |
+| `VITE_API_BASE_URL` | Public API URL |
+| `VITE_WS_BASE_URL` | Public WebSocket URL |
+| `VITE_AUTH_PROVIDER` | `keycloak`, `supabase`, or `firebase` |
+| `VITE_SUPABASE_URL` | Required when `VITE_AUTH_PROVIDER=supabase` |
+| `VITE_SUPABASE_ANON_KEY` | Required when `VITE_AUTH_PROVIDER=supabase` |
+| `PORT` | Set automatically by Railway |
 
-> See [env.md](env.md) for the full list of website environment variables
-> including auth provider–specific settings.
-
-### Suggested (all services)
+### Agent service
 
 | Variable | Description |
 |----------|-------------|
-| `NIXPACKS_NODE_VERSION` | Set to `20` to match `.nvmrc` |
+| `VITE_API_BASE_URL` | Public API URL |
+| `VITE_WS_BASE_URL` | Public WebSocket URL |
+| `VITE_SOCKET_TOKEN` | Optional pre-shared token for non-dev socket auth |
+| `PORT` | Set automatically by Railway |
 
----
+### Widget service
 
-## 4. One-time tasks
+| Variable | Description |
+|----------|-------------|
+| `VITE_API_BASE_URL` | Public API URL |
+| `VITE_WS_BASE_URL` | Public WebSocket URL |
+| `VITE_SOCKET_TOKEN` | Optional pre-shared token for runtime smoke checks |
+| `PORT` | Set automatically by Railway |
 
-After the first successful API deployment, seed the database:
+See [env.md](env.md) for the full variable reference.
+
+## 4. Health checks
+
+- The root `railway.json` points API health checks at `/health/ready`.
+- Frontend services should use `/` as their health check path if you configure one manually in the dashboard.
+
+## 5. One-time release tasks
+
+After the first successful API deployment:
 
 ```bash
-# In Railway's service shell or via `railway run`:
 npm run seed:api
 ```
 
-Before/after each release, verify both data stores are aligned:
+Before or after a release, verify both database tracks are aligned:
 
 ```bash
-# Strict check: fails if Railway Prisma or Supabase SQL migrations are out of date
 pnpm run db:sync:status
-
-# Apply pending migrations to both databases
 pnpm run db:sync
 ```
 
-`db:sync` requires both `DATABASE_URL` (Railway Postgres) and `SUPABASE_DB_URL` (Supabase Postgres) in the API service environment.
+`db:sync` requires both `DATABASE_URL` and `SUPABASE_DB_URL` in the API service environment.
 
----
+## 6. Notes
 
-## 5. Nixpacks deployment (alternative)
-
-The repository ships with `nixpacks.toml` files that fully configure each
-service for the Nixpacks builder. If you prefer Nixpacks over the Dockerfile
-approach, switch each Railway service's builder to **Nixpacks** and the
-`nixpacks.toml` in each app handles setup, install, build, and start
-automatically — no manual build/start commands are needed.
-
-Each `nixpacks.toml` runs:
-
-| Phase | What it does |
-|-------|-------------|
-| `setup` | Enables corepack and activates pnpm 9.15.4 |
-| `install` | Runs `pnpm install --frozen-lockfile` |
-| `build` | Runs `pnpm run build` (TypeScript + Vite for agent/widget, Prisma generate for API) |
-| `start` | Runs `pnpm run preview` (agent/widget) or `pnpm run start` (API) |
-
-> **Note:** `railway.json` is configured with `"builder": "DOCKERFILE"` by
-> default, which only applies to the API service. The agent and widget services
-> should use the Nixpacks builder or have their build/start commands set
-> manually as described in section 2.
-
----
-
-## 6. How it works
-
-1. **`.nvmrc`** pins Node to version 20.
-2. Root **`package.json`** exposes short `install:ci`, `build:*`, `migrate:*`,
-   and `start:*` scripts so Railway build/start fields stay readable.
-3. `migrate:api` runs Prisma migrations as a separate step — run it in the
-   start command or as a one-off release command, but avoid running it from
-   multiple concurrent instances.
-4. Agent and Widget `vite preview` binds to `0.0.0.0` on `$PORT`
-   (defaults to 4173 locally).
-5. API listens on `process.env.PORT` (defaults to 3000 locally).
+1. `.nvmrc` pins the project to Node 20.
+2. `migrate:api` should run once per deployment, not concurrently across multiple API instances.
+3. The website build intentionally fails when required auth variables are missing, so missing production auth config is caught before release.

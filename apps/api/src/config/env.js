@@ -8,6 +8,7 @@ const rawEnvSchema = z.object({
   PORT: z.coerce.number().int().positive().default(8080),
   CORS_ORIGINS: z.string().default(""),
   LOG_LEVEL: z.enum(["debug", "info", "warn", "error"]).default("info"),
+  TRUST_PROXY: z.string().default("false"),
   REQUEST_MONITOR_WINDOW_MS: z.coerce.number().int().positive().default(300000),
   REQUEST_MONITOR_ERROR_THRESHOLD: z.coerce.number().int().positive().default(10),
   REQUEST_MONITOR_ERROR_RATE_THRESHOLD: z.coerce.number().positive().default(0.2),
@@ -103,6 +104,7 @@ const corsOrigins = parsed.CORS_ORIGINS.split(",")
 export const env = {
   ...parsed,
   DEV_AUTH_BYPASS: parseBool(parsed.DEV_AUTH_BYPASS),
+  TRUST_PROXY: parseBool(parsed.TRUST_PROXY),
   CORS_ORIGINS: corsOrigins,
 };
 

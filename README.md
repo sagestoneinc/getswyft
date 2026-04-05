@@ -122,6 +122,9 @@ curl http://localhost:8080/health
 ## Testing
 
 ```bash
+# End-to-end production verification pass
+pnpm run verify:prod
+
 # Check both Railway Prisma + Supabase SQL migration status
 pnpm run db:sync:status
 
@@ -140,19 +143,7 @@ pnpm -C apps/website lint
 
 ## Deploy to Railway
 
-This repo includes a root `Dockerfile` and `railway.json`. Deploy each service by setting `RAILWAY_SERVICE_NAME`:
-
-- `api` (or `getswyft`)
-- `website`
-- `agent`
-- `widget`
-
-```bash
-railway link   # choose the correct project/service
-railway up
-```
-
-See [docs/RAILWAY_SETUP.md](docs/RAILWAY_SETUP.md) for detailed deployment instructions.
+The root `Dockerfile` and `railway.json` are API-specific. Website, Agent, and Widget should use the root workspace build/start commands documented in [docs/RAILWAY_SETUP.md](docs/RAILWAY_SETUP.md) so their Vite builds see the correct service environment at build time.
 
 ## Documentation
 

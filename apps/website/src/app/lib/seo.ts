@@ -231,6 +231,7 @@ export function usePageSeo({
     description,
     image,
     keywordsContent,
+    keywords,
     noIndex,
     path,
     robots,

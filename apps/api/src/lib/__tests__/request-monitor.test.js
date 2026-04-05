@@ -49,5 +49,33 @@ describe("RequestMonitor", () => {
     expect(snapshot.serverErrors).toBe(0);
     expect(snapshot.ready).toBe(true);
   });
-});
 
+  it("marks readiness false when absolute server errors breach the threshold even if the rate stays low", () => {
+    const monitor = new RequestMonitor({
+      windowMs: 60_000,
+      errorThreshold: 2,
+      errorRateThreshold: 0.5,
+      maxEvents: 100,
+    });
+    const now = Date.now();
+
+    for (let index = 0; index < 18; index += 1) {
+      monitor.record({
+        method: "GET",
+        path: `/ok/${index}`,
+        statusCode: 200,
+        durationMs: 10,
+        timestamp: now - (1000 - index),
+      });
+    }
+
+    monitor.record({ method: "GET", path: "/boom/1", statusCode: 500, durationMs: 10, timestamp: now - 50 });
+    monitor.record({ method: "GET", path: "/boom/2", statusCode: 502, durationMs: 10, timestamp: now - 25 });
+
+    const snapshot = monitor.snapshot(now);
+
+    expect(snapshot.errorRate).toBe(0.1);
+    expect(snapshot.serverErrors).toBe(2);
+    expect(snapshot.ready).toBe(false);
+  });
+});

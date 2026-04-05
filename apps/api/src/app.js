@@ -5,6 +5,7 @@ import { logger } from "./lib/logger.js";
 import { requestContextMiddleware } from "./lib/request-context.js";
 import { requestMonitor, requestMonitorMiddleware } from "./lib/request-monitor.js";
 import { authenticatedRateLimit, generalRateLimit } from "./lib/rate-limit.js";
+import { getReadinessStatus } from "./lib/service-health.js";
 import { authenticateRequest } from "./middleware/auth.js";
 import { resolveTenant } from "./middleware/tenant.js";
 import { authRouter } from "./modules/auth/auth.routes.js";
@@ -27,19 +28,36 @@ import { billingRouter } from "./modules/billing/billing.routes.js";
 export function createApp() {
   const app = express();
 
+  app.disable("x-powered-by");
+  if (env.TRUST_PROXY) {
+    app.set("trust proxy", 1);
+  }
+
   app.use(
     cors({
       origin: env.CORS_ORIGINS.length ? env.CORS_ORIGINS : true,
       credentials: true,
     })
   );
+  app.use((req, res, next) => {
+    res.setHeader("referrer-policy", "strict-origin-when-cross-origin");
+    res.setHeader("x-content-type-options", "nosniff");
+    res.setHeader("x-frame-options", "DENY");
+    res.setHeader("permissions-policy", "camera=(), geolocation=(), microphone=()");
+
+    if (req.secure || req.header("x-forwarded-proto") === "https") {
+      res.setHeader("strict-transport-security", "max-age=31536000; includeSubDomains");
+    }
+
+    next();
+  });
   app.use(express.json({
     limit: "2mb",
     verify: (req, _res, buf) => {
       req.rawBody = buf.toString();
     },
   }));
-  app.use(express.urlencoded({ extended: true }));
+  app.use(express.urlencoded({ extended: true, limit: "2mb" }));
   app.use(requestContextMiddleware);
   app.use(requestMonitorMiddleware);
   app.use((req, res, next) => {
@@ -99,15 +117,13 @@ export function createApp() {
     });
   });
 
-  app.get("/health/ready", (_req, res) => {
-    const snapshot = requestMonitor.snapshot();
-    const statusCode = snapshot.ready ? 200 : 503;
-
-    res.status(statusCode).json({
-      ok: snapshot.ready,
-      status: snapshot.ready ? "ready" : "degraded",
-      alerts: snapshot,
-    });
+  app.get("/health/ready", async (_req, res, next) => {
+    try {
+      const readiness = await getReadinessStatus();
+      res.status(readiness.ok ? 200 : 503).json(readiness);
+    } catch (error) {
+      next(error);
+    }
   });
 
   app.use("/v1/auth", authRouter);

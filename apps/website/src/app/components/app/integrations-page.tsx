@@ -15,7 +15,7 @@ async function copyText(value: string, setStatus: (status: CopyStatus) => void) 
   try {
     await navigator.clipboard.writeText(value);
     setStatus("copied");
-  } catch (_error) {
+  } catch {
     setStatus("failed");
   }
 

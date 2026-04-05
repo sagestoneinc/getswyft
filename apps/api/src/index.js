@@ -9,6 +9,7 @@ import { registerPresenceSocket } from "./modules/presence/presence.socket.js";
 
 const app = createApp();
 const server = http.createServer(app);
+let shuttingDown = false;
 
 const io = new Server(server, {
   cors: {
@@ -32,6 +33,11 @@ server.listen(env.PORT, "0.0.0.0", () => {
 });
 
 async function shutdown(signal) {
+  if (shuttingDown) {
+    return;
+  }
+
+  shuttingDown = true;
   logger.info("shutdown_requested", { signal });
 
   server.close(async () => {
@@ -51,3 +57,15 @@ async function shutdown(signal) {
 
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("unhandledRejection", (error) => {
+  logger.error("unhandled_rejection", {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  shutdown("unhandledRejection");
+});
+process.on("uncaughtException", (error) => {
+  logger.error("uncaught_exception", {
+    error: error instanceof Error ? error.message : String(error),
+  });
+  shutdown("uncaughtException");
+});

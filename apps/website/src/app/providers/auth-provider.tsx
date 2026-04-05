@@ -59,7 +59,7 @@ function toAbsoluteAppUrl(pathOrUrl: string) {
 
   try {
     return new URL(pathOrUrl, window.location.origin).toString();
-  } catch (_error) {
+  } catch {
     return new URL("/login?mode=reset", window.location.origin).toString();
   }
 }

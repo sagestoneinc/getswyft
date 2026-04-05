@@ -212,7 +212,7 @@ export function ProfilePage() {
       await navigator.clipboard.writeText(tenant.id);
       setWorkspaceCopyStatus("copied");
       window.setTimeout(() => setWorkspaceCopyStatus("idle"), 2500);
-    } catch (_error) {
+    } catch {
       setWorkspaceCopyStatus("failed");
       window.setTimeout(() => setWorkspaceCopyStatus("idle"), 3000);
     }

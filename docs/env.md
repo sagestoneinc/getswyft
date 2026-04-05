@@ -10,6 +10,7 @@
 | `PORT` | `8080` | HTTP server port |
 | `CORS_ORIGINS` | `http://localhost:5173,http://localhost:4174` | Comma-separated allowed CORS origins |
 | `LOG_LEVEL` | `info` | Log verbosity (`debug`, `info`, `warn`, `error`) |
+| `TRUST_PROXY` | `false` | Trust the first upstream proxy for client IP / HTTPS detection (enable on Railway or another reverse proxy) |
 
 ### Data stores
 
@@ -84,6 +85,7 @@
 | `TELNYX_CONNECTION_ID` | — | Telnyx connection ID for outbound calls |
 | `TELNYX_MESSAGING_PROFILE_ID` | — | Telnyx messaging profile ID |
 | `TELNYX_FROM_NUMBER` | — | Outbound caller ID phone number |
+| `SIP_ENCRYPTION_KEY` | — | Required in production to encrypt SIP trunk credentials at rest |
 
 ### AI runtime
 

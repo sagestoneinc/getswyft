@@ -3,6 +3,22 @@
   "private": true,
   "packageManager": "pnpm@9.15.4",
   "scripts": {
+    "install:ci": "CI=true pnpm install --frozen-lockfile --prod=false",
+    "build:api": "pnpm -C apps/api prisma:generate",
+    "build:agent": "pnpm -C apps/agent build",
+    "build:widget": "pnpm -C apps/widget build",
+    "build:website": "pnpm -C apps/website build",
+    "build:website:ci": "VITE_API_BASE_URL=http://localhost:8080 VITE_WS_BASE_URL=http://localhost:8080 VITE_AUTH_PROVIDER=supabase VITE_SUPABASE_URL=https://example.com VITE_SUPABASE_ANON_KEY=ci-build-key pnpm -C apps/website build",
+    "start:api": "pnpm -C apps/api start",
+    "start:agent": "pnpm -C apps/agent start",
+    "start:widget": "pnpm -C apps/widget start",
+    "start:website": "pnpm -C apps/website start",
+    "migrate:api": "pnpm -C apps/api prisma:migrate:deploy",
+    "seed:api": "pnpm -C apps/api prisma:seed",
+    "test:api": "pnpm -C apps/api test",
+    "test:website": "pnpm -C apps/website test",
+    "lint:website": "pnpm -C apps/website lint",
+    "verify:prod": "pnpm run build:api && pnpm run test:api && pnpm run lint:website && pnpm run test:website && pnpm run build:website:ci && pnpm run build:agent && pnpm run build:widget",
     "dev:api": "pnpm -C apps/api dev",
     "dev:agent": "pnpm -C apps/agent dev",
     "dev:widget": "pnpm -C apps/widget dev",
@@ -14,5 +30,15 @@
     "db:sync:status": "pnpm -C apps/api db:sync:status",
     "db:supabase:migrate": "pnpm -C apps/api supabase:migrate",
     "db:supabase:migrate:status": "pnpm -C apps/api supabase:migrate:status"
+  },
+  "pnpm": {
+    "overrides": {
+      "defu": "^6.1.6",
+      "effect": "^3.21.0",
+      "fast-xml-parser": "^5.5.10",
+      "lodash": "^4.18.1",
+      "path-to-regexp": "^0.1.13",
+      "socket.io-parser": "^4.2.6"
+    }
   }
 }

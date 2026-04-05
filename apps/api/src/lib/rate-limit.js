@@ -22,7 +22,7 @@ function recordHit(key, windowMs) {
 }
 
 function keyFromRequest(req, name) {
-  const authKey = req.auth?.subject || req.header("x-forwarded-for") || req.ip || "anonymous";
+  const authKey = req.auth?.subject || req.ip || req.socket?.remoteAddress || "anonymous";
   return `${name}:${authKey}`;
 }
 

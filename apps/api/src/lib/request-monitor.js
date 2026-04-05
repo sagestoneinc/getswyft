@@ -92,7 +92,7 @@ export class RequestMonitor {
       }));
 
     const ready =
-      serverErrorEvents.length < this.errorThreshold ||
+      serverErrorEvents.length < this.errorThreshold &&
       errorRate < this.errorRateThreshold;
 
     return {
